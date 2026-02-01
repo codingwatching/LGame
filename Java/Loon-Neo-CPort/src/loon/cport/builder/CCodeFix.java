@@ -67,13 +67,11 @@ public class CCodeFix {
 				Map<String, MacroReplacement> replacements = new HashMap<String, MacroReplacement>();
 				replacements.put("TEAVM_WINDOWS", new MacroReplacement(null, null));
 				Map<String, MacroInjection> append = new HashMap<String, MacroInjection>();
-				append.put("TEAVM_WINDOWS",
-						new MacroInjection("\r\n#if !TEAVM_WINDOWS && !TEAVM_UNIX\r\n"
-								+ "    int64_t teavm_currentTimeMillis() {\r\n"
-								+ "        return (int64_t)SDL_GetTicks();\r\n" + "    }\r\n" + "\r\n"
-								+ "    int64_t teavm_currentTimeNano() {\r\n"
-								+ "        return (int64_t)(SDL_GetTicks64() * 1000000LL);\r\n" + "    }\r\n"
-								+ "#endif", true, "DEFAULT"));
+				append.put("TEAVM_WINDOWS", new MacroInjection("\r\n#if !TEAVM_WINDOWS && !TEAVM_UNIX\r\n"
+						+ "    int64_t teavm_currentTimeMillis() {\r\n" + "        return (int64_t)SDL_GetTicks();\r\n"
+						+ "    }\r\n" + "\r\n" + "    int64_t teavm_currentTimeNano() {\r\n"
+						+ "        return (int64_t)(SDL_GetTicks64() * 1000000LL);\r\n" + "    }\r\n" + "#endif", true,
+						"DEFAULT"));
 				try {
 					CMacroFix.processFile(fixFileName, replacements, append);
 				} catch (IOException e) {
@@ -101,39 +99,37 @@ public class CCodeFix {
 				Map<String, MacroReplacement> replacements = new HashMap<String, MacroReplacement>();
 				replacements.put("TEAVM_WINDOWS", new MacroReplacement(null, null));
 				Map<String, MacroInjection> append = new HashMap<String, MacroInjection>();
-				append.put("TEAVM_WINDOWS",
-						new MacroInjection("\r\n#if !TEAVM_WINDOWS && !TEAVM_UNIX\r\n"
-								+ "    static void* teavm_virtualAlloc(size_t size) {\r\n" + "    #if defined(XBOX)\r\n"
-								+ "            return XMemVirtualAlloc(size, XMEM_COMMIT, XMEM_READWRITE);\r\n"
-								+ "    #elif defined(__linux__) || defined(__APPLE__) || defined(__ANDROID__) || defined(__IOS__) \\\r\n"
-								+ "           || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__HAIKU__)\r\n"
-								+ "            void* p = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);\r\n"
-								+ "            return (p == MAP_FAILED) ? NULL : p;\r\n" + "    #else\r\n"
-								+ "            return gc_mmap((size_t)size, GC_PROT_NONE);\r\n" + "    #endif\r\n"
-								+ "    }\r\n" + "\r\n" + "    static int64_t teavm_pageSize() {\r\n"
-								+ "    #if defined(XBOX)\r\n" + "            return (int64_t)XMemGetPageSize();\r\n"
-								+ "    #elif defined(__linux__) || defined(__APPLE__) || defined(__ANDROID__) || defined(__IOS__) \\\r\n"
-								+ "       || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__HAIKU__)\r\n"
-								+ "            long pageSize = sysconf(_SC_PAGESIZE);\r\n"
-								+ "            return (pageSize > 0) ? (int64_t)pageSize : 4096;\r\n" + "    #else\r\n"
-								+ "            return 4096;\r\n" + "    #endif\r\n" + "    }\r\n" + "\r\n"
-								+ "    static void teavm_virtualCommit(void* address, int64_t size) {\r\n"
-								+ "    #if defined(XBOX)\r\n"
-								+ "            XMemProtect(address, (SIZE_T)size, XMEM_READWRITE);\r\n"
-								+ "    #elif defined(__linux__) || defined(__APPLE__) || defined(__ANDROID__) || defined(__IOS__) \\\r\n"
-								+ "       || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__HAIKU__)\r\n"
-								+ "            mprotect(address, (size_t)size, PROT_READ | PROT_WRITE);\r\n"
-								+ "    #else\r\n"
-								+ "            gc_mprotect(address, (size_t)size, GC_PROT_READ | GC_PROT_WRITE);\r\n"
-								+ "    #endif\r\n" + "    }\r\n" + "\r\n"
-								+ "    static void teavm_virtualUncommit(void* address, int64_t size) {\r\n"
-								+ "    #if defined(XBOX)\r\n"
-								+ "            XMemProtect(address, (SIZE_T)size, XMEM_NOACCESS);\r\n"
-								+ "    #elif defined(__linux__) || defined(__APPLE__) || defined(__ANDROID__) || defined(__IOS__) \\\r\n"
-								+ "       || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__HAIKU__)\r\n"
-								+ "            mprotect(address, (size_t)size, PROT_NONE);\r\n" + "    #else\r\n"
-								+ "            gc_mprotect(address, (size_t)size, GC_PROT_NONE);\r\n" + "    #endif\r\n"
-								+ "    }\r\n" + "#endif\r\n", false, "LAST"));
+				append.put("TEAVM_WINDOWS", new MacroInjection("\r\n#if !TEAVM_WINDOWS && !TEAVM_UNIX\r\n"
+						+ "    static void* teavm_virtualAlloc(size_t size) {\r\n" + "    #if defined(XBOX)\r\n"
+						+ "            return XMemVirtualAlloc(size, XMEM_COMMIT, XMEM_READWRITE);\r\n"
+						+ "    #elif defined(__linux__) || defined(__APPLE__) || defined(__ANDROID__) || defined(__IOS__) \\\r\n"
+						+ "           || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__HAIKU__)\r\n"
+						+ "            void* p = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);\r\n"
+						+ "            return (p == MAP_FAILED) ? NULL : p;\r\n" + "    #else\r\n"
+						+ "            return gc_mmap((size_t)size, GC_PROT_NONE);\r\n" + "    #endif\r\n" + "    }\r\n"
+						+ "\r\n" + "    static int64_t teavm_pageSize() {\r\n" + "    #if defined(XBOX)\r\n"
+						+ "            return (int64_t)XMemGetPageSize();\r\n"
+						+ "    #elif defined(__linux__) || defined(__APPLE__) || defined(__ANDROID__) || defined(__IOS__) \\\r\n"
+						+ "       || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__HAIKU__)\r\n"
+						+ "            long pageSize = sysconf(_SC_PAGESIZE);\r\n"
+						+ "            return (pageSize > 0) ? (int64_t)pageSize : 4096;\r\n" + "    #else\r\n"
+						+ "            return 4096;\r\n" + "    #endif\r\n" + "    }\r\n" + "\r\n"
+						+ "    static void teavm_virtualCommit(void* address, int64_t size) {\r\n"
+						+ "    #if defined(XBOX)\r\n"
+						+ "            XMemProtect(address, (SIZE_T)size, XMEM_READWRITE);\r\n"
+						+ "    #elif defined(__linux__) || defined(__APPLE__) || defined(__ANDROID__) || defined(__IOS__) \\\r\n"
+						+ "       || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__HAIKU__)\r\n"
+						+ "            mprotect(address, (size_t)size, PROT_READ | PROT_WRITE);\r\n" + "    #else\r\n"
+						+ "            gc_mprotect(address, (size_t)size, GC_PROT_READ | GC_PROT_WRITE);\r\n"
+						+ "    #endif\r\n" + "    }\r\n" + "\r\n"
+						+ "    static void teavm_virtualUncommit(void* address, int64_t size) {\r\n"
+						+ "    #if defined(XBOX)\r\n"
+						+ "            XMemProtect(address, (SIZE_T)size, XMEM_NOACCESS);\r\n"
+						+ "    #elif defined(__linux__) || defined(__APPLE__) || defined(__ANDROID__) || defined(__IOS__) \\\r\n"
+						+ "       || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__HAIKU__)\r\n"
+						+ "            mprotect(address, (size_t)size, PROT_NONE);\r\n" + "    #else\r\n"
+						+ "            gc_mprotect(address, (size_t)size, GC_PROT_NONE);\r\n" + "    #endif\r\n"
+						+ "    }\r\n" + "#endif\r\n", false, "LAST"));
 				try {
 					CMacroFix.processFile(fixFileName, replacements, append);
 				} catch (IOException e) {
@@ -146,14 +142,12 @@ public class CCodeFix {
 				Map<String, MacroReplacement> replacements = new HashMap<String, MacroReplacement>();
 				replacements.put("TEAVM_WINDOWS", new MacroReplacement(null, null));
 				Map<String, MacroInjection> append = new HashMap<String, MacroInjection>();
-				append.put("TEAVM_WINDOWS",
-						new MacroInjection("    #if !TEAVM_WINDOWS && !TEAVM_UNIX\r\n"
-								+ "        #if defined(_MSC_VER)\r\n"
-								+ "        #define TEAVM_UNREACHABLE __assume(0);\r\n"
-								+ "        #elif defined(__GNUC__) || defined(__clang__)\r\n"
-								+ "        #define TEAVM_UNREACHABLE __builtin_unreachable();\r\n" + "        #else\r\n"
-								+ "        #define TEAVM_UNREACHABLE abort();\r\n" + "        #endif\r\n"
-								+ "    #endif", true, "DEFAULT"));
+				append.put("TEAVM_WINDOWS", new MacroInjection("    #if !TEAVM_WINDOWS && !TEAVM_UNIX\r\n"
+						+ "        #if defined(_MSC_VER)\r\n" + "        #define TEAVM_UNREACHABLE __assume(0);\r\n"
+						+ "        #elif defined(__GNUC__) || defined(__clang__)\r\n"
+						+ "        #define TEAVM_UNREACHABLE __builtin_unreachable();\r\n" + "        #else\r\n"
+						+ "        #define TEAVM_UNREACHABLE abort();\r\n" + "        #endif\r\n" + "    #endif", true,
+						"DEFAULT"));
 				try {
 					CMacroFix.processFile(fixFileName, replacements, append);
 				} catch (IOException e) {
@@ -261,8 +255,8 @@ public class CCodeFix {
 				"   #if defined(__linux__) || defined(__APPLE__) || defined(__ANDROID__) || defined(__IOS__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__HAIKU__)\r\n"
 						+ "       #define TEAVM_UNIX 1\r\n" + "       #endif");
 		FileFix fix3 = new FileFix("core.h", "((char*) teavm_gc_cardTable)[offset] = 0;",
-				"char* result = ((char*)teavm_gc_cardTable);\r\n" + "    int off = (int)offset;\r\n"
-						+ "    if (result && off >=0) {\r\n" + "           result[off] = 0;\r\n" + "    }");
+				"char* result = ((char*)teavm_gc_cardTable);\r\n" + "   size_t off = (size_t)offset;\r\n"
+						+ "   if (result && off >=0) {\r\n" + "       result[off] = 0;\r\n" + "   }");
 		FileFix fix4 = new FileFix("config.h", "#pragma once", "#pragma once\r\n" + "#include \"SDLSupport.c\"\r\n"
 				+ "#include \"STBSupport.c\"\r\n" + "#include \"SocketSupport.c\"\r\n" + "#include \"gles2.c\"");
 		FileFix fix5 = new FileFix("uchar.h", "all", "#pragma once\r\n" + "#include <stddef.h>\r\n"
@@ -308,9 +302,9 @@ public class CCodeFix {
 				+ "        return result;\r\n" + "    }\r\n" + "    return NULL;\r\n" + "#else\r\n"
 				+ "    struct tm* tmp = localtime(timep);\r\n" + "    if (tmp) {\r\n" + "        *result = *tmp;\r\n"
 				+ "        return result;\r\n" + "    }\r\n" + "    return NULL;\r\n" + "#endif\r\n" + "}\r\n" + "\r\n"
-				+ "#if TEAVM_WINDOWS\r\n" + "    #define strcasecmp _stricmp\r\n"
-				+ "    #define timegm _mkgmtime\r\n" + "    #define localtime_r(a, b) localtime_s(b, a)\r\n"
-				+ "#else\r\n" + "    #define timegm portable_timegm \r\n"
+				+ "#if TEAVM_WINDOWS\r\n" + "    #define strcasecmp _stricmp\r\n" + "    #define timegm _mkgmtime\r\n"
+				+ "    #define localtime_r(a, b) localtime_s(b, a)\r\n" + "#else\r\n"
+				+ "    #define timegm portable_timegm \r\n"
 				+ "    #define localtime_r(a, b) portable_localtime_r(a, b)\r\n" + "    #ifndef strcasecmp\r\n"
 				+ "    #define strcasecmp strcmp\r\n" + "    #endif\r\n" + "#endif\r\n" + "\r\n"
 				+ "static time_t teavm_epochStart;\r\n" + "static struct tm teavm_epochStartTm;\r\n"

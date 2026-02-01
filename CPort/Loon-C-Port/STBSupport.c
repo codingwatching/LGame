@@ -743,10 +743,11 @@ void Load_STB_Image_GetPixels(const int64_t handle, uint8_t* pixels)
 }
 
 static void convertSTBUint8ToInt32(const uint8_t* src, int32_t* dst, int width, int height, int format) {
-	if (!src || !dst || width <= 0 || height <= 0 || format < 3) {
-		fprintf(stderr, "convertSTBUint8ToInt32 Error !\n");
+	if (!src || !dst || width <= 0 || height <= 0 || format < 1 || format > 4) {
+		fprintf(stderr, "convertSTBUint8ToInt32 Error!\n");
 		return;
 	}
+	bool premultiplyAlpha = (format == 4);
 	int length = width * height;
 	for (int i = 0; i < length; i++) {
 		uint8_t r = 0, g = 0, b = 0, a = 255;
@@ -765,10 +766,15 @@ static void convertSTBUint8ToInt32(const uint8_t* src, int32_t* dst, int width, 
 			b = src[i * 4 + 2];
 			a = src[i * 4 + 3];
 		}
-		if (a != 0){
-			dst[i] = ((int32_t)a << 24) | ((int32_t)r << 16) |
-					((int32_t)g << 8) | (int32_t)b;
+
+		if (premultiplyAlpha && a < 255) {
+			r = (uint8_t)((r * a) / 255);
+			g = (uint8_t)((g * a) / 255);
+			b = (uint8_t)((b * a) / 255);
 		}
+
+		dst[i] = ((int32_t)a << 24) | ((int32_t)r << 16) |
+			((int32_t)g << 8) | (int32_t)b;
 	}
 }
 
