@@ -55,6 +55,7 @@ import loon.cport.builder.CCodeFix.FileFix;
 import loon.utils.ObjectMap;
 import loon.utils.ObjectMap.Entries;
 import loon.utils.ObjectMap.Entry;
+import loon.utils.ObjectMap.Values;
 import loon.utils.StringUtils;
 import loon.utils.TArray;
 
@@ -171,7 +172,7 @@ public class CBuilder {
 				isSuccess = true;
 
 				CBuilder.begin("FIX SOURCE CODE");
-				
+
 				final CCodeFix fixCFile = new CCodeFix();
 
 				String cappDirectory = configuration.cappPath;
@@ -187,30 +188,40 @@ public class CBuilder {
 					if (fixFile.exists()) {
 						CBuilder.println("fix code in source : " + fix.fileName);
 						final StringBuilder content = new StringBuilder();
-						try {
-							try (BufferedReader reader = new BufferedReader(
-									new FileReader(fixFile.file, StandardCharsets.UTF_8))) {
-								String line;
-								while ((line = reader.readLine()) != null) {
-									ObjectMap<String, String> fixContext = fix.fixContexts;
-									Entries<String, String> list = fixContext.entries();
-									for (; list.hasNext();) {
-										Entry<String, String> replaceText = list.next();
-										final String key = replaceText.key;
-										if (line.indexOf(key) != -1) {
-											content.append(StringUtils.replace(line, key, replaceText.value));
-										} else {
-											content.append(line);
+						if (fix.update) {
+							Values<String> list = fix.fixContexts.values();
+							for (; list.hasNext();) {
+								content.append(list.next()).append(LSystem.NL);
+							}
+							if (content.length() > 0) {
+								fixFile.writeString(content.toString(), false);
+							}
+						} else {
+							try {
+								try (BufferedReader reader = new BufferedReader(
+										new FileReader(fixFile.file, StandardCharsets.UTF_8))) {
+									String line;
+									while ((line = reader.readLine()) != null) {
+										ObjectMap<String, String> fixContext = fix.fixContexts;
+										Entries<String, String> list = fixContext.entries();
+										for (; list.hasNext();) {
+											Entry<String, String> replaceText = list.next();
+											final String key = replaceText.key;
+											if (line.indexOf(key) != -1) {
+												content.append(StringUtils.replace(line, key, replaceText.value));
+											} else {
+												content.append(line);
+											}
+											content.append(LSystem.NL);
 										}
-										content.append(LSystem.NL);
 									}
 								}
+							} catch (IOException e) {
+								e.printStackTrace();
 							}
-						} catch (IOException e) {
-							e.printStackTrace();
-						}
-						if (content.length() > 0) {
-							fixFile.writeString(content.toString(), false);
+							if (content.length() > 0) {
+								fixFile.writeString(content.toString(), false);
+							}
 						}
 					}
 					CBuilder.println("*********************************");

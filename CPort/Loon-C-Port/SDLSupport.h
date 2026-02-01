@@ -9,6 +9,21 @@
     #define LOON_DESKTOP 0
 #endif
 
+#if defined(__SWITCH__)      || defined(__3DS__)        || defined(_3DS)          || \
+    defined(__WII__)         || defined(__WIIU__)       || defined(__NDS__)       || \
+    defined(__GAMECUBE__)    || defined(__NINTENDO64__) || \
+    defined(__PSP__)         || defined(__PSV__)        || defined(__PS2__)       || \
+    defined(__PS3__)         || defined(__PS4__)        || defined(__ORBIS__)     || \
+    defined(__PS5__)         || defined(__PROSPERO__)   || \
+    defined(_XBOX)           || defined(__XBOX__)       || defined(__XBOX360__)   || \
+    defined(_XBOX_ONE)       || defined(__XBOXONE__)    || defined(_XBOX_SERIES)  || defined(__XBOXSERIES__) || \
+    defined(__DREAMCAST__)   || defined(__SATURN__)     || defined(__SEGA__)      || \
+    defined(__ATARI__)       || defined(__NGAGE__)      || defined(__OUYA__)
+    #define LOON_CONSOLE 1
+#else
+    #define LOON_CONSOLE 0
+#endif
+
 #define MAX_CONTROLLERS 8
 #define DEADZONE 0.2f
 #define TRIGGER_THRESHOLD 0.05f
@@ -21,7 +36,8 @@
 #include <stddef.h>
 #include <string.h>
 #include <math.h>
-
+#include <time.h>
+   
 #if defined(_WIN32) || defined(_WIN64)
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -75,7 +91,7 @@ static void run_sleep_ms(int ms) {
     #include <EGL/egl.h>
     #include <EGL/eglext.h>
     #include <sys/errno.h>
-#elif  defined(XBOX) || defined(_XBOX_ONE) || defined(_XBOX_SERIES_X)
+#elif defined(XBOX) || defined(_XBOX_ONE) || defined(_XBOX_SERIES_X)
     #include <xdk.h>
 	#include <xmem.h>
 #elif defined(__ANDROID__)

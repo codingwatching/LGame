@@ -58,69 +58,53 @@ public class CMacroFix {
 		}
 	}
 
-	static class MacroContext {
-		String macroName;
-		boolean skipping;
-		boolean inElse;
-
-		MacroContext(String macroName, boolean skipping) {
-			this.macroName = macroName;
-			this.skipping = skipping;
-			this.inElse = false;
-		}
-	}
-
 	public static void processFile(String filePath, Map<String, MacroReplacement> replacements,
 			Map<String, MacroInjection> injections) throws IOException {
-		
+
 		if (filePath == null || replacements == null) {
 			return;
 		}
 		if (injections == null) {
 			injections = new HashMap<String, MacroInjection>();
 		}
-		
-		BufferedReader reader = null;
-		
+
 		List<String> lines = new ArrayList<String>();
 		String lineSeparator = System.getProperty("line.separator");
-		
-		try {
-			reader = new BufferedReader(new FileReader(filePath));
+
+		try (BufferedReader reader = new BufferedReader(new FileReader(filePath))) {
 			String line;
 			while ((line = reader.readLine()) != null) {
 				lines.add(line);
 			}
-		} finally {
-			if (reader != null) {
-				reader.close();
-			}
 		}
 
-		Map<String, List<Integer>> macroEndPositions = new HashMap<String, List<Integer>>();
-		List<Integer> allEndPositions = new ArrayList<Integer>();
+		Map<String, List<Integer>> macroEndPositions = new HashMap<>();
 		Stack<String> macroStack = new Stack<String>();
 
 		for (int i = 0; i < lines.size(); i++) {
 			String trimLine = lines.get(i).trim();
-			if (trimLine.startsWith("#if")) {
+			if (trimLine.startsWith("#if") || trimLine.startsWith("#ifdef")) {
 				String matchedMacro = null;
 				for (String macro : replacements.keySet()) {
-					if (trimLine.contains(macro)) {
+					if (trimLine.matches(".*\\b" + macro + "\\b.*")) {
 						matchedMacro = macro;
 						break;
+					}
+				}
+				if (matchedMacro == null) {
+					for (String macro : injections.keySet()) {
+						if (trimLine.matches(".*\\b" + macro + "\\b.*")) {
+							matchedMacro = macro;
+							break;
+						}
 					}
 				}
 				macroStack.push(matchedMacro);
 			} else if (trimLine.startsWith("#endif")) {
 				if (!macroStack.isEmpty()) {
 					String endedMacro = macroStack.pop();
-					allEndPositions.add(i);
 					if (endedMacro != null) {
-						if (!macroEndPositions.containsKey(endedMacro)) {
-							macroEndPositions.put(endedMacro, new ArrayList<Integer>());
-						}
-						macroEndPositions.get(endedMacro).add(i);
+						macroEndPositions.computeIfAbsent(endedMacro, k -> new ArrayList<>()).add(i);
 					}
 				}
 			}
@@ -131,30 +115,19 @@ public class CMacroFix {
 			MacroInjection inj = injections.get(macro);
 			List<Integer> positions = macroEndPositions.get(macro);
 			int insertPos = -1;
-			if ("FIRST".equals(inj.insertionRule)) {
-				if (!allEndPositions.isEmpty()) {
-					insertPos = allEndPositions.get(0);
-				}
-			} else if ("LAST".equals(inj.insertionRule)) {
-				if (!allEndPositions.isEmpty()) {
-					insertPos = allEndPositions.get(allEndPositions.size() - 1);
-				}
-			} else {
-				if (positions == null || positions.isEmpty()) {
-					if (!allEndPositions.isEmpty()) {
-						insertPos = allEndPositions.get(0);
-					}
-				} else if (positions.size() == 1) {
+
+			if (positions != null && !positions.isEmpty()) {
+				if ("FIRST".equals(inj.insertionRule)) {
 					insertPos = positions.get(0);
+				} else if ("LAST".equals(inj.insertionRule)) {
+					insertPos = positions.get(positions.size() - 1);
 				} else {
-					insertPos = positions.get(positions.size() - 2);
+					insertPos = positions.get(positions.size() - 1);
 				}
 			}
+
 			if (insertPos >= 0) {
-				if (!insertMap.containsKey(insertPos)) {
-					insertMap.put(insertPos, new ArrayList<String>());
-				}
-				insertMap.get(insertPos).add(macro);
+				insertMap.computeIfAbsent(insertPos, k -> new ArrayList<>()).add(macro);
 			}
 		}
 
@@ -162,11 +135,10 @@ public class CMacroFix {
 		Set<String> injectedMacros = new HashSet<String>();
 
 		for (int i = 0; i < lines.size(); i++) {
-
 			result.append(lines.get(i)).append(lineSeparator);
+
 			if (insertMap.containsKey(i)) {
-				List<String> macrosToInject = insertMap.get(i);
-				for (String macro : macrosToInject) {
+				for (String macro : insertMap.get(i)) {
 					MacroInjection inj = injections.get(macro);
 					if (inj != null) {
 						if (inj.injectOnce) {
@@ -182,14 +154,9 @@ public class CMacroFix {
 			}
 		}
 
-		BufferedWriter writer = null;
-		try {
-			writer = new BufferedWriter(new FileWriter(filePath));
+		try (BufferedWriter writer = new BufferedWriter(new FileWriter(filePath))) {
 			writer.write(result.toString());
-		} finally {
-			if (writer != null) {
-				writer.close();
-			}
 		}
 	}
+
 }
