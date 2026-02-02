@@ -1148,14 +1148,14 @@ static inline int get_char_size_subpixel(stbtt_fontinfo* font, uint32_t codepoin
 	float baseline_offset = -y0;
 
 	if (is_flag_symbol(codepoint)) {
-		w = w / 2 + 4;
+		w = w / 2 + (pixel_size / 5);
 	}else if (is_min_en_char(codepoint)) {
-		w = w / 2 + 2;
+		w = w / 2 + (pixel_size / 10);
 	}else if (is_min_cn_char(codepoint)) {
-		w = w / 2 + 7;
+		w = w / 2 + ceil(pixel_size / 2.35f);
 	}
 
-	*out_w = (float)fix_font_char_size(codepoint, pixel_size, (int)w);
+	*out_w = ceil(fix_font_char_size(codepoint, pixel_size, floor(w)));
 	*out_h = h;
 	*out_baseline_offset = baseline_offset;
 

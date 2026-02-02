@@ -2487,8 +2487,7 @@ public final class Pixmap extends PixmapComposite implements Canvas.ColorPixel, 
 		if (pixel == null) {
 			return this;
 		} else {
-			drawPixmap(pixel, x, y, pixel._width, pixel._height, 0, 0);
-			return this;
+			return drawPixmap(pixel, x, y, pixel._width, pixel._height, 0, 0);
 		}
 	}
 
@@ -2507,10 +2506,8 @@ public final class Pixmap extends PixmapComposite implements Canvas.ColorPixel, 
 		if (_isClosed) {
 			return this;
 		}
-
 		x += _translateX;
 		y += _translateY;
-
 		int[] currentPixels = pixel._drawPixels;
 		int transparent = pixel._transparent;
 		if (x < 0) {
@@ -2529,34 +2526,30 @@ public final class Pixmap extends PixmapComposite implements Canvas.ColorPixel, 
 		if (y + h > _height) {
 			h = _height - y;
 		}
-		if (w < 0 || h < 0) {
+		if (w <= 0 || h <= 0) {
 			return this;
 		}
 		if (transparent < 0) {
-			for (int size = 0; size < h; size++) {
-				System.arraycopy(currentPixels, (offsetY + size) * pixel._width + offsetX, _drawPixels,
-						(y + size) * _width + x, w);
+			for (int row = 0; row < h; row++) {
+				System.arraycopy(currentPixels, (offsetY + row) * pixel._width + offsetX, _drawPixels,
+						(y + row) * _width + x, w);
 			}
 			_dirty = true;
 		} else {
-			int findIndex = y * _width + x;
-			int drawIndex = offsetY * pixel._width + offsetX;
-			int moveFind = _width - w;
-			int moveDraw = pixel._width - w;
-			for (int i = 0; i < h; i++) {
-				for (int j = 0; j < w;) {
-					if (inside(j, i)) {
-						continue;
+			int destIndex = y * _width + x;
+			int srcIndex = offsetY * pixel._width + offsetX;
+			for (int row = 0; row < h; row++) {
+				int di = destIndex;
+				int si = srcIndex;
+				for (int col = 0; col < w; col++) {
+					int color = currentPixels[si++];
+					if (color != transparent) {
+						drawPoint(_drawPixels, di, color);
 					}
-					if (currentPixels[drawIndex] != transparent) {
-						drawPoint(_drawPixels, findIndex, currentPixels[drawIndex]);
-					}
-					j++;
-					findIndex++;
-					drawIndex++;
+					di++;
 				}
-				findIndex += moveFind;
-				drawIndex += moveDraw;
+				destIndex += _width;
+				srcIndex += pixel._width;
 			}
 		}
 		return this;
@@ -2575,88 +2568,79 @@ public final class Pixmap extends PixmapComposite implements Canvas.ColorPixel, 
 		if (pixel == null) {
 			return this;
 		} else {
-			drawPixmap(pixel, x, y, w, h, 0, 0, pixel._width, pixel._height);
-			return this;
+			if (w == pixel._width && h == pixel._height) {
+				return drawPixmap(pixel, x, y, w, h, 0, 0);
+			}
+			return drawPixmap(pixel, x, y, x + w, y + h, 0, 0, pixel._width, pixel._height);
 		}
 	}
 
 	/**
-	 * 将一个指定的Pixmap绘制到当前Pixmap，并截取为指定大小
+	 * 将一个指定的Pixmap绘制到当前Pixmap，并扩展为指定大小
 	 * 
-	 * @param img
-	 * @param dstX
-	 * @param dstY
-	 * @param dstWidth
-	 * @param dstHeight
-	 * @param srcX
-	 * @param srcY
-	 * @param srcWidth
-	 * @param srcHeight
+	 * @param src
+	 * @param dx1
+	 * @param dy1
+	 * @param dx2
+	 * @param dy2
+	 * @param sx1
+	 * @param sy1
+	 * @param sx2
+	 * @param sy2
+	 * @return
 	 */
-	public Pixmap drawPixmap(Pixmap img, int dstX, int dstY, int dstWidth, int dstHeight, int srcX, int srcY,
-			int srcWidth, int srcHeight) {
-		if (_isClosed || img == null || img._isClosed) {
+	public Pixmap drawPixmap(Pixmap src, int dx1, int dy1, int dx2, int dy2, int sx1, int sy1, int sx2, int sy2) {
+		if (_isClosed || src == null || src._isClosed) {
 			return this;
 		}
 
-		dstX += _translateX;
-		dstY += _translateY;
-		srcX += _translateX;
-		srcY += _translateY;
+		dx1 += _translateX;
+		dy1 += _translateY;
+		sx1 += _translateX;
+		sy1 += _translateY;
 
-		if (dstWidth <= 0 || dstHeight <= 0 || srcWidth <= 0 || srcHeight <= 0) {
+		int dstW = dx2 - dx1;
+		int dstH = dy2 - dy1;
+		int srcW = sx2 - sx1;
+		int srcH = sy2 - sy1;
+
+		if (dstW <= 0 || dstH <= 0 || srcW <= 0 || srcH <= 0) {
 			return this;
 		}
-		if (dstWidth == srcWidth && dstHeight == srcHeight) {
-			drawPixmap(img, dstX, dstY, dstWidth, dstHeight, srcX, srcY);
+		if (dstW == srcW && dstH == srcH) {
+			drawPixmap(src, dx1, dy1, dstW, dstH, sx1, sy1);
 			return this;
 		}
 
-		int[] currentPixels = img.getData();
-
-		int spitch = img._width;
+		int[] srcPixels = src._drawPixels;
+		int spitch = src._width;
 		int dpitch = this._width;
 
-		float x_ratio = ((float) srcWidth - 1) / dstWidth;
-		float y_ratio = ((float) srcHeight - 1) / dstHeight;
+		float xRatio = (float) srcW / dstW;
+		float yRatio = (float) srcH / dstH;
 
-		int dx = dstX;
-		int dy = dstY;
-		int sx = srcX;
-		int sy = srcY;
-		int i = 0;
-		int j = 0;
-
-		for (; i < dstHeight; i++) {
-			sy = (int) (i * y_ratio) + srcY;
-			dy = i + dstY;
-
-			if (sy < 0 || dy < 0) {
+		for (int i = 0; i < dstH; i++) {
+			float syf = i * yRatio + sy1;
+			int sy = (int) syf;
+			sy = MathUtils.max(sy1, MathUtils.min(sy, src._height - 1));
+			int dy = i + dy1;
+			if (dy < 0 || dy >= this._height) {
 				continue;
 			}
-			if (sy >= img._height || dy >= this._height) {
-				break;
-			}
-
-			for (j = 0; j < dstWidth; j++) {
-				sx = (int) (j * x_ratio) + srcX;
-				dx = j + dstX;
-				if (sx < 0 || dx < 0) {
+			for (int j = 0; j < dstW; j++) {
+				float sxf = j * xRatio + sx1;
+				int sx = (int) sxf;
+				sx = MathUtils.max(sx1, MathUtils.min(sx, src._width - 1));
+				int dx = j + dx1;
+				if (dx < 0 || dx >= this._width) {
 					continue;
 				}
-				if (sx >= img._width || dx >= this._width) {
-					break;
-				}
-
 				int src_ptr = sx + sy * spitch;
 				int dst_ptr = dx + dy * dpitch;
-				int src_pixel = currentPixels[src_ptr];
-
+				int src_pixel = srcPixels[src_ptr];
 				drawPoint(_drawPixels, dst_ptr, src_pixel, _transparent);
-
 			}
 		}
-
 		return this;
 	}
 
