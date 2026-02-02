@@ -3613,64 +3613,145 @@ public final class Pixmap extends PixmapComposite implements Canvas.ColorPixel, 
 	}
 
 	public ByteBuffer convertPixmapToByteBuffer(boolean filterTran) {
-		ByteBuffer buffer = BufferUtils.newByteBuffer(_width * _height * 4);
-		for (int y = 0; y < getHeight(); y++) {
-			for (int x = 0; x < getWidth(); x++) {
-				int pixel = this._drawPixels[y * _width + x];
-				if (filterTran && pixel == _transparent) {
-					pixel = 0;
-				}
-				buffer.put((byte) ((pixel >> 16) & 0xFF));
-				buffer.put((byte) ((pixel >> 8) & 0xFF));
-				buffer.put((byte) (pixel & 0xFF));
-				buffer.put((byte) ((pixel >> 24) & 0xFF));
+		final int size = _width * _height;
+		final byte[] bytes = new byte[size * 4];
+		final int[] pixels = _drawPixels;
+		for (int i = 0, j = 0; i < size; i++) {
+			int pixel = pixels[i];
+			if (filterTran && pixel == _transparent) {
+				pixel = 0;
 			}
+			bytes[j++] = (byte) ((pixel >> 16) & 0xFF);
+			bytes[j++] = (byte) ((pixel >> 8) & 0xFF);
+			bytes[j++] = (byte) (pixel & 0xFF);
+			bytes[j++] = (byte) ((pixel >> 24) & 0xFF);
 		}
+		ByteBuffer buffer = BufferUtils.newByteBuffer(bytes.length);
+		buffer.put(bytes);
 		buffer.flip();
 		return buffer;
 	}
 
 	public ByteBuffer convertPixmapToRGBByteBuffer() {
-		ByteBuffer buffer = BufferUtils.newByteBuffer(_width * _height * 3);
-		for (int y = 0; y < getHeight(); y++) {
-			for (int x = 0; x < getWidth(); x++) {
-				int pixel = this._drawPixels[y * _width + x];
-				buffer.put((byte) ((pixel >> 16) & 0xFF));
-				buffer.put((byte) ((pixel >> 8) & 0xFF));
-				buffer.put((byte) (pixel & 0xFF));
-			}
+		final int size = _width * _height;
+		final byte[] bytes = new byte[size * 3];
+		final int[] pixels = _drawPixels;
+		for (int i = 0, j = 0; i < size; i++) {
+			int pixel = pixels[i];
+			bytes[j++] = (byte) ((pixel >> 16) & 0xFF);
+			bytes[j++] = (byte) ((pixel >> 8) & 0xFF);
+			bytes[j++] = (byte) (pixel & 0xFF);
 		}
+		ByteBuffer buffer = BufferUtils.newByteBuffer(bytes.length);
+		buffer.put(bytes);
 		buffer.flip();
 		return buffer;
 	}
 
 	public void convertByteBufferRGBToPixmap(ByteBuffer buffer) {
-		int idx = 0;
-		int dst = 0;
-		for (int y = 0; y < _height; y++) {
-			for (int x = 0; x < _width; x++) {
-				int r = buffer.get(idx++) & 0xFF;
-				int g = buffer.get(idx++) & 0xFF;
-				int b = buffer.get(idx++) & 0xFF;
-				this._drawPixels[dst + x] = LColor.rgb(r, g, b);
-			}
-			dst += _width;
+		final int size = _width * _height;
+		final byte[] bytes = new byte[size * 3];
+		buffer.get(bytes);
+		int j = 0;
+		for (int i = 0; i < size; i++) {
+			int r = bytes[j++] & 0xFF;
+			int g = bytes[j++] & 0xFF;
+			int b = bytes[j++] & 0xFF;
+			_drawPixels[i] = LColor.rgb(r, g, b);
 		}
 	}
 
 	public void convertByteBufferToPixmap(ByteBuffer buffer) {
-		int idx = 0;
-		int dst = 0;
-		for (int y = 0; y < _height; y++) {
-			for (int x = 0; x < _width; x++) {
-				int r = buffer.get(idx++) & 0xFF;
-				int g = buffer.get(idx++) & 0xFF;
-				int b = buffer.get(idx++) & 0xFF;
-				int a = buffer.get(idx++) & 0xFF;
-				this._drawPixels[dst + x] = LColor.argb(a, r, g, b);
-			}
-			dst += _width;
+		final int size = _width * _height;
+		final byte[] bytes = new byte[size * 4];
+		buffer.get(bytes);
+		int j = 0;
+		for (int i = 0; i < size; i++) {
+			int r = bytes[j++] & 0xFF;
+			int g = bytes[j++] & 0xFF;
+			int b = bytes[j++] & 0xFF;
+			int a = bytes[j++] & 0xFF;
+			_drawPixels[i] = LColor.argb(a, r, g, b);
 		}
+	}
+
+	public ByteBuffer convertPixmapToBilinearByteBuffer() {
+		return convertPixmapToBilinearByteBuffer(false);
+	}
+
+	public ByteBuffer convertPixmapToBilinearByteBuffer(boolean filterTran) {
+		final int size = _width * _height;
+		final byte[] bytes = new byte[size * 4];
+		final int[] pixels = _drawPixels;
+		for (int y = 0, j = 0; y < _height; y++) {
+			for (int x = 0; x < _width; x++) {
+				int x1 = MathUtils.min(x + 1, _width - 1);
+				int y1 = MathUtils.min(y + 1, _height - 1);
+				int p00 = pixels[y * _width + x];
+				int p10 = pixels[y * _width + x1];
+				int p01 = pixels[y1 * _width + x];
+				int p11 = pixels[y1 * _width + x1];
+				if (filterTran) {
+					if (p00 == _transparent)
+						p00 = 0;
+					if (p10 == _transparent)
+						p10 = 0;
+					if (p01 == _transparent)
+						p01 = 0;
+					if (p11 == _transparent)
+						p11 = 0;
+				}
+				int r00 = (p00 >> 16) & 0xFF, g00 = (p00 >> 8) & 0xFF, b00 = p00 & 0xFF, a00 = (p00 >> 24) & 0xFF;
+				int r10 = (p10 >> 16) & 0xFF, g10 = (p10 >> 8) & 0xFF, b10 = p10 & 0xFF, a10 = (p10 >> 24) & 0xFF;
+				int r01 = (p01 >> 16) & 0xFF, g01 = (p01 >> 8) & 0xFF, b01 = p01 & 0xFF, a01 = (p01 >> 24) & 0xFF;
+				int r11 = (p11 >> 16) & 0xFF, g11 = (p11 >> 8) & 0xFF, b11 = p11 & 0xFF, a11 = (p11 >> 24) & 0xFF;
+				float fx = 0.5f, fy = 0.5f;
+				float r = (1 - fx) * (1 - fy) * r00 + fx * (1 - fy) * r10 + (1 - fx) * fy * r01 + fx * fy * r11;
+				float g = (1 - fx) * (1 - fy) * g00 + fx * (1 - fy) * g10 + (1 - fx) * fy * g01 + fx * fy * g11;
+				float b = (1 - fx) * (1 - fy) * b00 + fx * (1 - fy) * b10 + (1 - fx) * fy * b01 + fx * fy * b11;
+				float a = (1 - fx) * (1 - fy) * a00 + fx * (1 - fy) * a10 + (1 - fx) * fy * a01 + fx * fy * a11;
+				bytes[j++] = (byte) r;
+				bytes[j++] = (byte) g;
+				bytes[j++] = (byte) b;
+				bytes[j++] = (byte) a;
+			}
+		}
+		ByteBuffer buffer = BufferUtils.newByteBuffer(bytes.length);
+		buffer.put(bytes);
+		buffer.flip();
+		return buffer;
+	}
+
+	public ByteBuffer convertPixmapToBilinearRGBByteBuffer() {
+		final int size = _width * _height;
+		final byte[] bytes = new byte[size * 3];
+		final int[] pixels = _drawPixels;
+		for (int y = 0, j = 0; y < _height; y++) {
+			for (int x = 0; x < _width; x++) {
+				int x1 = (x + 1 < _width) ? x + 1 : x;
+				int y1 = (y + 1 < _height) ? y + 1 : y;
+				int p00 = pixels[y * _width + x];
+				int p10 = pixels[y * _width + x1];
+				int p01 = pixels[y1 * _width + x];
+				int p11 = pixels[y1 * _width + x1];
+				int r00 = (p00 >> 16) & 0xFF, g00 = (p00 >> 8) & 0xFF, b00 = p00 & 0xFF;
+				int r10 = (p10 >> 16) & 0xFF, g10 = (p10 >> 8) & 0xFF, b10 = p10 & 0xFF;
+				int r01 = (p01 >> 16) & 0xFF, g01 = (p01 >> 8) & 0xFF, b01 = p01 & 0xFF;
+				int r11 = (p11 >> 16) & 0xFF, g11 = (p11 >> 8) & 0xFF, b11 = p11 & 0xFF;
+				float fx = 0.5f, fy = 0.5f;
+				float r = (1 - fx) * (1 - fy) * r00 + fx * (1 - fy) * r10 + (1 - fx) * fy * r01 + fx * fy * r11;
+				float g = (1 - fx) * (1 - fy) * g00 + fx * (1 - fy) * g10 + (1 - fx) * fy * g01 + fx * fy * g11;
+				float b = (1 - fx) * (1 - fy) * b00 + fx * (1 - fy) * b10 + (1 - fx) * fy * b01 + fx * fy * b11;
+				bytes[j++] = (byte) r;
+				bytes[j++] = (byte) g;
+				bytes[j++] = (byte) b;
+			}
+		}
+
+		ByteBuffer buffer = BufferUtils.newByteBuffer(bytes.length);
+		buffer.put(bytes);
+		buffer.flip();
+		return buffer;
 	}
 
 	@Override

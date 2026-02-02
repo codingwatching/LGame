@@ -131,16 +131,11 @@ public class CGraphics extends Graphics {
 				copyArea(texImage, 0, 0, 1, height, texWidth - 1, 0);
 				copyArea(texImage, width - 1, 0, 1, height, 1, 0);
 			}
-			Pixmap scaleBilinear = texImage.scaleBilinear();
-			ByteBuffer source = hasAlpha ? scaleBilinear.convertPixmapToByteBuffer()
-					: scaleBilinear.convertPixmapToRGBByteBuffer();
+			ByteBuffer source = hasAlpha ? texImage.convertPixmapToBilinearByteBuffer()
+					: texImage.convertPixmapToBilinearRGBByteBuffer();
 			if (texImage != null) {
 				texImage.close();
 				texImage = null;
-			}
-			if (scaleBilinear != null) {
-				scaleBilinear.close();
-				scaleBilinear = null;
 			}
 			GLUtils.bindTexture(gl, tex);
 			gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, srcPixelFormat, texWidth, texHeight, 0, srcPixelFormat,
@@ -151,13 +146,8 @@ public class CGraphics extends Graphics {
 			if (!tex.isDrawCanvas() && !tex.isImageCanvas()) {
 				source = hasAlpha ? img.convertPixmapToByteBuffer() : img.convertPixmapToRGBByteBuffer();
 			} else {
-				Pixmap scaleBilinear = img.scaleBilinear();
-				source = hasAlpha ? scaleBilinear.convertPixmapToByteBuffer()
-						: scaleBilinear.convertPixmapToRGBByteBuffer();
-				if (scaleBilinear != null) {
-					scaleBilinear.close();
-					scaleBilinear = null;
-				}
+				source = hasAlpha ? img.convertPixmapToBilinearByteBuffer()
+						: img.convertPixmapToBilinearRGBByteBuffer();
 			}
 			GLUtils.bindTexture(gl, tex);
 			gl.glTexImage2D(GL20.GL_TEXTURE_2D, 0, srcPixelFormat, width, height, 0, srcPixelFormat,

@@ -1140,7 +1140,7 @@ static inline bool is_symbol(uint32_t ch) {
 static inline int fix_font_char_size(const uint32_t ch, float fontSize, int size) {
     int newSize = size;
     if (is_cjk(ch)) {
-        return newSize;
+        return newSize + 1;
     }
     if (is_digit_char(ch)) {
       return newSize += 2;
