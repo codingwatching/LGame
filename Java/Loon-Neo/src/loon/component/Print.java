@@ -161,6 +161,8 @@ public final class Print implements FontSet<Print>, LRelease {
 
 	private boolean _isEnglish, _isWait, _isIconFlag;
 
+	private boolean _fixNativeFont = false;
+
 	private float _iconX, _iconY, _offsetIconX, _offsetIconY;
 
 	// 默认0，左1,右2
@@ -185,6 +187,7 @@ public final class Print implements FontSet<Print>, LRelease {
 		this._fixPixelSizeOfRightBorder = 4;
 		this._isWait = false;
 		this._isIconFlag = true;
+		this._fixNativeFont = LSystem.base().isCPort();
 		_iconLocation = new PointF();
 	}
 
@@ -396,6 +399,35 @@ public final class Print implements FontSet<Print>, LRelease {
 		}
 	}
 
+	private final boolean isFlagSymbol(int codepoint) {
+		if (_fixNativeFont) {
+			switch (codepoint) {
+			case 0x300A:
+			case 0x300B:
+			case 0x300C:
+			case 0x300D:
+			case 0x300E:
+			case 0x300F:
+			case 0x3008:
+			case 0x3009:
+			case 0x3010:
+			case 0x3011:
+			case 0x3016:
+			case 0x3017:
+			case 0x3018:
+			case 0x3019:
+			case 0x301A:
+			case 0x301B:
+			case 0xFE43:
+			case 0xFE44:
+				return true;
+			default:
+				return false;
+			}
+		}
+		return false;
+	}
+
 	public void drawDefFont(final GLEx g, final LColor old) {
 
 		synchronized (_showMessages) {
@@ -522,7 +554,9 @@ public final class Print implements FontSet<Print>, LRelease {
 					_leftsize += _fixEnglishFontSpace;
 				}
 
-				final int _centerFont = _isEnglish ? (_curfontSize + _perfontSize) / 2 : midTextSize + minTextSize / 2;
+				final int _centerFont = _isEnglish ? (_curfontSize + _perfontSize) / 2
+						: (isFlagSymbol(_textChar) ? midTextSize : midTextSize + minTextSize / 2);
+
 				if (i != _textsize - 1) {
 					_defaultFont.addChar(_textChar,
 							midTextSize + (_printLocation.x + _leftsize + _leftoffset - _centerFont) + _spaceTextX,

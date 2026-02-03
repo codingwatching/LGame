@@ -26,6 +26,7 @@ static const char b64_table[] =
 static SDL_GLContext* tempContext = NULL;
 static uint32_t tempPolleventType = 0;
 static game_filesystem* gamefilesys = NULL;
+static bool g_emulateTouch = false;
 static int g_loopCount = 0;
 static int g_windowSize[2];
 static int g_screenSize[2];
@@ -1894,6 +1895,7 @@ int64_t Load_SDL_ScreenInit(const char* title, const int w, const int h, const b
 	}
 	g_initWidth = w;
 	g_initHeight = h;
+	g_emulateTouch = emTouch;
 	SDL_InitTouchIdMap();
 #ifndef LOON_DESKTOP
 	padConfigureInput(8, HidNpadStyleSet_NpadStandard);
@@ -2127,19 +2129,25 @@ bool Load_SDL_Update() {
 			}
 			break;
 		case SDL_MOUSEMOTION:
-			g_touches[0] = 1;
-			g_touches[1] = event.motion.x;
-			g_touches[2] = event.motion.y;
+			if (!g_emulateTouch) {
+				g_touches[0] = 1;
+				g_touches[1] = event.motion.x;
+				g_touches[2] = event.motion.y;
+			}
 			break;
 		case SDL_MOUSEBUTTONDOWN:
-			g_touches[0] = 0;
-			g_touches[1] = event.button.x;
-			g_touches[2] = event.button.y;
+			if (!g_emulateTouch) {
+				g_touches[0] = 0;
+				g_touches[1] = event.button.x;
+				g_touches[2] = event.button.y;
+			}
 			break;
 		case SDL_MOUSEBUTTONUP:
-			g_touches[0] = -1;
-			g_touches[1] = event.button.x;
-			g_touches[2] = event.button.y;
+			if (!g_emulateTouch) {
+				g_touches[0] = -1;
+				g_touches[1] = event.button.x;
+				g_touches[2] = event.button.y;
+			}
 			break;
 		case SDL_FINGERMOTION:
 			touchId = SDL_ConvertMapTouchIdToIndex(event.tfinger.touchId);
@@ -3796,22 +3804,28 @@ int Load_SDL_PollEvent(char* data)
 			data[3] = e.window.data2;
 			break;
 		case SDL_MOUSEMOTION:
-			data[0] = 2;
-			data[1] = e.motion.x;
-			data[2] = e.motion.y;
+			if (!g_emulateTouch) {
+				data[0] = 2;
+				data[1] = e.motion.x;
+				data[2] = e.motion.y;
+			}
 			break;
 		case SDL_MOUSEBUTTONDOWN:
 		case SDL_MOUSEBUTTONUP:
-			data[0] = 3;
-			data[1] = (e.type == SDL_MOUSEBUTTONDOWN);
-			data[2] = e.button.x;
-			data[3] = e.button.y;
-			data[4] = e.button.button;
+			if (!g_emulateTouch) {
+				data[0] = 3;
+				data[1] = (e.type == SDL_MOUSEBUTTONDOWN);
+				data[2] = e.button.x;
+				data[3] = e.button.y;
+				data[4] = e.button.button;
+			}
 			break;
 		case SDL_MOUSEWHEEL:
-			data[0] = 4;
-			data[1] = e.wheel.x;
-			data[2] = e.wheel.y;
+			if (!g_emulateTouch) {
+				data[0] = 4;
+				data[1] = e.wheel.x;
+				data[2] = e.wheel.y;
+			}
 			break;
 		case SDL_KEYDOWN:
 		case SDL_KEYUP:

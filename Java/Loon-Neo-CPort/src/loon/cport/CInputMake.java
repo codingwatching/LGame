@@ -62,12 +62,16 @@ public class CInputMake extends InputMake implements LRelease {
 
 	}
 
-	private static final int DEF_MAX_TOUCHES = 16;
+	// 连续点击的最小间隔，单位毫秒(Loon默认down事件不up则一直触发，方便游戏射击或连按环节使用，做个间隔避免太频繁，部分游戏机有坑……)
+	private final static long TOUCH_CLICK_INTERVAL = 200;
+	private final static int DEF_MAX_TOUCHES = 16;
+
+	private final TArray<CInputMake.CTouch> _touchs = new TArray<CInputMake.CTouch>(DEF_MAX_TOUCHES);
 	private final CGame _game;
 	private final CGamepad _gamepad;
-	private final TArray<CTouch> _touchs = new TArray<CInputMake.CTouch>(DEF_MAX_TOUCHES);
-	private int _lastKeyPressed;
-	private long _currentEventTimeStamp;
+
+	private final boolean[] _touched = new boolean[DEF_MAX_TOUCHES];
+
 	private final int[] _keyData = new int[SDLCall.SDL_NUM_SCANCODES];
 	private final int[] _touchData = new int[DEF_MAX_TOUCHES * 3];
 	private final int[] _previousTouchData = new int[DEF_MAX_TOUCHES * 3];
@@ -76,13 +80,18 @@ public class CInputMake extends InputMake implements LRelease {
 	private final int[] _touchY = new int[DEF_MAX_TOUCHES];
 	private final int[] _deltaX = new int[DEF_MAX_TOUCHES];
 	private final int[] _deltaY = new int[DEF_MAX_TOUCHES];
-	private final boolean[] _touched = new boolean[DEF_MAX_TOUCHES];
-	private boolean _wasJustTouched;
-	private boolean _useTouched;
-	private boolean _useGamepad;
-	private boolean _onlyGamepad;
-	private boolean _initedGamepad;
-	private boolean _convertGamepadToKeys;
+
+	private final long[] _lastStartTime = new long[DEF_MAX_TOUCHES];
+
+	private boolean _wasJustTouched = false;
+	private boolean _useTouched = false;
+	private boolean _useGamepad = false;
+	private boolean _onlyGamepad = false;
+	private boolean _initedGamepad = false;
+	private boolean _convertGamepadToKeys = false;
+
+	private int _lastKeyPressed = 0;
+	private long _currentEventTimeStamp = 0;
 
 	public CInputMake(CGame game) {
 		this._game = game;
@@ -104,88 +113,92 @@ public class CInputMake extends InputMake implements LRelease {
 		}
 		_currentEventTimeStamp = SDLCall.getTicks();
 		_wasJustTouched = false;
+
 		SDLCall.getTouchData(_touchData);
+
 		if (_useTouched) { // touch
 			for (int i = 0; i < DEF_MAX_TOUCHES; i++) {
-				final int rawIndex = _touchData[i * 3];
-				if (rawIndex == -1) {
+				int id = _touchData[i * 3];
+				int x = _touchData[i * 3 + 1];
+				int y = _touchData[i * 3 + 2];
+				if (id == -1) {
 					continue;
 				}
-				int previousIndex = -1;
-				for (int j = 0; j < DEF_MAX_TOUCHES; j++)
-					if (_previousTouchData[j * 3] == rawIndex) {
-						previousIndex = j;
+				int slot = -1;
+				for (int j = 0; j < DEF_MAX_TOUCHES; j++) {
+					if (_rawTouchIds[j] == id) {
+						slot = j;
 						break;
 					}
-				if (previousIndex == -1) {
-					_wasJustTouched = true;
+				}
+				if (slot == -1) {
 					for (int j = 0; j < DEF_MAX_TOUCHES; j++) {
 						if (_rawTouchIds[j] == -1) {
-							_touchX[j] = _touchData[i * 3 + 1];
-							_touchY[j] = _touchData[i * 3 + 2];
+							_rawTouchIds[j] = id;
+							_touchX[j] = x;
+							_touchY[j] = y;
+							_deltaX[j] = 0;
+							_deltaY[j] = 0;
 							_touched[j] = true;
-							_rawTouchIds[j] = rawIndex;
-							_touchs.add(new CTouch(_touchData[i * 3 + 1], _touchData[i * 3 + 2], rawIndex,
-									TouchMake.Event.Kind.START, _currentEventTimeStamp));
+							_lastStartTime[j] = _currentEventTimeStamp;
+							_touchs.add(new CTouch(x, y, id, TouchMake.Event.Kind.START, _currentEventTimeStamp));
 							break;
 						}
 					}
-					postTouchEvents(_touchs);
-				} else if (_touchData[i * 3 + 1] != _previousTouchData[previousIndex * 3 + 1]
-						|| _touchData[i * 3 + 2] != _previousTouchData[previousIndex * 3 + 2]) {
-					for (int j = 0; j < DEF_MAX_TOUCHES; j++) {
-						if (_rawTouchIds[j] == rawIndex) {
-							_deltaX[j] = _touchData[i * 3 + 1] - _touchX[j];
-							_deltaY[j] = _touchData[i * 3 + 2] - _touchY[j];
-							_touchX[j] = _touchData[i * 3 + 1];
-							_touchY[j] = _touchData[i * 3 + 2];
-							_touchs.add(new CTouch(_touchData[i * 3 + 1], _touchData[i * 3 + 2], rawIndex,
-									TouchMake.Event.Kind.MOVE, _currentEventTimeStamp));
-							break;
+				} else {
+					final boolean moved = (x != _touchX[slot]) || (y != _touchY[slot]);
+					if (moved) {
+						_deltaX[slot] = x - _touchX[slot];
+						_deltaY[slot] = y - _touchY[slot];
+						_touchX[slot] = x;
+						_touchY[slot] = y;
+						_touchs.add(new CTouch(x, y, id, TouchMake.Event.Kind.MOVE, _currentEventTimeStamp));
+					} else {
+						if (_touched[slot] && (_currentEventTimeStamp - _lastStartTime[slot]) >= TOUCH_CLICK_INTERVAL) {
+							_lastStartTime[slot] = _currentEventTimeStamp;
+							_touchs.add(new CTouch(x, y, id, TouchMake.Event.Kind.START, _currentEventTimeStamp));
 						}
 					}
-					postTouchEvents(_touchs);
 				}
 			}
 			for (int i = 0; i < DEF_MAX_TOUCHES; i++) {
-				int rawPreviousIndex = _previousTouchData[i * 3];
-				if (rawPreviousIndex == -1) {
+				int prevId = _previousTouchData[i * 3];
+				int prevX = _previousTouchData[i * 3 + 1];
+				int prevY = _previousTouchData[i * 3 + 2];
+				if (prevId == -1) {
 					continue;
 				}
-				int index = -1;
+				boolean stillExists = false;
 				for (int j = 0; j < DEF_MAX_TOUCHES; j++) {
-					if (_touchData[j * 3] == rawPreviousIndex) {
-						index = j;
+					if (_touchData[j * 3] == prevId) {
+						stillExists = true;
 						break;
 					}
 				}
-				if (index == -1) {
+				if (!stillExists) {
 					for (int j = 0; j < DEF_MAX_TOUCHES; j++) {
-						if (_rawTouchIds[j] == rawPreviousIndex) {
-							_touchX[j] = _previousTouchData[i * 3 + 1];
-							_touchY[j] = _previousTouchData[i * 3 + 2];
-							_deltaX[j] = 0;
-							_deltaY[j] = 0;
-							_touched[j] = false;
+						if (_rawTouchIds[j] == prevId) {
+							_touchs.add(
+									new CTouch(prevX, prevY, prevId, TouchMake.Event.Kind.END, _currentEventTimeStamp));
 							_rawTouchIds[j] = -1;
-							_touchs.add(new CTouch(_touchData[i * 3 + 1], _touchData[i * 3 + 2], -1,
-									TouchMake.Event.Kind.END, _currentEventTimeStamp));
+							_touched[j] = false;
 							break;
 						}
 					}
-					postTouchEvents(_touchs);
 				}
 			}
 			if (_touchs.size > 0) {
-				postTouchEvents(_touchs, true);
+				postTouchEvents(_touchs);
 			}
 		} else { // mouse
 			final int rawIndex = _touchData[0];
 			if (!(rawIndex == -1 && rawIndex == _previousTouchData[0])) {
 				final int touchX = _touchData[1];
 				final int touchY = _touchData[2];
-				_deltaX[1] = touchX - _previousTouchData[1];
-				_deltaY[2] = touchY - _previousTouchData[2];
+				_deltaX[0] = touchX - _previousTouchData[1];
+				_deltaY[0] = touchY - _previousTouchData[2];
+				_touchX[0] = touchX;
+				_touchY[0] = touchY;
 				_touched[0] = (rawIndex == 0);
 				_rawTouchIds[0] = -1;
 				if (rawIndex == -1) {
@@ -366,31 +379,33 @@ public class CInputMake extends InputMake implements LRelease {
 
 	private synchronized final void postTouchEvents(TArray<CTouch> touchs, boolean cancel) {
 		final int touchsLenght = touchs.size;
-		if (_useTouched) {
-			final TouchMake.Event[] events = new TouchMake.Event[touchsLenght];
-			for (int t = 0; t < touchsLenght; t++) {
-				CTouch touch = touchs.get(t);
-				if (touch != null) {
-					if (!cancel) {
-						events[t] = new TouchMake.Event(touch.isMove() ? -1 : 0, touch.timer, touch.x, touch.y,
-								touch.kind, touch.pointer);
-					} else {
-						events[t] = new TouchMake.Event(touch.isMove() ? -1 : 0, touch.timer, touch.x, touch.y,
-								TouchMake.Event.Kind.CANCEL, touch.pointer);
+		if (touchsLenght > 0) {
+			if (_useTouched) {
+				final TouchMake.Event[] events = new TouchMake.Event[touchsLenght];
+				for (int t = 0; t < touchsLenght; t++) {
+					CTouch touch = touchs.get(t);
+					if (touch != null) {
+						if (!cancel) {
+							events[t] = new TouchMake.Event(touch.isMove() ? -1 : 0, touch.timer, touch.x, touch.y,
+									touch.kind, touch.pointer);
+						} else {
+							events[t] = new TouchMake.Event(touch.isMove() ? -1 : 0, touch.timer, touch.x, touch.y,
+									TouchMake.Event.Kind.CANCEL, touch.pointer);
+						}
+					}
+				}
+				touchEvents.emit(events);
+			} else {
+				for (int t = 0; t < touchsLenght; t++) {
+					CTouch touch = touchs.get(t);
+					if (touch != null) {
+						emitMouseButton(touch.timer, touch.x, touch.y, touch.isMove() ? -1 : 0, touch.isDown(),
+								touch.pointer);
 					}
 				}
 			}
-			touchEvents.emit(events);
-		} else {
-			for (int t = 0; t < touchsLenght; t++) {
-				CTouch touch = touchs.get(t);
-				if (touch != null) {
-					emitMouseButton(touch.timer, touch.x, touch.y, touch.isMove() ? -1 : 0, touch.isDown(),
-							touch.pointer);
-				}
-			}
+			touchs.clear();
 		}
-		touchs.clear();
 	}
 
 	@Override

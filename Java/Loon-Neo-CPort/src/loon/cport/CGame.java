@@ -78,7 +78,7 @@ public final class CGame extends LGame {
 
 		public boolean fullscreenDesktop = false;
 
-		public boolean singleAppInstance = true;
+		public boolean singleAppInstance = false;
 
 		public boolean allowWindowClose = true;
 

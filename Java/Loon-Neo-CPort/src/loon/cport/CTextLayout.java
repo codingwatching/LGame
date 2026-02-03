@@ -324,7 +324,7 @@ public class CTextLayout extends loon.font.TextLayout {
 			return 0;
 		}
 		return MathUtils
-				.iceil(MathUtils.max(_fontSize, _stbFont.measureWidth(message, _fontSize)) + message.length() / 10);
+				.iceil(MathUtils.max(_fontSize, _stbFont.measureWidth(message, _fontSize)));
 	}
 
 	@Override

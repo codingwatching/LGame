@@ -1145,17 +1145,24 @@ static inline int get_char_size_subpixel(stbtt_fontinfo* font, uint32_t codepoin
 		h = (float)rounded_h;
 	}
 
-	float baseline_offset = -y0;
-
+	float baseline_offset = (float)(-y0);
+	bool updated = false;
 	if (is_flag_symbol(codepoint)) {
 		w = w / 2 + (pixel_size / 5);
+		updated = true;
 	}else if (is_min_en_char(codepoint)) {
 		w = w / 2 + (pixel_size / 10);
+		updated = true;
 	}else if (is_min_cn_char(codepoint)) {
-		w = w / 2 + ceil(pixel_size / 2.35f);
+		w = w / 2 + (float)ceil(pixel_size / 2.35f);
+		updated = true;
 	}
-
-	*out_w = ceil(fix_font_char_size(codepoint, pixel_size, floor(w)));
+	if (!updated) {
+		*out_w = (float)ceil(fix_font_char_size(codepoint, pixel_size, (int)floor(w)));
+	}
+	else {
+		*out_w = (float)ceil(w);
+	}
 	*out_h = h;
 	*out_baseline_offset = baseline_offset;
 
@@ -1311,22 +1318,24 @@ static float MeasureTextWidth(const stbtt_fontinfo* font, float pixel_height, co
 	float scale = stbtt_ScaleForPixelHeight(font, pixel_height);
 	float width = 0.0f;
 	uint32_t prev_cp = 0;
+	int count = 0;
 	while (*text) {
 		uint32_t cp = utf8_decode(&text);
 		if (prev_cp) width += stbtt_GetCodepointKernAdvance(font, prev_cp, cp) * scale;
 		if (is_cjk(cp)) {
 			int x0, y0, x1, y1;
 			stbtt_GetCodepointBitmapBox(font, cp, scale, scale, &x0, &y0, &x1, &y1);
-			width += fix_font_char_size(cp, pixel_height,(x1 - x0));
+			width += (int)fix_font_char_size(cp, pixel_height, (x1 - x0));
 		}
 		else {
 			int advance, lsb;
 			stbtt_GetCodepointHMetrics(font, cp, &advance, &lsb);
-			width += fix_font_char_size(cp, pixel_height, (int)(advance * scale));
+			width += (int)fix_font_char_size(cp, pixel_height,(int)(advance * scale));
 		}
 		prev_cp = cp;
+		count++;
 	}
-	return width;
+	return width + (count / 4.0f);
 }
 
 static float MeasureTextHeight(const stbtt_fontinfo* font, float pixel_height, const char* text) {
@@ -1551,7 +1560,7 @@ void Load_STB_DrawChar(const int64_t handle, const int32_t codepoint, const floa
 	uint8_t b = color & 0xFF;
 	for (int py = 0; py < gh; py++) {
 		for (int px = 0; px < gw; px++) {
-			int dst_index = (dst_y + py) * img_w + (dst_x + px);
+			int dst_index = (int)((dst_y + py) * img_w + (dst_x + px));
 			if (dst_index < 0 || dst_index >= length) {
 				continue;
 			}
