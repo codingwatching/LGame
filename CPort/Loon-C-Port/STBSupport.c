@@ -1546,8 +1546,8 @@ void Load_STB_DrawChar(const int64_t handle, const int32_t codepoint, const floa
 	int ascent, descent, lineGap;
 	stbtt_GetFontVMetrics(font, &ascent, &descent, &lineGap);
 	int maxBaseLine = float_to_int_threshold(ascent * scale);
-	img_w += 4;
-	img_h += (fontSize - baseline) + 8;
+	img_w += 12;
+	img_h += (fontSize - baseline) + 12;
 	int length = float_to_int_threshold(img_w * img_h);
 	int gw, gh;
 	unsigned char* bitmap = stbtt_GetGlyphBitmapSubpixel(font, scale, scale, 0.0f, 0.0f,

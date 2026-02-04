@@ -1145,12 +1145,12 @@ static inline int fix_font_char_size(const uint32_t ch, float fontSize, int size
     if (is_digit_char(ch)) {
       return newSize += 2;
     } else if (is_lowercase(ch)) {
-        if ('i' == ch) {
+        if (0x0069 == ch || 0x006A == ch || 0x0072 == ch) {
             return newSize;
         }
         return newSize += 2;
     } else if (is_uppercase(ch)) {
-        if ('I' == ch) {
+        if (0x0049 == ch || 0x0054 == ch || 0x006C == ch) {
             return newSize;
         }
         return newSize += 2;

@@ -135,10 +135,8 @@ public final class AVGCG implements LRelease {
 			return;
 		}
 		String path = update(resName);
-		synchronized (_roles) {
-			chara.setFlag(ISprite.TYPE_FADE_OUT, _roleDelay);
-			this._roles.put(path.replaceAll(" ", LSystem.EMPTY).toLowerCase(), chara);
-		}
+		chara.setFlag(ISprite.TYPE_FADE_OUT, _roleDelay);
+		this._roles.put(path.replaceAll(" ", LSystem.EMPTY).toLowerCase(), chara);
 	}
 
 	public void add(String resName, float x, float y) {
@@ -163,92 +161,86 @@ public final class AVGCG implements LRelease {
 
 	public void add(final String resName, float x, float y, int w, int h, int sw, int sh, boolean updatePos) {
 		String path = update(resName);
-		synchronized (_roles) {
-			String keyName = path.replaceAll(" ", LSystem.EMPTY).toLowerCase();
-			AVGChara chara = (AVGChara) _roles.get(keyName);
-			if (chara == null) {
-				final float newX = (x == -1) ? 0 : x;
-				final float newY = (y == -1) ? 0 : y;
-				if (w > 0 || h > 0) {
-					chara = new AVGChara(path, newX, newY, w, h, sw, sh);
-				} else {
-					chara = new AVGChara(path, newX, newY, sw, sh);
-				}
-				chara.setFlag(ISprite.TYPE_FADE_OUT, _roleDelay);
-				_roles.put(keyName, chara);
+		String keyName = path.replaceAll(" ", LSystem.EMPTY).toLowerCase();
+		AVGChara chara = (AVGChara) _roles.get(keyName);
+		if (chara == null) {
+			final float newX = (x == -1) ? 0 : x;
+			final float newY = (y == -1) ? 0 : y;
+			if (w > 0 || h > 0) {
+				chara = new AVGChara(path, newX, newY, w, h, sw, sh);
 			} else {
-				chara.setFlag(ISprite.TYPE_FADE_OUT, _roleDelay);
-				if (w > 0) {
-					chara.setWidth(w);
+				chara = new AVGChara(path, newX, newY, sw, sh);
+			}
+			chara.setFlag(ISprite.TYPE_FADE_OUT, _roleDelay);
+			_roles.put(keyName, chara);
+		} else {
+			chara.setFlag(ISprite.TYPE_FADE_OUT, _roleDelay);
+			if (w > 0) {
+				chara.setWidth(w);
+			}
+			if (h > 0) {
+				chara.setHeight(h);
+			}
+			if (updatePos) {
+				if (!chara.isFlashing()) {
+					chara.setX(x == -1 ? chara.getX() : x);
+					chara.setY(y == -1 ? chara.getY() : y);
 				}
-				if (h > 0) {
-					chara.setHeight(h);
-				}
-				if (updatePos) {
-					if (!chara.isFlashing()) {
-						chara.setX(x == -1 ? chara.getX() : x);
-						chara.setY(y == -1 ? chara.getY() : y);
-					}
-					if (chara.isMoved() && !chara.isXMoved()) {
-						chara.clearMovePos();
-					}
+				if (chara.isMoved() && !chara.isXMoved()) {
+					chara.clearMovePos();
 				}
 			}
-			chara.setParent(this);
 		}
+		chara.setParent(this);
 	}
 
 	public AVGChara remove(final String resName) {
 		String path = update(resName);
-		synchronized (_roles) {
-			final String name = path.replaceAll(" ", LSystem.EMPTY).toLowerCase();
-			AVGChara chara = null;
-			if (_style) {
-				chara = (AVGChara) _roles.get(name);
-				if (chara != null) {
-					chara.setFlag(ISprite.TYPE_FADE_IN, _roleDelay);
-				}
-			} else {
-				chara = (AVGChara) _roles.remove(name);
-				if (chara != null) {
-					dispose(chara);
-				}
+		final String name = path.replaceAll(" ", LSystem.EMPTY).toLowerCase();
+		AVGChara chara = null;
+		if (_style) {
+			chara = (AVGChara) _roles.get(name);
+			if (chara != null) {
+				chara.setFlag(ISprite.TYPE_FADE_IN, _roleDelay);
 			}
-			return chara;
+		} else {
+			chara = (AVGChara) _roles.remove(name);
+			if (chara != null) {
+				dispose(chara);
+			}
 		}
+		return chara;
 	}
 
 	public void replace(String res1, String res2) {
 		String path1 = update(res1);
 		String path2 = update(res2);
-		synchronized (_roles) {
-			final String name = path1.replaceAll(" ", LSystem.EMPTY).toLowerCase();
-			AVGChara old = null;
-			if (_style) {
-				old = (AVGChara) _roles.get(name);
-				if (old != null) {
-					old.setFlag(ISprite.TYPE_FADE_IN, _roleDelay);
-				}
-			} else {
-				old = (AVGChara) _roles.remove(name);
-				if (old != null) {
-					dispose(old);
-				}
-			}
+		final String name = path1.replaceAll(" ", LSystem.EMPTY).toLowerCase();
+		AVGChara old = null;
+		if (_style) {
+			old = (AVGChara) _roles.get(name);
 			if (old != null) {
-				final float x = old.getX();
-				final float y = old.getY();
-				AVGChara newObject = new AVGChara(path2, 0, 0, old.maxWidth, old.maxHeight);
-				newObject.setFlip(old.flipX, old.flipY);
-				newObject.setScale(old.scaleX, old.scaleY);
-				newObject.setVisible(old.visible);
-				newObject.setFlashing(old.isFlashing());
-				newObject.setColor(old.getColor());
-				newObject.setMove(false);
-				newObject.setX(x);
-				newObject.setY(y);
-				add(path2, newObject);
+				old.setFlag(ISprite.TYPE_FADE_IN, _roleDelay);
 			}
+		} else {
+			old = (AVGChara) _roles.remove(name);
+			if (old != null) {
+				dispose(old);
+			}
+		}
+		if (old != null) {
+			final float x = old.getX();
+			final float y = old.getY();
+			AVGChara newObject = new AVGChara(path2, 0, 0, old.maxWidth, old.maxHeight);
+			newObject.setFlip(old.flipX, old.flipY);
+			newObject.setScale(old.scaleX, old.scaleY);
+			newObject.setVisible(old.visible);
+			newObject.setFlashing(old.isFlashing());
+			newObject.setColor(old.getColor());
+			newObject.setMove(false);
+			newObject.setX(x);
+			newObject.setY(y);
+			add(path2, newObject);
 		}
 	}
 
@@ -336,63 +328,60 @@ public final class AVGCG implements LRelease {
 				g.draw(_background, newX, newY, _cgColor);
 			}
 		}
-		synchronized (_roles) {
-			for (int i = _roles.size() - 1; i > -1; i--) {
-				final AVGChara chara = (AVGChara) _roles.get(i);
-				if (chara == null || !chara.visible) {
-					continue;
-				}
-				if (_style) {
-					if (chara.flag != -1) {
-						if (chara.flag == ISprite.TYPE_FADE_IN) {
-							chara.currentFrame -= _speed;
-							if (chara.currentFrame == 0) {
-								chara.opacity = 0;
-								chara.flag = -1;
-								chara.setParent(null);
-								chara.close();
-								_roles.remove(chara);
-							}
-						} else {
-							chara.currentFrame += _speed;
-							if (MathUtils.equal(chara.currentFrame, chara.time)) {
-								chara.opacity = 0;
-								chara.flag = -1;
-							}
+		for (int i = _roles.size() - 1; i > -1; i--) {
+			final AVGChara chara = (AVGChara) _roles.get(i);
+			if (chara == null || !chara.visible) {
+				continue;
+			}
+			if (_style) {
+				if (chara.flag != -1) {
+					if (chara.flag == ISprite.TYPE_FADE_IN) {
+						chara.currentFrame -= _speed;
+						if (chara.currentFrame == 0) {
+							chara.opacity = 0;
+							chara.flag = -1;
+							chara.setParent(null);
+							chara.close();
+							_roles.remove(chara);
 						}
-						chara.opacity = (chara.currentFrame / chara.time) * 255;
-						if (chara.opacity > 0) {
-							g.setAlpha(chara.opacity / 255);
+					} else {
+						chara.currentFrame += _speed;
+						if (MathUtils.equal(chara.currentFrame, chara.time)) {
+							chara.opacity = 0;
+							chara.flag = -1;
 						}
 					}
-				}
-				if (chara.showAnimation) {
-					final AVGAnm animation = chara.anm;
-					if (animation.loaded) {
-						if (animation.loop && animation.startTime == -1) {
-							animation.start(0, _loop);
-						}
-						final PointI point = animation.getPos(TimeUtils.millis());
-						if (animation.alpha != 1f) {
-							g.setAlpha(animation.alpha);
-						}
-						final LColor newColor = _tempColor.setColor(LColor.combine(animation.color, chara.getColor()));
-						g.draw(animation.texture, newX + chara.getX(), newY + chara.getY(), animation.width,
-								animation.height, point.x, point.y, animation.imageWidth, animation.imageHeight,
-								newColor, chara.curScaleX(), chara.curScaleY(), chara.flipX, chara.flipY,
-								animation.angle);
-						if (animation.alpha != 1f) {
-							g.setAlpha(1f);
-						}
+					chara.opacity = (chara.currentFrame / chara.time) * 255;
+					if (chara.opacity > 0) {
+						g.setAlpha(chara.opacity / 255);
 					}
-				} else {
-					chara.next();
-					chara.draw(g, newX, newY);
 				}
-				if (_style) {
-					if (chara.flag != -1 && chara.opacity > 0) {
+			}
+			if (chara.showAnimation) {
+				final AVGAnm animation = chara.anm;
+				if (animation.loaded) {
+					if (animation.loop && animation.startTime == -1) {
+						animation.start(0, _loop);
+					}
+					final PointI point = animation.getPos(TimeUtils.millis());
+					if (animation.alpha != 1f) {
+						g.setAlpha(animation.alpha);
+					}
+					final LColor newColor = _tempColor.setColor(LColor.combine(animation.color, chara.getColor()));
+					g.draw(animation.texture, newX + chara.getX(), newY + chara.getY(), animation.width,
+							animation.height, point.x, point.y, animation.imageWidth, animation.imageHeight, newColor,
+							chara.curScaleX(), chara.curScaleY(), chara.flipX, chara.flipY, animation.angle);
+					if (animation.alpha != 1f) {
 						g.setAlpha(1f);
 					}
+				}
+			} else {
+				chara.next();
+				chara.draw(g, newX, newY);
+			}
+			if (_style) {
+				if (chara.flag != -1 && chara.opacity > 0) {
+					g.setAlpha(1f);
 				}
 			}
 		}
@@ -401,22 +390,18 @@ public final class AVGCG implements LRelease {
 	}
 
 	public void update(long t) {
-		synchronized (_roles) {
-			for (int i = _roles.size() - 1; i > -1; i--) {
-				final AVGChara chara = (AVGChara) _roles.get(i);
-				if (chara == null || !chara.visible) {
-					continue;
-				}
-				chara.update(t);
+		for (int i = _roles.size() - 1; i > -1; i--) {
+			final AVGChara chara = (AVGChara) _roles.get(i);
+			if (chara == null || !chara.visible) {
+				continue;
 			}
+			chara.update(t);
 		}
 	}
 
 	public void clear() {
-		synchronized (_roles) {
-			_roles.clear();
-			actionRole.clear();
-		}
+		_roles.clear();
+		actionRole.clear();
 	}
 
 	public ArrayMap getCharas() {
@@ -468,27 +453,25 @@ public final class AVGCG implements LRelease {
 
 	@Override
 	public void close() {
-		synchronized (_roles) {
-			if (_style) {
-				for (int i = _roles.size() - 1; i > -1; i--) {
-					AVGChara ch = (AVGChara) _roles.get(i);
-					if (ch != null) {
-						ch.setFlag(ISprite.TYPE_FADE_IN, _roleDelay);
-					}
+		if (_style) {
+			for (int i = _roles.size() - 1; i > -1; i--) {
+				AVGChara ch = (AVGChara) _roles.get(i);
+				if (ch != null) {
+					ch.setFlag(ISprite.TYPE_FADE_IN, _roleDelay);
 				}
-			} else {
-				for (int i = _roles.size() - 1; i > -1; i--) {
-					AVGChara ch = (AVGChara) _roles.get(i);
-					if (ch != null) {
-						ch.close();
-						ch.setParent(null);
-						ch = null;
-					}
-				}
-				_roles.clear();
 			}
-			actionRole.clear();
+		} else {
+			for (int i = _roles.size() - 1; i > -1; i--) {
+				AVGChara ch = (AVGChara) _roles.get(i);
+				if (ch != null) {
+					ch.close();
+					ch.setParent(null);
+					ch = null;
+				}
+			}
+			_roles.clear();
 		}
+		actionRole.clear();
 		_closed = true;
 	}
 

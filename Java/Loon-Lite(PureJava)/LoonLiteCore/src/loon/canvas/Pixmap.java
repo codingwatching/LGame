@@ -1339,27 +1339,22 @@ public final class Pixmap extends PixmapComposite implements Canvas.ColorPixel, 
 		return MathUtils.round(top + (bottom - top) * yWeight);
 	}
 
-	private final int bicubicInterpolateChannel(int x, int y, float xFrac, float yFrac, int shift) {
-		final float[] floatList = new float[4];
-		for (int m = -1; m <= 2; m++) {
-			final float[] row = new float[4];
-			for (int n = -1; n <= 2; n++) {
-				int px = clampIndex(x + n, _width);
-				int py = clampIndex(y + m, _height);
-				row[n + 1] = (getPixel(px, py) >> shift) & 0xFF;
-			}
-			floatList[m + 1] = cubicInterpolate(row[0], row[1], row[2], row[3], xFrac);
+	private final static float cubicInterpolate(float v0, float v1, float v2, float v3, float frac) {
+		float P = (v3 - v2) - (v0 - v1);
+		float Q = (v0 - v1) - P;
+		float R = v2 - v0;
+		float S = v1;
+		return P * frac * frac * frac + Q * frac * frac + R * frac + S;
+	}
+
+	private final static int clampIndex(int v, int max) {
+		if (v < 0) {
+			return 0;
 		}
-		return clamp(MathUtils.round(cubicInterpolate(floatList[0], floatList[1], floatList[2], floatList[3], yFrac)));
-	}
-
-	private final static float cubicInterpolate(float p0, float p1, float p2, float p3, float t) {
-		return p1 + 0.5f * t
-				* (p2 - p0 + t * (2.0f * p0 - 5.0f * p1 + 4.0f * p2 - p3 + t * (3.0f * (p1 - p2) + p3 - p0)));
-	}
-
-	private final static int clampIndex(int val, int max) {
-		return MathUtils.max(0, MathUtils.min(max - 1, val));
+		if (v >= max) {
+			return max - 1;
+		}
+		return v;
 	}
 
 	/**
@@ -1522,6 +1517,20 @@ public final class Pixmap extends PixmapComposite implements Canvas.ColorPixel, 
 		return scaleBilinear(_width, _height);
 	}
 
+	private final int bicubicInterpolateChannel(int x, int y, float xFrac, float yFrac, int shift) {
+		final float[] rowInterp = new float[4];
+		for (int m = 0; m < 4; m++) {
+			float[] row = new float[4];
+			for (int n = 0; n < 4; n++) {
+				int px = clampIndex(x + (n - 1), _width);
+				int py = clampIndex(y + (m - 1), _height);
+				row[n] = (getPixel(px, py) >> shift) & 0xFF;
+			}
+			rowInterp[m] = cubicInterpolate(row[0], row[1], row[2], row[3], xFrac);
+		}
+		return clamp(MathUtils.round(cubicInterpolate(rowInterp[0], rowInterp[1], rowInterp[2], rowInterp[3], yFrac)));
+	}
+
 	/**
 	 * 以三次插值算法让像素平滑过渡
 	 * 
@@ -1534,8 +1543,8 @@ public final class Pixmap extends PixmapComposite implements Canvas.ColorPixel, 
 			return null;
 		}
 		final Pixmap scaled = new Pixmap(newWidth, newHeight, _hasAlpha);
-		float xRatio = (float) _width / newWidth;
-		float yRatio = (float) _height / newHeight;
+		final float xRatio = (float) _width / newWidth;
+		final float yRatio = (float) _height / newHeight;
 		for (int y = 0; y < newHeight; y++) {
 			float srcY = y * yRatio;
 			int yInt = (int) srcY;

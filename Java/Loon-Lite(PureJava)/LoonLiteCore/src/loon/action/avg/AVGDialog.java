@@ -21,7 +21,6 @@
 package loon.action.avg;
 
 import loon.BaseIO;
-import loon.LSystem;
 import loon.LTexture;
 import loon.canvas.Canvas;
 import loon.canvas.Image;

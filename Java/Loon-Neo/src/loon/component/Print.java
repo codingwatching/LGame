@@ -429,159 +429,155 @@ public final class Print implements FontSet<Print>, LRelease {
 	}
 
 	public void drawDefFont(final GLEx g, final LColor old) {
+		this._textsize = _showMessages.length;
+		this._fontSize = _defaultFont.getSize();
+		this._fontHeight = maxFontHeignt(_defaultFont, _showMessages, _textsize);
 
-		synchronized (_showMessages) {
+		switch (dirmode) {
+		default:
+		case NONE:
+			this._textoffsetSize = 0;
+			break;
+		case LEFT:
+			this._textoffsetSize = (_width - (_fontSize * _messageLength)) / 2 - MathUtils.ifloor(_fontSize * 1.5f);
+			break;
+		case RIGHT:
+			this._textoffsetSize = (_fontSize * _messageLength) / 2;
+			break;
+		case CENTER:
+			this._textoffsetSize = _width / 2 - (_fontSize * _messageLength) / 2 + MathUtils.ifloor(_fontSize * 4f);
+			break;
+		}
 
-			this._textsize = _showMessages.length;
-			this._fontSize = _defaultFont.getSize();
-			this._fontHeight = maxFontHeignt(_defaultFont, _showMessages, _textsize);
+		final Vector3f result = getFontTextLimitSize();
 
-			switch (dirmode) {
-			default:
-			case NONE:
-				this._textoffsetSize = 0;
-				break;
-			case LEFT:
-				this._textoffsetSize = (_width - (_fontSize * _messageLength)) / 2 - MathUtils.ifloor(_fontSize * 1.5f);
-				break;
-			case RIGHT:
-				this._textoffsetSize = (_fontSize * _messageLength) / 2;
-				break;
-			case CENTER:
-				this._textoffsetSize = _width / 2 - (_fontSize * _messageLength) / 2 + MathUtils.ifloor(_fontSize * 4f);
-				break;
+		final int minTextSize = MathUtils.ifloor(result.x);
+		final int maxTextSize = MathUtils.ifloor(result.y);
+		final int midTextSize = MathUtils.ifloor(result.z);
+
+		this._leftsize = _textoffsetSize;
+		this._index = _offsettext = _curfontSize = _perfontSize = 0;
+
+		int hashCode = 1;
+		hashCode = LSystem.unite(hashCode, _textsize);
+		hashCode = LSystem.unite(hashCode, _leftsize);
+		hashCode = LSystem.unite(hashCode, _fontSize);
+		hashCode = LSystem.unite(hashCode, _fontHeight);
+
+		if (_defaultFont == null) {
+			return;
+		}
+
+		if (hashCode == _lazyFlag) {
+			_defaultFont.postCharCache();
+			if (_isIconFlag && _iconX != 0 && _iconY != 0) {
+				fixIconPos();
+				g.draw(_creeseIcon, _iconLocation.x, _iconLocation.y);
+			}
+			return;
+		}
+
+		_defaultFont.startChar();
+		_fontColor = old;
+
+		for (int i = 0; i < _textsize; i++) {
+
+			if (_interceptString != 0) {
+				i += _interceptString;
+				i = MathUtils.clamp(i, 0, _textsize - 1);
+				_interceptString = 0;
 			}
 
-			final Vector3f result = getFontTextLimitSize();
-
-			final int minTextSize = MathUtils.ifloor(result.x);
-			final int maxTextSize = MathUtils.ifloor(result.y);
-			final int midTextSize = MathUtils.ifloor(result.z);
-
-			this._leftsize = _textoffsetSize;
-			this._index = _offsettext = _curfontSize = _perfontSize = 0;
-
-			int hashCode = 1;
-			hashCode = LSystem.unite(hashCode, _textsize);
-			hashCode = LSystem.unite(hashCode, _leftsize);
-			hashCode = LSystem.unite(hashCode, _fontSize);
-			hashCode = LSystem.unite(hashCode, _fontHeight);
-
-			if (_defaultFont == null) {
-				return;
+			_textChar = _showMessages[i];
+			if (_textChar == '\0') {
+				continue;
 			}
 
-			if (hashCode == _lazyFlag) {
-				_defaultFont.postCharCache();
+			if (_showMessages[i] == 'n' && _showMessages[i > 0 ? i - 1 : 0] == LSystem.BACKSLASH) {
+				_index = 0;
+				_leftsize = _textoffsetSize;
+				_offsettext++;
+				continue;
+			} else if (_textChar == '<') {
+				LColor color = getColor(_showMessages[i < _textsize - 1 ? i + 1 : i]);
+				if (color != null) {
+					_fontColor = color;
+					_interceptString = 1;
+				}
+				continue;
+			} else if (_showMessages[i > 0 ? i - 1 : i] == '<' && getColor(_textChar) != null) {
+				_interceptString = 1;
+				continue;
+			} else if (_textChar == LSystem.SLASH) {
+				if (_showMessages[i < _textsize - 1 ? i + 1 : i] == '>') {
+					_fontColor = old;
+					_interceptString = 1;
+				}
+				continue;
+			} else if ((_index > _messageLength) || (_textChar == LSystem.LF) || (_leftsize
+					+ _leftoffset >= (_width - (maxTextSize + minTextSize) + _fixPixelSizeOfRightBorder))) {
+				_index = 0;
+				_leftsize = _textoffsetSize;
+				_offsettext++;
+				_newLine = false;
+			} else if (_textChar == LSystem.BACKSLASH) {
+				continue;
+			}
+			_perfontSize = _defaultFont.charWidth(_textChar);
+			if (!_isEnglish) {
+				if (CharUtils.isAlphaOrDigit(_textChar)) {
+					if (_perfontSize < _fontSize) {
+						_curfontSize = _fontSize;
+					} else {
+						_curfontSize = _perfontSize;
+					}
+				} else {
+					_curfontSize = _fontSize;
+				}
+			} else if (_perfontSize != 0 && _textChar != LSystem.SPACE && _textChar != LSystem.TAB) {
+				if (_perfontSize < midTextSize) {
+					_curfontSize = MathUtils.max(_perfontSize, midTextSize - 1);
+				} else {
+					_curfontSize = MathUtils.clamp(_perfontSize, minTextSize, maxTextSize);
+				}
+			}
+
+			_curfontSize = MathUtils.max(_fixMinFontSpace, _curfontSize);
+			_leftsize += _curfontSize;
+
+			if (!_isEnglish && _curfontSize <= _fixOtherFontSpace && StringUtils.isSingle(_textChar)) {
+				_leftsize += _fixOtherFontSpace;
+			} else if (_isEnglish) {
+				_leftsize += _fixEnglishFontSpace;
+			}
+
+			final int _centerFont = _isEnglish ? (_curfontSize + _perfontSize) / 2
+					: (isFlagSymbol(_textChar) ? midTextSize : midTextSize + minTextSize / 2);
+
+			if (i != _textsize - 1) {
+				_defaultFont.addChar(_textChar,
+						midTextSize + (_printLocation.x + _leftsize + _leftoffset - _centerFont) + _spaceTextX,
+						((_offsettext * _fontHeight) + _printLocation.y + _fontSize + _topoffset) + _spaceTextY,
+						_fontColor);
+			} else if (!_newLine && !_onComplete) {
+				_iconX = midTextSize + (_printLocation.x + _leftsize + _leftoffset - _centerFont) + _spaceTextX;
+				_iconY = ((_offsettext * _fontHeight) + _printLocation.y + _fontSize + _topoffset) + _spaceTextY
+						+ _defaultFont.getAscent();
 				if (_isIconFlag && _iconX != 0 && _iconY != 0) {
 					fixIconPos();
 					g.draw(_creeseIcon, _iconLocation.x, _iconLocation.y);
 				}
-				return;
 			}
+			_index++;
+		}
 
-			_defaultFont.startChar();
-			_fontColor = old;
+		_defaultFont.stopChar();
+		_defaultFont.saveCharCache();
 
-			for (int i = 0; i < _textsize; i++) {
+		_lazyFlag = hashCode;
 
-				if (_interceptString != 0) {
-					i += _interceptString;
-					i = MathUtils.clamp(i, 0, _textsize - 1);
-					_interceptString = 0;
-				}
-
-				_textChar = _showMessages[i];
-				if (_textChar == '\0') {
-					continue;
-				}
-
-				if (_showMessages[i] == 'n' && _showMessages[i > 0 ? i - 1 : 0] == LSystem.BACKSLASH) {
-					_index = 0;
-					_leftsize = _textoffsetSize;
-					_offsettext++;
-					continue;
-				} else if (_textChar == '<') {
-					LColor color = getColor(_showMessages[i < _textsize - 1 ? i + 1 : i]);
-					if (color != null) {
-						_fontColor = color;
-						_interceptString = 1;
-					}
-					continue;
-				} else if (_showMessages[i > 0 ? i - 1 : i] == '<' && getColor(_textChar) != null) {
-					_interceptString = 1;
-					continue;
-				} else if (_textChar == LSystem.SLASH) {
-					if (_showMessages[i < _textsize - 1 ? i + 1 : i] == '>') {
-						_fontColor = old;
-						_interceptString = 1;
-					}
-					continue;
-				} else if ((_index > _messageLength) || (_textChar == LSystem.LF) || (_leftsize
-						+ _leftoffset >= (_width - (maxTextSize + minTextSize) + _fixPixelSizeOfRightBorder))) {
-					_index = 0;
-					_leftsize = _textoffsetSize;
-					_offsettext++;
-					_newLine = false;
-				} else if (_textChar == LSystem.BACKSLASH) {
-					continue;
-				}
-				_perfontSize = _defaultFont.charWidth(_textChar);
-				if (!_isEnglish) {
-					if (CharUtils.isAlphaOrDigit(_textChar)) {
-						if (_perfontSize < _fontSize) {
-							_curfontSize = _fontSize;
-						} else {
-							_curfontSize = _perfontSize;
-						}
-					} else {
-						_curfontSize = _fontSize;
-					}
-				} else if (_perfontSize != 0 && _textChar != LSystem.SPACE && _textChar != LSystem.TAB) {
-					if (_perfontSize < midTextSize) {
-						_curfontSize = MathUtils.max(_perfontSize, midTextSize - 1);
-					} else {
-						_curfontSize = MathUtils.clamp(_perfontSize, minTextSize, maxTextSize);
-					}
-				}
-
-				_curfontSize = MathUtils.max(_fixMinFontSpace, _curfontSize);
-				_leftsize += _curfontSize;
-
-				if (!_isEnglish && _curfontSize <= _fixOtherFontSpace && StringUtils.isSingle(_textChar)) {
-					_leftsize += _fixOtherFontSpace;
-				} else if (_isEnglish) {
-					_leftsize += _fixEnglishFontSpace;
-				}
-
-				final int _centerFont = _isEnglish ? (_curfontSize + _perfontSize) / 2
-						: (isFlagSymbol(_textChar) ? midTextSize : midTextSize + minTextSize / 2);
-
-				if (i != _textsize - 1) {
-					_defaultFont.addChar(_textChar,
-							midTextSize + (_printLocation.x + _leftsize + _leftoffset - _centerFont) + _spaceTextX,
-							((_offsettext * _fontHeight) + _printLocation.y + _fontSize + _topoffset) + _spaceTextY,
-							_fontColor);
-				} else if (!_newLine && !_onComplete) {
-					_iconX = midTextSize + (_printLocation.x + _leftsize + _leftoffset - _centerFont) + _spaceTextX;
-					_iconY = ((_offsettext * _fontHeight) + _printLocation.y + _fontSize + _topoffset) + _spaceTextY
-							+ _defaultFont.getAscent();
-					if (_isIconFlag && _iconX != 0 && _iconY != 0) {
-						fixIconPos();
-						g.draw(_creeseIcon, _iconLocation.x, _iconLocation.y);
-					}
-				}
-				_index++;
-			}
-
-			_defaultFont.stopChar();
-			_defaultFont.saveCharCache();
-
-			_lazyFlag = hashCode;
-
-			if (_messageCount == _nextflag) {
-				_onComplete = true;
-			}
+		if (_messageCount == _nextflag) {
+			_onComplete = true;
 		}
 	}
 
@@ -621,138 +617,133 @@ public final class Print implements FontSet<Print>, LRelease {
 		if (_curFont == null) {
 			return;
 		}
+		this._textsize = _showMessages.length;
+		if (_nativeFont && _defaultFont != null) {
+			this._fontSize = _defaultFont.getSize();
+			this._fontHeight = maxFontHeignt(_defaultFont, _showMessages, _textsize);
+		} else {
+			this._fontSize = _curFont.getSize();
+			this._fontHeight = maxFontHeignt(_curFont, _showMessages, _textsize);
+		}
 
-		synchronized (_showMessages) {
+		switch (dirmode) {
+		default:
+		case NONE:
+			this._textoffsetSize = 0;
+			break;
+		case LEFT:
+			this._textoffsetSize = (_width - (_fontSize * _messageLength)) / 2 - MathUtils.ifloor(_fontSize * 1.5f);
+			break;
+		case RIGHT:
+			this._textoffsetSize = (_fontSize * _messageLength) / 2;
+			break;
+		case CENTER:
+			this._textoffsetSize = _width / 2 - (_fontSize * _messageLength) / 2 + MathUtils.ifloor(_fontSize * 4f);
+			break;
+		}
+		final Vector3f result = getFontTextLimitSize();
 
-			this._textsize = _showMessages.length;
-			if (_nativeFont && _defaultFont != null) {
-				this._fontSize = _defaultFont.getSize();
-				this._fontHeight = maxFontHeignt(_defaultFont, _showMessages, _textsize);
-			} else {
-				this._fontSize = _curFont.getSize();
-				this._fontHeight = maxFontHeignt(_curFont, _showMessages, _textsize);
+		final int minTextSize = MathUtils.ifloor(result.x);
+		final int maxTextSize = MathUtils.ifloor(result.y);
+		final int midTextSize = MathUtils.ifloor(result.z);
+
+		this._leftsize = _textoffsetSize;
+		this._index = _offsettext = _curfontSize = _perfontSize = 0;
+		_fontColor = old;
+		for (int i = 0; i < _textsize; i++) {
+
+			if (_interceptString != 0) {
+				i += _interceptString;
+				i = MathUtils.clamp(i, 0, _textsize - 1);
+				_interceptString = 0;
 			}
 
-			switch (dirmode) {
-			default:
-			case NONE:
-				this._textoffsetSize = 0;
-				break;
-			case LEFT:
-				this._textoffsetSize = (_width - (_fontSize * _messageLength)) / 2 - MathUtils.ifloor(_fontSize * 1.5f);
-				break;
-			case RIGHT:
-				this._textoffsetSize = (_fontSize * _messageLength) / 2;
-				break;
-			case CENTER:
-				this._textoffsetSize = _width / 2 - (_fontSize * _messageLength) / 2 + MathUtils.ifloor(_fontSize * 4f);
-				break;
+			_textChar = _showMessages[i];
+			if (_textChar == '\0') {
+				continue;
 			}
-			final Vector3f result = getFontTextLimitSize();
 
-			final int minTextSize = MathUtils.ifloor(result.x);
-			final int maxTextSize = MathUtils.ifloor(result.y);
-			final int midTextSize = MathUtils.ifloor(result.z);
-
-			this._leftsize = _textoffsetSize;
-			this._index = _offsettext = _curfontSize = _perfontSize = 0;
-			_fontColor = old;
-			for (int i = 0; i < _textsize; i++) {
-
-				if (_interceptString != 0) {
-					i += _interceptString;
-					i = MathUtils.clamp(i, 0, _textsize - 1);
-					_interceptString = 0;
-				}
-
-				_textChar = _showMessages[i];
-				if (_textChar == '\0') {
-					continue;
-				}
-
-				if (_showMessages[i] == 'n' && _showMessages[i > 0 ? i - 1 : 0] == LSystem.BACKSLASH) {
-					_index = 0;
-					_leftsize = _textoffsetSize;
-					_offsettext++;
-					continue;
-				} else if (_textChar == '<') {
-					LColor color = getColor(_showMessages[i < _textsize - 1 ? i + 1 : i]);
-					if (color != null) {
-						_fontColor = color;
-						_interceptString = 1;
-					}
-					continue;
-				} else if (_showMessages[i > 0 ? i - 1 : i] == '<' && getColor(_textChar) != null) {
+			if (_showMessages[i] == 'n' && _showMessages[i > 0 ? i - 1 : 0] == LSystem.BACKSLASH) {
+				_index = 0;
+				_leftsize = _textoffsetSize;
+				_offsettext++;
+				continue;
+			} else if (_textChar == '<') {
+				LColor color = getColor(_showMessages[i < _textsize - 1 ? i + 1 : i]);
+				if (color != null) {
+					_fontColor = color;
 					_interceptString = 1;
-					continue;
-				} else if (_textChar == LSystem.SLASH) {
-					if (_showMessages[i < _textsize - 1 ? i + 1 : i] == '>') {
-						_fontColor = old;
-						_interceptString = 1;
-					}
-					continue;
-				} else if ((_index > _messageLength) || (_textChar == LSystem.LF) || (_leftsize
-						+ _leftoffset >= (_width - (maxTextSize + minTextSize) + _fixPixelSizeOfRightBorder))) {
-					_index = 0;
-					_leftsize = _textoffsetSize;
-					_offsettext++;
-					_newLine = false;
-				} else if (_textChar == LSystem.BACKSLASH) {
-					continue;
 				}
-				_perfontSize = _curFont.charWidth(_textChar);
-				if (!_isEnglish) {
-					if (CharUtils.isAlphaOrDigit(_textChar)) {
-						if (_perfontSize < _fontSize) {
-							_curfontSize = _fontSize;
-						} else {
-							_curfontSize = _perfontSize;
-						}
-					} else {
-						_curfontSize = _fontSize;
-					}
-				} else if (_perfontSize != 0 && _textChar != LSystem.SPACE && _textChar != LSystem.TAB) {
-					if (_perfontSize < midTextSize) {
-						_curfontSize = MathUtils.max(_perfontSize, midTextSize - 1);
-					} else {
-						_curfontSize = MathUtils.clamp(_perfontSize, minTextSize, maxTextSize);
-					}
+				continue;
+			} else if (_showMessages[i > 0 ? i - 1 : i] == '<' && getColor(_textChar) != null) {
+				_interceptString = 1;
+				continue;
+			} else if (_textChar == LSystem.SLASH) {
+				if (_showMessages[i < _textsize - 1 ? i + 1 : i] == '>') {
+					_fontColor = old;
+					_interceptString = 1;
 				}
-				_curfontSize = MathUtils.max(_fixMinFontSpace, _curfontSize);
-				_leftsize += _curfontSize;
-				if (!_isEnglish && _curfontSize <= _fixOtherFontSpace && StringUtils.isSingle(_textChar)) {
-					_leftsize += _fixOtherFontSpace;
-				} else if (_isEnglish) {
-					_leftsize += _fixEnglishFontSpace;
-				}
-				final int _centerFont = _isEnglish ? (_curfontSize + _perfontSize) / 2 : midTextSize + minTextSize / 2;
-				if (i != _textsize - 1) {
-					final String tmpText = String.valueOf(_textChar);
-					_curFont.drawString(g, tmpText,
-							midTextSize + (_printLocation.x + _leftsize + _leftoffset - _centerFont) + _spaceTextX,
-							((_offsettext * _fontHeight) + _printLocation.y + _fontSize + _topoffset) + _spaceTextY,
-							getGradientFontColor(i, _textsize, _fontColor));
-				} else if (!_newLine && !_onComplete) {
-					_iconX = midTextSize + (_printLocation.x + _leftsize + _leftoffset - _centerFont) + _spaceTextX;
-					_iconY = ((_offsettext * _fontHeight) + _printLocation.y + _fontSize + _topoffset) + _spaceTextY
-							+ _curFont.getAscent();
-					if (_isIconFlag && _iconX != 0 && _iconY != 0) {
-						fixIconPos();
-						g.draw(_creeseIcon, _iconLocation.x, _iconLocation.y);
-					}
-				}
-				_index++;
+				continue;
+			} else if ((_index > _messageLength) || (_textChar == LSystem.LF) || (_leftsize
+					+ _leftoffset >= (_width - (maxTextSize + minTextSize) + _fixPixelSizeOfRightBorder))) {
+				_index = 0;
+				_leftsize = _textoffsetSize;
+				_offsettext++;
+				_newLine = false;
+			} else if (_textChar == LSystem.BACKSLASH) {
+				continue;
 			}
-			if (_onComplete) {
+			_perfontSize = _curFont.charWidth(_textChar);
+			if (!_isEnglish) {
+				if (CharUtils.isAlphaOrDigit(_textChar)) {
+					if (_perfontSize < _fontSize) {
+						_curfontSize = _fontSize;
+					} else {
+						_curfontSize = _perfontSize;
+					}
+				} else {
+					_curfontSize = _fontSize;
+				}
+			} else if (_perfontSize != 0 && _textChar != LSystem.SPACE && _textChar != LSystem.TAB) {
+				if (_perfontSize < midTextSize) {
+					_curfontSize = MathUtils.max(_perfontSize, midTextSize - 1);
+				} else {
+					_curfontSize = MathUtils.clamp(_perfontSize, minTextSize, maxTextSize);
+				}
+			}
+			_curfontSize = MathUtils.max(_fixMinFontSpace, _curfontSize);
+			_leftsize += _curfontSize;
+			if (!_isEnglish && _curfontSize <= _fixOtherFontSpace && StringUtils.isSingle(_textChar)) {
+				_leftsize += _fixOtherFontSpace;
+			} else if (_isEnglish) {
+				_leftsize += _fixEnglishFontSpace;
+			}
+			final int _centerFont = _isEnglish ? (_curfontSize + _perfontSize) / 2 : midTextSize + minTextSize / 2;
+			if (i != _textsize - 1) {
+				final String tmpText = String.valueOf(_textChar);
+				_curFont.drawString(g, tmpText,
+						midTextSize + (_printLocation.x + _leftsize + _leftoffset - _centerFont) + _spaceTextX,
+						((_offsettext * _fontHeight) + _printLocation.y + _fontSize + _topoffset) + _spaceTextY,
+						getGradientFontColor(i, _textsize, _fontColor));
+			} else if (!_newLine && !_onComplete) {
+				_iconX = midTextSize + (_printLocation.x + _leftsize + _leftoffset - _centerFont) + _spaceTextX;
+				_iconY = ((_offsettext * _fontHeight) + _printLocation.y + _fontSize + _topoffset) + _spaceTextY
+						+ _curFont.getAscent();
 				if (_isIconFlag && _iconX != 0 && _iconY != 0) {
 					fixIconPos();
 					g.draw(_creeseIcon, _iconLocation.x, _iconLocation.y);
 				}
 			}
-			if (_messageCount == _nextflag) {
-				_onComplete = true;
+			_index++;
+		}
+		if (_onComplete) {
+			if (_isIconFlag && _iconX != 0 && _iconY != 0) {
+				fixIconPos();
+				g.draw(_creeseIcon, _iconLocation.x, _iconLocation.y);
 			}
-
+		}
+		if (_messageCount == _nextflag) {
+			_onComplete = true;
 		}
 	}
 
