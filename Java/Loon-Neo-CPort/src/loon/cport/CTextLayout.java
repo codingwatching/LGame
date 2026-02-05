@@ -183,7 +183,7 @@ public class CTextLayout extends loon.font.TextLayout {
 						STYLE_TO_STBFONT[loonFont.style.ordinal()]);
 			} else {
 				String sysFontName = fontName;
-				if ("dialog".equalsIgnoreCase(fontName) || "default".equalsIgnoreCase(fontName)) {
+				if (STBFont.defaultFontName.equalsIgnoreCase(fontName) || "default".equalsIgnoreCase(fontName)) {
 					sysFontName = "SimHei";
 				} else {
 					sysFontName = getSystemFontName(sysFontName);
@@ -323,8 +323,7 @@ public class CTextLayout extends loon.font.TextLayout {
 		if (message == null) {
 			return 0;
 		}
-		return MathUtils
-				.iceil(MathUtils.max(_fontSize, _stbFont.measureWidth(message, _fontSize)));
+		return MathUtils.iceil(MathUtils.max(_fontSize, _stbFont.measureWidth(message, _fontSize)));
 	}
 
 	@Override

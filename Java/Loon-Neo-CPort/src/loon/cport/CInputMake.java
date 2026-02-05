@@ -132,6 +132,7 @@ public class CInputMake extends InputMake implements LRelease {
 					}
 				}
 				if (slot == -1) {
+					_wasJustTouched = true;
 					for (int j = 0; j < DEF_MAX_TOUCHES; j++) {
 						if (_rawTouchIds[j] == -1) {
 							_rawTouchIds[j] = id;

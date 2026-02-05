@@ -30,6 +30,8 @@ import loon.utils.StringUtils;
 
 public final class STBFont implements LRelease {
 
+	public final static String defaultFontName = "dialog";
+
 	public final static class VMetric {
 
 		public int ascent;
@@ -88,7 +90,11 @@ public final class STBFont implements LRelease {
 		if (!SDLCall.fileExists(baseFile)) {
 			baseFile = PathUtils.getCombinePaths(LSystem.getPathPrefix(), path);
 			if (!SDLCall.fileExists(baseFile)) {
-				baseFile = path;
+				if (defaultFontName.equalsIgnoreCase(PathUtils.getBaseFileName(path))) {
+					baseFile = path;
+				} else {
+					return convertFontPath(defaultFontName + ".ttf");
+				}
 			}
 		}
 		return baseFile;

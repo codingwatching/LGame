@@ -28,7 +28,7 @@ import java.nio.IntBuffer;
 import java.nio.ShortBuffer;
 
 import loon.Support;
-import loon.canvas.LColor;
+import loon.utils.MathUtils;
 
 public final class NativeSupport implements Support {
 
@@ -251,69 +251,71 @@ public final class NativeSupport implements Support {
 	@Override
 	public final void filterColor(int maxPixel, int pixelStart, int pixelEnd, int[] src, int[] dst, int[] colors,
 			int c1, int c2) {
-
 		final int length = src.length;
+		final int start, end, targetColor;
 		if (pixelStart < pixelEnd) {
-			final int start = pixelStart + 1;
-			final int end = pixelEnd + 1;
+			start = pixelStart + 1;
+			end = pixelEnd + 1;
+			targetColor = c1;
 			if (end > maxPixel) {
 				return;
 			}
-			for (int i = 0; i < length; i++) {
-				if (dst[i] != 0xffffff) {
-					for (int pixIndex = start; pixIndex < end; pixIndex++) {
-						if (colors[pixIndex] == src[i]) {
-							dst[i] = 0xffffff;
-						} else if (src[i] == c1) {
-							dst[i] = 0xffffff;
-						}
-					}
-				}
-			}
 		} else {
-			final int start = pixelEnd - 1;
-			final int end = pixelStart;
-			if (start < 0) {
+			start = pixelEnd - 1;
+			end = pixelStart;
+			targetColor = c2;
+			if (start < 0)
 				return;
+		}
+		for (int i = 0; i < length; i++) {
+			if (dst[i] == 0xffffff) {
+				continue;
 			}
-			for (int i = 0; i < length; i++) {
-				if (dst[i] != 0xffffff) {
-					for (int pixIndex = start; pixIndex < end; pixIndex++) {
-						if (colors[pixIndex] == src[i]) {
-							dst[i] = 0xffffff;
-						} else if (src[i] == c2) {
-							dst[i] = 0xffffff;
-						}
-					}
+			if (src[i] == targetColor) {
+				dst[i] = 0xffffff;
+				continue;
+			}
+			for (int pixIndex = start; pixIndex < end; pixIndex++) {
+				if (colors[pixIndex] == src[i]) {
+					dst[i] = 0xffffff;
+					break;
 				}
 			}
 		}
-
 	}
 
 	@Override
 	public void filterFractions(int size, float[] fractions, int width, int height, int[] pixels, int numElements) {
-
-		int x, y;
-		int idx = 0;
 		for (int j = 0; j < size; j++) {
-			idx = j * numElements;
-			if (fractions[idx + 4] != 0xffffff) {
-				if (fractions[idx + 5] <= 0) {
-					fractions[idx + 0] += fractions[idx + 2];
-					fractions[idx + 1] += fractions[idx + 3];
-					fractions[idx + 3] += 0.1;
-				} else {
-					fractions[idx + 5]--;
-				}
-				x = (int) fractions[idx + 0];
-				y = (int) fractions[idx + 1];
-				if (x > -1 && y > -1 && x < width && y < height) {
-					pixels[x + y * width] = (int) fractions[idx + 4];
-				}
+			final int idx = j * numElements;
+			float fx = fractions[idx];
+			float fy = fractions[idx + 1];
+			float dx = fractions[idx + 2];
+			float dy = fractions[idx + 3];
+			final int color = (int) fractions[idx + 4];
+			int delay = (int) fractions[idx + 5];
+			if (color == 0xffffff) {
+				continue;
 			}
+			if (delay <= 0) {
+				fx += dx;
+				fy += dy;
+				dy += 0.1f;
+			} else {
+				delay--;
+			}
+			int x = (int) fx;
+			int y = (int) fy;
+			if (x >= 0 && y >= 0 && x < width && y < height) {
+				pixels[x + y * width] = color;
+			}
+			fractions[idx] = fx;
+			fractions[idx + 1] = fy;
+			fractions[idx + 2] = dx;
+			fractions[idx + 3] = dy;
+			fractions[idx + 4] = color;
+			fractions[idx + 5] = delay;
 		}
-
 	}
 
 	public final int M00 = 0;
@@ -335,282 +337,275 @@ public final class NativeSupport implements Support {
 
 	@Override
 	public void mul(float[] mata, float[] matb) {
-
+		float m00 = mata[M00], m01 = mata[M01], m02 = mata[M02], m03 = mata[M03];
+		float m10 = mata[M10], m11 = mata[M11], m12 = mata[M12], m13 = mata[M13];
+		float m20 = mata[M20], m21 = mata[M21], m22 = mata[M22], m23 = mata[M23];
+		float m30 = mata[M30], m31 = mata[M31], m32 = mata[M32], m33 = mata[M33];
 		float[] tmp = new float[16];
-		tmp[M00] = mata[M00] * matb[M00] + mata[M01] * matb[M10] + mata[M02] * matb[M20] + mata[M03] * matb[M30];
-		tmp[M01] = mata[M00] * matb[M01] + mata[M01] * matb[M11] + mata[M02] * matb[M21] + mata[M03] * matb[M31];
-		tmp[M02] = mata[M00] * matb[M02] + mata[M01] * matb[M12] + mata[M02] * matb[M22] + mata[M03] * matb[M32];
-		tmp[M03] = mata[M00] * matb[M03] + mata[M01] * matb[M13] + mata[M02] * matb[M23] + mata[M03] * matb[M33];
-		tmp[M10] = mata[M10] * matb[M00] + mata[M11] * matb[M10] + mata[M12] * matb[M20] + mata[M13] * matb[M30];
-		tmp[M11] = mata[M10] * matb[M01] + mata[M11] * matb[M11] + mata[M12] * matb[M21] + mata[M13] * matb[M31];
-		tmp[M12] = mata[M10] * matb[M02] + mata[M11] * matb[M12] + mata[M12] * matb[M22] + mata[M13] * matb[M32];
-		tmp[M13] = mata[M10] * matb[M03] + mata[M11] * matb[M13] + mata[M12] * matb[M23] + mata[M13] * matb[M33];
-		tmp[M20] = mata[M20] * matb[M00] + mata[M21] * matb[M10] + mata[M22] * matb[M20] + mata[M23] * matb[M30];
-		tmp[M21] = mata[M20] * matb[M01] + mata[M21] * matb[M11] + mata[M22] * matb[M21] + mata[M23] * matb[M31];
-		tmp[M22] = mata[M20] * matb[M02] + mata[M21] * matb[M12] + mata[M22] * matb[M22] + mata[M23] * matb[M32];
-		tmp[M23] = mata[M20] * matb[M03] + mata[M21] * matb[M13] + mata[M22] * matb[M23] + mata[M23] * matb[M33];
-		tmp[M30] = mata[M30] * matb[M00] + mata[M31] * matb[M10] + mata[M32] * matb[M20] + mata[M33] * matb[M30];
-		tmp[M31] = mata[M30] * matb[M01] + mata[M31] * matb[M11] + mata[M32] * matb[M21] + mata[M33] * matb[M31];
-		tmp[M32] = mata[M30] * matb[M02] + mata[M31] * matb[M12] + mata[M32] * matb[M22] + mata[M33] * matb[M32];
-		tmp[M33] = mata[M30] * matb[M03] + mata[M31] * matb[M13] + mata[M32] * matb[M23] + mata[M33] * matb[M33];
+		tmp[M00] = m00 * matb[M00] + m01 * matb[M10] + m02 * matb[M20] + m03 * matb[M30];
+		tmp[M01] = m00 * matb[M01] + m01 * matb[M11] + m02 * matb[M21] + m03 * matb[M31];
+		tmp[M02] = m00 * matb[M02] + m01 * matb[M12] + m02 * matb[M22] + m03 * matb[M32];
+		tmp[M03] = m00 * matb[M03] + m01 * matb[M13] + m02 * matb[M23] + m03 * matb[M33];
+		tmp[M10] = m10 * matb[M00] + m11 * matb[M10] + m12 * matb[M20] + m13 * matb[M30];
+		tmp[M11] = m10 * matb[M01] + m11 * matb[M11] + m12 * matb[M21] + m13 * matb[M31];
+		tmp[M12] = m10 * matb[M02] + m11 * matb[M12] + m12 * matb[M22] + m13 * matb[M32];
+		tmp[M13] = m10 * matb[M03] + m11 * matb[M13] + m12 * matb[M23] + m13 * matb[M33];
+		tmp[M20] = m20 * matb[M00] + m21 * matb[M10] + m22 * matb[M20] + m23 * matb[M30];
+		tmp[M21] = m20 * matb[M01] + m21 * matb[M11] + m22 * matb[M21] + m23 * matb[M31];
+		tmp[M22] = m20 * matb[M02] + m21 * matb[M12] + m22 * matb[M22] + m23 * matb[M32];
+		tmp[M23] = m20 * matb[M03] + m21 * matb[M13] + m22 * matb[M23] + m23 * matb[M33];
+		tmp[M30] = m30 * matb[M00] + m31 * matb[M10] + m32 * matb[M20] + m33 * matb[M30];
+		tmp[M31] = m30 * matb[M01] + m31 * matb[M11] + m32 * matb[M21] + m33 * matb[M31];
+		tmp[M32] = m30 * matb[M02] + m31 * matb[M12] + m32 * matb[M22] + m33 * matb[M32];
+		tmp[M33] = m30 * matb[M03] + m31 * matb[M13] + m32 * matb[M23] + m33 * matb[M33];
 		System.arraycopy(tmp, 0, mata, 0, 16);
-
 	}
 
 	@Override
 	public void mulVec(float[] mat, float[] vec) {
-
-		float x = vec[0] * mat[M00] + vec[1] * mat[M01] + vec[2] * mat[M02] + mat[M03];
-		float y = vec[0] * mat[M10] + vec[1] * mat[M11] + vec[2] * mat[M12] + mat[M13];
-		float z = vec[0] * mat[M20] + vec[1] * mat[M21] + vec[2] * mat[M22] + mat[M23];
-		vec[0] = x;
-		vec[1] = y;
-		vec[2] = z;
-
+		float vx = vec[0], vy = vec[1], vz = vec[2];
+		vec[0] = vx * mat[M00] + vy * mat[M01] + vz * mat[M02] + mat[M03];
+		vec[1] = vx * mat[M10] + vy * mat[M11] + vz * mat[M12] + mat[M13];
+		vec[2] = vx * mat[M20] + vy * mat[M21] + vz * mat[M22] + mat[M23];
 	}
 
 	@Override
 	public void mulVec(float[] mat, float[] vecs, int offset, int numVecs, int stride) {
-
 		for (int i = 0; i < numVecs; i++) {
-			float[] vecPtr = new float[stride];
-			System.arraycopy(vecs, offset, vecPtr, 0, stride);
-			mulVec(mat, vecPtr);
+			int idx = offset + i * stride;
+			float vx = vecs[idx], vy = vecs[idx + 1], vz = vecs[idx + 2];
+			vecs[idx] = vx * mat[M00] + vy * mat[M01] + vz * mat[M02] + mat[M03];
+			vecs[idx + 1] = vx * mat[M10] + vy * mat[M11] + vz * mat[M12] + mat[M13];
+			vecs[idx + 2] = vx * mat[M20] + vy * mat[M21] + vz * mat[M22] + mat[M23];
 		}
-
 	}
 
 	@Override
 	public void prj(float[] mat, float[] vec) {
-
-		float inv_w = 1.0f / (vec[0] * mat[M30] + vec[1] * mat[M31] + vec[2] * mat[M32] + mat[M33]);
-		float x = (vec[0] * mat[M00] + vec[1] * mat[M01] + vec[2] * mat[M02] + mat[M03]) * inv_w;
-		float y = (vec[0] * mat[M10] + vec[1] * mat[M11] + vec[2] * mat[M12] + mat[M13]) * inv_w;
-		float z = (vec[0] * mat[M20] + vec[1] * mat[M21] + vec[2] * mat[M22] + mat[M23]) * inv_w;
-		vec[0] = x;
-		vec[1] = y;
-		vec[2] = z;
-
+		float vx = vec[0], vy = vec[1], vz = vec[2];
+		float inv_w = 1.0f / (vx * mat[M30] + vy * mat[M31] + vz * mat[M32] + mat[M33]);
+		vec[0] = (vx * mat[M00] + vy * mat[M01] + vz * mat[M02] + mat[M03]) * inv_w;
+		vec[1] = (vx * mat[M10] + vy * mat[M11] + vz * mat[M12] + mat[M13]) * inv_w;
+		vec[2] = (vx * mat[M20] + vy * mat[M21] + vz * mat[M22] + mat[M23]) * inv_w;
 	}
 
 	@Override
 	public void prj(float[] mat, float[] vecs, int offset, int numVecs, int stride) {
-
 		for (int i = 0; i < numVecs; i++) {
-			float[] vecPtr = new float[stride];
-			System.arraycopy(vecs, offset, vecPtr, 0, stride);
-			prj(mat, vecPtr);
+			int idx = offset + i * stride;
+			float vx = vecs[idx], vy = vecs[idx + 1], vz = vecs[idx + 2];
+			float inv_w = 1.0f / (vx * mat[M30] + vy * mat[M31] + vz * mat[M32] + mat[M33]);
+			vecs[idx] = (vx * mat[M00] + vy * mat[M01] + vz * mat[M02] + mat[M03]) * inv_w;
+			vecs[idx + 1] = (vx * mat[M10] + vy * mat[M11] + vz * mat[M12] + mat[M13]) * inv_w;
+			vecs[idx + 2] = (vx * mat[M20] + vy * mat[M21] + vz * mat[M22] + mat[M23]) * inv_w;
 		}
-
 	}
 
 	@Override
 	public void rot(float[] mat, float[] vec) {
-
-		float x = vec[0] * mat[M00] + vec[1] * mat[M01] + vec[2] * mat[M02];
-		float y = vec[0] * mat[M10] + vec[1] * mat[M11] + vec[2] * mat[M12];
-		float z = vec[0] * mat[M20] + vec[1] * mat[M21] + vec[2] * mat[M22];
-		vec[0] = x;
-		vec[1] = y;
-		vec[2] = z;
-
+		float vx = vec[0], vy = vec[1], vz = vec[2];
+		vec[0] = vx * mat[M00] + vy * mat[M01] + vz * mat[M02];
+		vec[1] = vx * mat[M10] + vy * mat[M11] + vz * mat[M12];
+		vec[2] = vx * mat[M20] + vy * mat[M21] + vz * mat[M22];
 	}
 
 	@Override
 	public void rot(float[] mat, float[] vecs, int offset, int numVecs, int stride) {
-
 		for (int i = 0; i < numVecs; i++) {
-			float[] vecPtr = new float[stride];
-			System.arraycopy(vecs, offset, vecPtr, 0, stride);
-			rot(mat, vecPtr);
+			int idx = offset + i * stride;
+			float vx = vecs[idx], vy = vecs[idx + 1], vz = vecs[idx + 2];
+			vecs[idx] = vx * mat[M00] + vy * mat[M01] + vz * mat[M02];
+			vecs[idx + 1] = vx * mat[M10] + vy * mat[M11] + vz * mat[M12];
+			vecs[idx + 2] = vx * mat[M20] + vy * mat[M21] + vz * mat[M22];
 		}
-
 	}
 
 	@Override
-	public boolean inv(float[] values) {
-
-		float[] tmp = new float[16];
-		float l_det = det(values);
-		if (l_det == 0)
+	public boolean inv(float[] v) {
+		float m00 = v[M00], m01 = v[M01], m02 = v[M02], m03 = v[M03];
+		float m10 = v[M10], m11 = v[M11], m12 = v[M12], m13 = v[M13];
+		float m20 = v[M20], m21 = v[M21], m22 = v[M22], m23 = v[M23];
+		float m30 = v[M30], m31 = v[M31], m32 = v[M32], m33 = v[M33];
+		float det = det(v);
+		if (det == 0f) {
 			return false;
-		tmp[M00] = values[M12] * values[M23] * values[M31] - values[M13] * values[M22] * values[M31]
-				+ values[M13] * values[M21] * values[M32] - values[M11] * values[M23] * values[M32]
-				- values[M12] * values[M21] * values[M33] + values[M11] * values[M22] * values[M33];
-		tmp[M01] = values[M03] * values[M22] * values[M31] - values[M02] * values[M23] * values[M31]
-				- values[M03] * values[M21] * values[M32] + values[M01] * values[M23] * values[M32]
-				+ values[M02] * values[M21] * values[M33] - values[M01] * values[M22] * values[M33];
-		tmp[M02] = values[M02] * values[M13] * values[M31] - values[M03] * values[M12] * values[M31]
-				+ values[M03] * values[M11] * values[M32] - values[M01] * values[M13] * values[M32]
-				- values[M02] * values[M11] * values[M33] + values[M01] * values[M12] * values[M33];
-		tmp[M03] = values[M03] * values[M12] * values[M21] - values[M02] * values[M13] * values[M21]
-				- values[M03] * values[M11] * values[M22] + values[M01] * values[M13] * values[M22]
-				+ values[M02] * values[M11] * values[M23] - values[M01] * values[M12] * values[M23];
-		tmp[M10] = values[M13] * values[M22] * values[M30] - values[M12] * values[M23] * values[M30]
-				- values[M13] * values[M20] * values[M32] + values[M10] * values[M23] * values[M32]
-				+ values[M12] * values[M20] * values[M33] - values[M10] * values[M22] * values[M33];
-		tmp[M11] = values[M02] * values[M23] * values[M30] - values[M03] * values[M22] * values[M30]
-				+ values[M03] * values[M20] * values[M32] - values[M00] * values[M23] * values[M32]
-				- values[M02] * values[M20] * values[M33] + values[M00] * values[M22] * values[M33];
-		tmp[M12] = values[M03] * values[M12] * values[M30] - values[M02] * values[M13] * values[M30]
-				- values[M03] * values[M10] * values[M32] + values[M00] * values[M13] * values[M32]
-				+ values[M02] * values[M10] * values[M33] - values[M00] * values[M12] * values[M33];
-		tmp[M13] = values[M02] * values[M13] * values[M20] - values[M03] * values[M12] * values[M20]
-				+ values[M03] * values[M10] * values[M22] - values[M00] * values[M13] * values[M22]
-				- values[M02] * values[M10] * values[M23] + values[M00] * values[M12] * values[M23];
-		tmp[M20] = values[M11] * values[M23] * values[M30] - values[M13] * values[M21] * values[M30]
-				+ values[M13] * values[M20] * values[M31] - values[M10] * values[M23] * values[M31]
-				- values[M11] * values[M20] * values[M33] + values[M10] * values[M21] * values[M33];
-		tmp[M21] = values[M03] * values[M21] * values[M30] - values[M01] * values[M23] * values[M30]
-				- values[M03] * values[M20] * values[M31] + values[M00] * values[M23] * values[M31]
-				+ values[M01] * values[M20] * values[M33] - values[M00] * values[M21] * values[M33];
-		tmp[M22] = values[M01] * values[M13] * values[M30] - values[M03] * values[M11] * values[M30]
-				+ values[M03] * values[M10] * values[M31] - values[M00] * values[M13] * values[M31]
-				- values[M01] * values[M10] * values[M33] + values[M00] * values[M11] * values[M33];
-		tmp[M23] = values[M03] * values[M11] * values[M20] - values[M01] * values[M13] * values[M20]
-				- values[M03] * values[M10] * values[M21] + values[M00] * values[M13] * values[M21]
-				+ values[M01] * values[M10] * values[M23] - values[M00] * values[M11] * values[M23];
-		tmp[M30] = values[M12] * values[M21] * values[M30] - values[M11] * values[M22] * values[M30]
-				- values[M12] * values[M20] * values[M31] + values[M10] * values[M22] * values[M31]
-				+ values[M11] * values[M20] * values[M32] - values[M10] * values[M21] * values[M32];
-		tmp[M31] = values[M01] * values[M22] * values[M30] - values[M02] * values[M21] * values[M30]
-				+ values[M02] * values[M20] * values[M31] - values[M00] * values[M22] * values[M31]
-				- values[M01] * values[M20] * values[M32] + values[M00] * values[M21] * values[M32];
-		tmp[M32] = values[M02] * values[M11] * values[M30] - values[M01] * values[M12] * values[M30]
-				- values[M02] * values[M10] * values[M31] + values[M00] * values[M12] * values[M31]
-				+ values[M01] * values[M10] * values[M32] - values[M00] * values[M11] * values[M32];
-		tmp[M33] = values[M01] * values[M12] * values[M20] - values[M02] * values[M11] * values[M20]
-				+ values[M02] * values[M10] * values[M21] - values[M00] * values[M12] * values[M21]
-				- values[M01] * values[M10] * values[M22] + values[M00] * values[M11] * values[M22];
-
-		float inv_det = 1.0f / l_det;
-		values[M00] = tmp[M00] * inv_det;
-		values[M01] = tmp[M01] * inv_det;
-		values[M02] = tmp[M02] * inv_det;
-		values[M03] = tmp[M03] * inv_det;
-		values[M10] = tmp[M10] * inv_det;
-		values[M11] = tmp[M11] * inv_det;
-		values[M12] = tmp[M12] * inv_det;
-		values[M13] = tmp[M13] * inv_det;
-		values[M20] = tmp[M20] * inv_det;
-		values[M21] = tmp[M21] * inv_det;
-		values[M22] = tmp[M22] * inv_det;
-		values[M23] = tmp[M23] * inv_det;
-		values[M30] = tmp[M30] * inv_det;
-		values[M31] = tmp[M31] * inv_det;
-		values[M32] = tmp[M32] * inv_det;
-		values[M33] = tmp[M33] * inv_det;
+		}
+		final float invDet = 1f / det;
+		float[] tmp = new float[16];
+		tmp[M00] = m12 * m23 * m31 - m13 * m22 * m31 + m13 * m21 * m32 - m11 * m23 * m32 - m12 * m21 * m33
+				+ m11 * m22 * m33;
+		tmp[M01] = m03 * m22 * m31 - m02 * m23 * m31 - m03 * m21 * m32 + m01 * m23 * m32 + m02 * m21 * m33
+				- m01 * m22 * m33;
+		tmp[M02] = m02 * m13 * m31 - m03 * m12 * m31 + m03 * m11 * m32 - m01 * m13 * m32 - m02 * m11 * m33
+				+ m01 * m12 * m33;
+		tmp[M03] = m03 * m12 * m21 - m02 * m13 * m21 - m03 * m11 * m22 + m01 * m13 * m22 + m02 * m11 * m23
+				- m01 * m12 * m23;
+		tmp[M10] = m13 * m22 * m30 - m12 * m23 * m30 - m13 * m20 * m32 + m10 * m23 * m32 + m12 * m20 * m33
+				- m10 * m22 * m33;
+		tmp[M11] = m02 * m23 * m30 - m03 * m22 * m30 + m03 * m20 * m32 - m00 * m23 * m32 - m02 * m20 * m33
+				+ m00 * m22 * m33;
+		tmp[M12] = m03 * m12 * m30 - m02 * m13 * m30 - m03 * m10 * m32 + m00 * m13 * m32 + m02 * m10 * m33
+				- m00 * m12 * m33;
+		tmp[M13] = m02 * m13 * m20 - m03 * m12 * m20 + m03 * m10 * m22 - m00 * m13 * m22 - m02 * m10 * m23
+				+ m00 * m12 * m23;
+		tmp[M20] = m11 * m23 * m30 - m13 * m21 * m30 + m13 * m20 * m31 - m10 * m23 * m31 - m11 * m20 * m33
+				+ m10 * m21 * m33;
+		tmp[M21] = m03 * m21 * m30 - m01 * m23 * m30 - m03 * m20 * m31 + m00 * m23 * m31 + m01 * m20 * m33
+				- m00 * m21 * m33;
+		tmp[M22] = m01 * m13 * m30 - m03 * m11 * m30 + m03 * m10 * m31 - m00 * m13 * m31 - m01 * m10 * m33
+				+ m00 * m11 * m33;
+		tmp[M23] = m03 * m11 * m20 - m01 * m13 * m20 - m03 * m10 * m21 + m00 * m13 * m21 + m01 * m10 * m23
+				- m00 * m11 * m23;
+		tmp[M30] = m12 * m21 * m30 - m11 * m22 * m30 - m12 * m20 * m31 + m10 * m22 * m31 + m11 * m20 * m32
+				- m10 * m21 * m32;
+		tmp[M31] = m01 * m22 * m30 - m02 * m21 * m30 + m02 * m20 * m31 - m00 * m22 * m31 - m01 * m20 * m32
+				+ m00 * m21 * m32;
+		tmp[M32] = m02 * m11 * m30 - m01 * m12 * m30 - m02 * m10 * m31 + m00 * m12 * m31 + m01 * m10 * m32
+				- m00 * m11 * m32;
+		tmp[M33] = m01 * m12 * m20 - m02 * m11 * m20 + m02 * m10 * m21 - m00 * m12 * m21 - m01 * m10 * m22
+				+ m00 * m11 * m22;
+		for (int i = 0; i < 16; i++) {
+			v[i] = tmp[i] * invDet;
+		}
 		return true;
-
 	}
 
 	@Override
-	public float det(float[] values) {
-
-		return values[M30] * values[M21] * values[M12] * values[M03]
-				- values[M20] * values[M31] * values[M12] * values[M03]
-				- values[M30] * values[M11] * values[M22] * values[M03]
-				+ values[M10] * values[M31] * values[M22] * values[M03]
-				+ values[M20] * values[M11] * values[M32] * values[M03]
-				- values[M10] * values[M21] * values[M32] * values[M03]
-				- values[M30] * values[M21] * values[M02] * values[M13]
-				+ values[M20] * values[M31] * values[M02] * values[M13]
-				+ values[M30] * values[M01] * values[M22] * values[M13]
-				- values[M00] * values[M31] * values[M22] * values[M13]
-				- values[M20] * values[M01] * values[M32] * values[M13]
-				+ values[M00] * values[M21] * values[M32] * values[M13]
-				+ values[M30] * values[M11] * values[M02] * values[M23]
-				- values[M10] * values[M31] * values[M02] * values[M23]
-				- values[M30] * values[M01] * values[M12] * values[M23]
-				+ values[M00] * values[M31] * values[M12] * values[M23]
-				+ values[M10] * values[M01] * values[M32] * values[M23]
-				- values[M00] * values[M11] * values[M32] * values[M23]
-				- values[M20] * values[M11] * values[M02] * values[M33]
-				+ values[M10] * values[M21] * values[M02] * values[M33]
-				+ values[M20] * values[M01] * values[M12] * values[M33]
-				- values[M00] * values[M21] * values[M12] * values[M33]
-				- values[M10] * values[M01] * values[M22] * values[M33]
-				+ values[M00] * values[M11] * values[M22] * values[M33];
-
+	public float det(float[] v) {
+		float m00 = v[M00], m01 = v[M01], m02 = v[M02], m03 = v[M03];
+		float m10 = v[M10], m11 = v[M11], m12 = v[M12], m13 = v[M13];
+		float m20 = v[M20], m21 = v[M21], m22 = v[M22], m23 = v[M23];
+		float m30 = v[M30], m31 = v[M31], m32 = v[M32], m33 = v[M33];
+		return m30 * m21 * m12 * m03 - m20 * m31 * m12 * m03 - m30 * m11 * m22 * m03 + m10 * m31 * m22 * m03
+				+ m20 * m11 * m32 * m03 - m10 * m21 * m32 * m03 - m30 * m21 * m02 * m13 + m20 * m31 * m02 * m13
+				+ m30 * m01 * m22 * m13 - m00 * m31 * m22 * m13 - m20 * m01 * m32 * m13 + m00 * m21 * m32 * m13
+				+ m30 * m11 * m02 * m23 - m10 * m31 * m02 * m23 - m30 * m01 * m12 * m23 + m00 * m31 * m12 * m23
+				+ m10 * m01 * m32 * m23 - m00 * m11 * m32 * m23 - m20 * m11 * m02 * m33 + m10 * m21 * m02 * m33
+				+ m20 * m01 * m12 * m33 - m00 * m21 * m12 * m33 - m10 * m01 * m22 * m33 + m00 * m11 * m22 * m33;
 	}
 
 	@Override
 	public int[] toColorKey(int[] buffer, int colorKey) {
+		return toColorKey(buffer, colorKey, 0, false);
+	}
 
-		int size = buffer.length;
+	public final static int[] toColorKey(int[] buffer, int colorKey, int newColor) {
+		return toColorKey(buffer, colorKey, newColor, false);
+	}
+
+	public final static int[] toColorKey(int[] buffer, int colorKey, int newColor, boolean alpha) {
+		return toColorKey(buffer, colorKey, newColor, 0.15f, alpha);
+	}
+
+	public final static int[] toColorKey(int[] buffer, int colorKey, int newColor, float vague, boolean alpha) {
+		final int size = buffer.length;
+		final int dr = (colorKey >> 16) & 0xFF;
+		final int dg = (colorKey >> 8) & 0xFF;
+		final int db = colorKey & 0xFF;
+		final int vr = (int) (vague * 255);
+		final int vg = vr;
+		final int vb = vr;
 		for (int i = 0; i < size; i++) {
-			int pixel = buffer[i];
-			if (pixel == colorKey) {
-				buffer[i] = 0x00FFFFFF;
+			final int pixel = buffer[i];
+			final int r = (pixel >> 16) & 0xFF;
+			final int g = (pixel >> 8) & 0xFF;
+			final int b = pixel & 0xFF;
+			if (MathUtils.abs(r - dr) <= vr && MathUtils.abs(g - dg) <= vg && MathUtils.abs(b - db) <= vb) {
+				buffer[i] = newColor;
+			} else if (alpha) {
+				buffer[i] = (pixel & 0x00FFFFFF) | (128 << 24);
 			}
 		}
-
 		return buffer;
 	}
 
 	@Override
 	public int[] toColorKeys(int[] buffer, int[] colors) {
+		return toColorKeys(buffer, colors, 0, false);
+	}
 
-		int length = colors.length;
-		int size = buffer.length;
-		for (int n = 0; n < length; n++) {
-			for (int i = 0; i < size; i++) {
-				int pixel = buffer[i];
-				if (pixel == colors[n]) {
-					buffer[i] = 0x00FFFFFF;
+	public final static int[] toColorKeys(int[] buffer, int[] colors, int newColor) {
+		return toColorKeys(buffer, colors, newColor, false);
+	}
+
+	public final static int[] toColorKeys(int[] buffer, int[] colors, int newColor, boolean alpha) {
+		return toColorKeys(buffer, colors, newColor, 0.15f, alpha);
+	}
+
+	public final static int[] toColorKeys(int[] buffer, int[] colors, int newColor, float vague, boolean alpha) {
+		final int size = buffer.length;
+		final int vagueThreshold = (int) (vague * 255);
+		final int len = colors.length;
+		final int[] rs = new int[len];
+		final int[] gs = new int[len];
+		final int[] bs = new int[len];
+		for (int n = 0; n < len; n++) {
+			final int c = colors[n];
+			rs[n] = (c >> 16) & 0xFF;
+			gs[n] = (c >> 8) & 0xFF;
+			bs[n] = c & 0xFF;
+		}
+		for (int i = 0; i < size; i++) {
+			final int pixel = buffer[i];
+			final int r = (pixel >> 16) & 0xFF;
+			final int g = (pixel >> 8) & 0xFF;
+			final int b = pixel & 0xFF;
+			boolean matched = false;
+			for (int n = 0; n < len; n++) {
+				if (MathUtils.abs(r - rs[n]) <= vagueThreshold && MathUtils.abs(g - gs[n]) <= vagueThreshold
+						&& MathUtils.abs(b - bs[n]) <= vagueThreshold) {
+					matched = true;
+					break;
 				}
 			}
+			if (matched) {
+				buffer[i] = newColor;
+			} else if (alpha) {
+				buffer[i] = (pixel & 0x00FFFFFF) | (128 << 24);
+			}
 		}
-
 		return buffer;
 	}
 
 	@Override
 	public int[] toColorKeyLimit(int[] buffer, int start, int end) {
+		return toColorKeyLimit(buffer, start, end, 0);
+	}
 
-		int sred = LColor.getRed(start);
-		int sgreen = LColor.getGreen(start);
-		int sblue = LColor.getBlue(start);
-		int ered = LColor.getRed(end);
-		int egreen = LColor.getGreen(end);
-		int eblue = LColor.getBlue(end);
-		int size = buffer.length;
-		for (int i = 0; i < size; i++) {
-			int pixel = buffer[i];
-			int r = LColor.getRed(pixel);
-			int g = LColor.getGreen(pixel);
-			int b = LColor.getBlue(pixel);
-			if ((r >= sred && g >= sgreen && b >= sblue) && (r <= ered && g <= egreen && b <= eblue)) {
-				buffer[i] = 0x00FFFFFF;
+	public final static int[] toColorKeyLimit(int[] buffer, int start, int end, int newColor) {
+		final int sred = (start >> 16) & 0xFF;
+		final int sgreen = (start >> 8) & 0xFF;
+		final int sblue = start & 0xFF;
+		final int ered = (end >> 16) & 0xFF;
+		final int egreen = (end >> 8) & 0xFF;
+		final int eblue = end & 0xFF;
+		for (int i = 0, size = buffer.length; i < size; i++) {
+			final int pixel = buffer[i];
+			final int r = (pixel >> 16) & 0xFF;
+			final int g = (pixel >> 8) & 0xFF;
+			final int b = pixel & 0xFF;
+			if (r >= sred && r <= ered && g >= sgreen && g <= egreen && b >= sblue && b <= eblue) {
+				buffer[i] = newColor;
 			}
 		}
-
 		return buffer;
 	}
 
 	@Override
 	public int[] toGray(int[] buffer, int w, int h) {
-
-		int size = w * h;
-		int[] newResult = new int[size];
-		System.arraycopy(buffer, 0, newResult, 0, size);
-		int alpha = 0xFF << 24;
-		for (int i = 0; i < h; i++) {
-			for (int j = 0; j < w; j++) {
-				int idx = w * i + j;
-				int color = newResult[idx];
-				if (color != 0x00FFFFFF) {
-					int red = ((color & 0x00FF0000) >> 16);
-					int green = ((color & 0x0000FF00) >> 8);
-					int blue = color & 0x000000FF;
-					color = (red + green + blue) / 3;
-					color = alpha | (color << 16) | (color << 8) | color;
-					newResult[idx] = color;
-				}
+		final int size = w * h;
+		final int alpha = 0xFF << 24;
+		for (int i = 0; i < size; i++) {
+			int color = buffer[i];
+			if (color != 0x00FFFFFF) {
+				final int r = (color >> 16) & 0xFF;
+				final int g = (color >> 8) & 0xFF;
+				final int b = color & 0xFF;
+				final int gray = (int) (0.299 * r + 0.587 * g + 0.114 * b);
+				buffer[i] = alpha | (gray << 16) | (gray << 8) | gray;
 			}
 		}
-		return newResult;
-
+		return buffer;
 	}
 
 	@Override

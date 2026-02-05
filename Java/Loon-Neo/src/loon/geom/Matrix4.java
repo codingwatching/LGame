@@ -1420,108 +1420,84 @@ public final class Matrix4 extends BaseBufferSupport implements Serializable, XY
 		return count == 6;
 	}
 
+	public final static Matrix4 fromAffine(Affine2f affine) {
+		Matrix4 mat = new Matrix4();
+		float[] v = mat.val;
+		v[0] = affine.m00;
+		v[1] = affine.m01;
+		v[2] = 0;
+		v[3] = affine.tx;
+		v[4] = affine.m10;
+		v[5] = affine.m11;
+		v[6] = 0;
+		v[7] = affine.ty;
+		v[8] = 0;
+		v[9] = 0;
+		v[10] = 1;
+		v[11] = 0;
+		v[12] = 0;
+		v[13] = 0;
+		v[14] = 0;
+		v[15] = 1;
+		return mat;
+	}
+
 	public final Matrix4 thisCombine(final Affine2f affine) {
+		final float m00 = affine.m00, m01 = affine.m01;
+		final float m10 = affine.m10, m11 = affine.m11;
+		final float m03 = affine.tx, m13 = affine.ty;
 
-		final float m00 = affine.m00;
-		final float m10 = affine.m10;
+		final float[] v = this.val;
 
-		final float m01 = affine.m01;
-		final float m11 = affine.m11;
+		final float nm00 = v[M00] * m00 + v[M01] * m10;
+		final float nm01 = v[M00] * m01 + v[M01] * m11;
+		final float nm03 = v[M00] * m03 + v[M01] * m13 + v[M03];
 
-		final float m03 = affine.tx;
-		final float m13 = affine.ty;
+		final float nm10 = v[M10] * m00 + v[M11] * m10;
+		final float nm11 = v[M10] * m01 + v[M11] * m11;
+		final float nm13 = v[M10] * m03 + v[M11] * m13 + v[M13];
 
-		final float nm00 = val[M00] * m00 + val[M01] * m10;
-		final float nm01 = val[M00] * m01 + val[M01] * m11;
-		final float nm02 = val[M02];
-		final float nm03 = val[M00] * m03 + val[M01] * m13 + val[M03];
-		final float nm10 = val[M10] * m00 + val[M11] * m10;
-		final float nm11 = val[M10] * m01 + val[M11] * m11;
-		final float nm12 = val[M12];
-		final float nm13 = val[M10] * m03 + val[M11] * m13 + val[M13];
-		final float nm20 = val[M20] * m00 + val[M21] * m10;
-		final float nm21 = val[M20] * m01 + val[M21] * m11;
-		final float nm22 = val[M22];
-		final float nm23 = val[M20] * m03 + val[M21] * m13 + val[M23];
-		final float nm30 = val[M30] * m00 + val[M31] * m10;
-		final float nm31 = val[M30] * m01 + val[M31] * m11;
-		final float nm32 = val[M32];
-		final float nm33 = val[M30] * m03 + val[M31] * m13 + val[M33];
+		final float nm20 = v[M20] * m00 + v[M21] * m10;
+		final float nm21 = v[M20] * m01 + v[M21] * m11;
+		final float nm23 = v[M20] * m03 + v[M21] * m13 + v[M23];
 
-		this.val[M00] = nm00;
-		this.val[M10] = nm10;
-		this.val[M20] = nm20;
-		this.val[M30] = nm30;
-		this.val[M01] = nm01;
-		this.val[M11] = nm11;
-		this.val[M21] = nm21;
-		this.val[M31] = nm31;
-		this.val[M02] = nm02;
-		this.val[M12] = nm12;
-		this.val[M22] = nm22;
-		this.val[M32] = nm32;
-		this.val[M03] = nm03;
-		this.val[M13] = nm13;
-		this.val[M23] = nm23;
-		this.val[M33] = nm33;
+		final float nm30 = v[M30] * m00 + v[M31] * m10;
+		final float nm31 = v[M30] * m01 + v[M31] * m11;
+		final float nm33 = v[M30] * m03 + v[M31] * m13 + v[M33];
+
+		v[M00] = nm00;
+		v[M01] = nm01;
+		v[M02] = v[M02];
+		v[M03] = nm03;
+		v[M10] = nm10;
+		v[M11] = nm11;
+		v[M12] = v[M12];
+		v[M13] = nm13;
+		v[M20] = nm20;
+		v[M21] = nm21;
+		v[M22] = v[M22];
+		v[M23] = nm23;
+		v[M30] = nm30;
+		v[M31] = nm31;
+		v[M32] = v[M32];
+		v[M33] = nm33;
 
 		return this;
+
 	}
 
 	public final static Matrix4 newCombine(final Matrix4 m1, final Matrix4 m2) {
-		float m00 = m1.val[M00] * m2.val[M00] + m1.val[M01] * m2.val[M10] + m1.val[M02] * m2.val[M20]
-				+ m1.val[M03] * m2.val[M30];
-		float m01 = m1.val[M00] * m2.val[M01] + m1.val[M01] * m2.val[M11] + m1.val[M02] * m2.val[M21]
-				+ m1.val[M03] * m2.val[M31];
-		float m02 = m1.val[M00] * m2.val[M02] + m1.val[M01] * m2.val[M12] + m1.val[M02] * m2.val[M22]
-				+ m1.val[M03] * m2.val[M32];
-		float m03 = m1.val[M00] * m2.val[M03] + m1.val[M01] * m2.val[M13] + m1.val[M02] * m2.val[M23]
-				+ m1.val[M03] * m2.val[M33];
-		float m10 = m1.val[M10] * m2.val[M00] + m1.val[M11] * m2.val[M10] + m1.val[M12] * m2.val[M20]
-				+ m1.val[M13] * m2.val[M30];
-		float m11 = m1.val[M10] * m2.val[M01] + m1.val[M11] * m2.val[M11] + m1.val[M12] * m2.val[M21]
-				+ m1.val[M13] * m2.val[M31];
-		float m12 = m1.val[M10] * m2.val[M02] + m1.val[M11] * m2.val[M12] + m1.val[M12] * m2.val[M22]
-				+ m1.val[M13] * m2.val[M32];
-		float m13 = m1.val[M10] * m2.val[M03] + m1.val[M11] * m2.val[M13] + m1.val[M12] * m2.val[M23]
-				+ m1.val[M13] * m2.val[M33];
-		float m20 = m1.val[M20] * m2.val[M00] + m1.val[M21] * m2.val[M10] + m1.val[M22] * m2.val[M20]
-				+ m1.val[M23] * m2.val[M30];
-		float m21 = m1.val[M20] * m2.val[M01] + m1.val[M21] * m2.val[M11] + m1.val[M22] * m2.val[M21]
-				+ m1.val[M23] * m2.val[M31];
-		float m22 = m1.val[M20] * m2.val[M02] + m1.val[M21] * m2.val[M12] + m1.val[M22] * m2.val[M22]
-				+ m1.val[M23] * m2.val[M32];
-		float m23 = m1.val[M20] * m2.val[M03] + m1.val[M21] * m2.val[M13] + m1.val[M22] * m2.val[M23]
-				+ m1.val[M23] * m2.val[M33];
-		float m30 = m1.val[M30] * m2.val[M00] + m1.val[M31] * m2.val[M10] + m1.val[M32] * m2.val[M20]
-				+ m1.val[M33] * m2.val[M30];
-		float m31 = m1.val[M30] * m2.val[M01] + m1.val[M31] * m2.val[M11] + m1.val[M32] * m2.val[M21]
-				+ m1.val[M33] * m2.val[M31];
-		float m32 = m1.val[M30] * m2.val[M02] + m1.val[M31] * m2.val[M12] + m1.val[M32] * m2.val[M22]
-				+ m1.val[M33] * m2.val[M32];
-		float m33 = m1.val[M30] * m2.val[M03] + m1.val[M31] * m2.val[M13] + m1.val[M32] * m2.val[M23]
-				+ m1.val[M33] * m2.val[M33];
-
-		final Matrix4 m = new Matrix4();
-
-		m.val[M00] = m00;
-		m.val[M10] = m10;
-		m.val[M20] = m20;
-		m.val[M30] = m30;
-		m.val[M01] = m01;
-		m.val[M11] = m11;
-		m.val[M21] = m21;
-		m.val[M31] = m31;
-		m.val[M02] = m02;
-		m.val[M12] = m12;
-		m.val[M22] = m22;
-		m.val[M32] = m32;
-		m.val[M03] = m03;
-		m.val[M13] = m13;
-		m.val[M23] = m23;
-		m.val[M33] = m33;
-
-		return m;
+		final Matrix4 result = new Matrix4();
+		final float[] a = m1.val;
+		final float[] b = m2.val;
+		final float[] r = result.val;
+		for (int row = 0; row < 4; row++) {
+			for (int col = 0; col < 4; col++) {
+				r[row * 4 + col] = a[row * 4 + 0] * b[0 * 4 + col] + a[row * 4 + 1] * b[1 * 4 + col]
+						+ a[row * 4 + 2] * b[2 * 4 + col] + a[row * 4 + 3] * b[3 * 4 + col];
+			}
+		}
+		return result;
 	}
 
 	public Matrix4 setLookAt(float eyeX, float eyeY, float eyeZ, float centerX, float centerY, float centerZ, float upX,
