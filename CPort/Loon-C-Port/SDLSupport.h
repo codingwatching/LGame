@@ -6,6 +6,8 @@
     defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__)
     #define LOON_DESKTOP 1
 #else
+	#undef TEAVM_UNIX
+    #define TEAVM_UNIX 0
     #define LOON_DESKTOP 0
 #endif
 
@@ -21,6 +23,8 @@
     defined(__ATARI__)       || defined(__NGAGE__)      || defined(__OUYA__)
     #define LOON_CONSOLE 1
 #else
+	#undef TEAVM_UNIX
+    #define TEAVM_UNIX 0
     #define LOON_CONSOLE 0
 #endif
 

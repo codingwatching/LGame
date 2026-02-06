@@ -36,54 +36,66 @@ endif()
 
 include(FetchContent)
 
-# ANGLE
-find_package(ANGLE QUIET)
-if(NOT ANGLE_FOUND)
-    message(STATUS "未找到 ANGLE，自动下载...")
-    FetchContent_Declare(angle
-      GIT_REPOSITORY https://github.com/google/angle.git
-      GIT_TAG main)
-    FetchContent_MakeAvailable(angle)
+set(FETCHCONTENT_QUIET OFF)
+set(CMAKE_FETCHCONTENT_PROGRESS TRUE)
+
+message(STATUS "配置 ANGLE...")
+FetchContent_Declare(
+  angle
+  GIT_REPOSITORY https://github.com/google/angle.git
+  GIT_TAG main
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(angle)
+
+if(WIN32)
+    # Windows 默认使用 D3D11
+    set(ANGLE_ENABLE_D3D11 ON CACHE BOOL "Enable D3D11 backend" FORCE)
+    set(ANGLE_ENABLE_OPENGL OFF CACHE BOOL "Disable OpenGL backend" FORCE)
+    set(ANGLE_ENABLE_VULKAN OFF CACHE BOOL "Disable Vulkan backend" FORCE)
+elseif(APPLE)
+    # macOS 使用 Metal
+    set(ANGLE_ENABLE_METAL ON CACHE BOOL "Enable Metal backend" FORCE)
+    set(ANGLE_ENABLE_OPENGL OFF CACHE BOOL "Disable OpenGL backend" FORCE)
+    set(ANGLE_ENABLE_VULKAN OFF CACHE BOOL "Disable Vulkan backend" FORCE)
+else()
+    # Linux 默认使用 OpenGL 或 Vulkan
+    set(ANGLE_ENABLE_OPENGL ON CACHE BOOL "Enable OpenGL backend" FORCE)
+    set(ANGLE_ENABLE_VULKAN ON CACHE BOOL "Enable Vulkan backend" FORCE)
 endif()
 
-# SDL2
-find_package(SDL2 QUIET)
-if(NOT SDL2_FOUND)
-    message(STATUS "未找到 SDL2，自动下载...")
-    FetchContent_Declare(SDL2
-      GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
-      GIT_TAG release-2.32.10)
-    FetchContent_MakeAvailable(SDL2)
-endif()
+FetchContent_Declare(
+  SDL2
+  GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+  GIT_TAG release-2.32.10
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(SDL2)
 
-# SDL2_image
-find_package(SDL2_image QUIET)
-if(NOT SDL2_IMAGE_FOUND)
-    message(STATUS "未找到 SDL2_image，自动下载...")
-    FetchContent_Declare(SDL2_image
-      GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
-      GIT_TAG release-2.8.8)
-    FetchContent_MakeAvailable(SDL2_image)
-endif()
+FetchContent_Declare(
+  SDL2_image
+  GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
+  GIT_TAG release-2.8.8
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(SDL2_image)
 
-# SDL2_mixer
-find_package(SDL2_mixer QUIET)
-if(NOT SDL2_MIXER_FOUND)
-    message(STATUS "未找到 SDL2_mixer，自动下载...")
-    FetchContent_Declare(SDL2_mixer
-      GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
-      GIT_TAG release-2.8.1)
-    FetchContent_MakeAvailable(SDL2_mixer)
-endif()
+FetchContent_Declare(
+  SDL2_mixer
+  GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
+  GIT_TAG release-2.8.1
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(SDL2_mixer)
 
 add_executable(MySDLApp ${SOURCES} ${MAIN_FILE})
 
-# 链接依赖库
 target_link_libraries(MySDLApp
     SDL2
     SDL2_image
     SDL2_mixer
-    angle
+    EGL
+    GLESv2
 )
 
 if(NOT CMAKE_C_STANDARD EQUAL 11)

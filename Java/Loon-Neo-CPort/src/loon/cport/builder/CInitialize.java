@@ -34,36 +34,37 @@ import loon.cport.assets.AssetFile;
 
 public class CInitialize {
 
-	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, TeaVMOptimizationLevel level)
-			throws IOException {
-		create(clazz, obfuscated, debug, level, "build/dist", "capp");
+	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, boolean outputResources,
+			TeaVMOptimizationLevel level) throws IOException {
+		create(clazz, obfuscated, debug, outputResources, level, "build/dist", "capp");
 	}
 
-	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, TeaVMOptimizationLevel level,
-			String appName) throws IOException {
-		create(clazz, obfuscated, debug, level, "build/dist", appName);
+	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, boolean outputResources,
+			TeaVMOptimizationLevel level, String appName) throws IOException {
+		create(clazz, obfuscated, debug, outputResources, level, "build/dist", appName);
 	}
 
-	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, TeaVMOptimizationLevel level,
+	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, boolean outputResources,
+			TeaVMOptimizationLevel level, String buildPath, String appName) throws IOException {
+		create(clazz, obfuscated, debug, outputResources, level, TargetType.CPort, null, null, null, buildPath,
+				appName);
+	}
+
+	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, boolean outputResources,
+			TeaVMOptimizationLevel level, TargetType target, String buildPath, String appName) throws IOException {
+		create(clazz, obfuscated, debug, outputResources, level, target, null, null, null, buildPath, appName);
+	}
+
+	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, boolean outputResources,
+			TeaVMOptimizationLevel level, TargetType target, String[] assetPath, String[] sourcePath, String[] reflects,
 			String buildPath, String appName) throws IOException {
-		create(clazz, obfuscated, debug, level, TargetType.CPort, null, null, null, buildPath, appName);
+		create((clazz == null ? "none" : clazz.getName()), obfuscated, debug, outputResources, level, target, assetPath,
+				sourcePath, reflects, buildPath, appName);
 	}
 
-	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, TeaVMOptimizationLevel level,
-			TargetType target, String buildPath, String appName) throws IOException {
-		create(clazz, obfuscated, debug, level, target, null, null, null, buildPath, appName);
-	}
-
-	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, TeaVMOptimizationLevel level,
-			TargetType target, String[] assetPath, String[] sourcePath, String[] reflects, String buildPath,
-			String appName) throws IOException {
-		create((clazz == null ? "none" : clazz.getName()), obfuscated, debug, level, target, assetPath, sourcePath,
-				reflects, buildPath, appName);
-	}
-
-	public static void create(String mainClassName, boolean obfuscated, boolean debug, TeaVMOptimizationLevel level,
-			TargetType target, String[] assetPath, String[] sourcePath, String[] reflects, String buildPath,
-			String appName) throws IOException {
+	public static void create(String mainClassName, boolean obfuscated, boolean debug, boolean outputResources,
+			TeaVMOptimizationLevel level, TargetType target, String[] assetPath, String[] sourcePath, String[] reflects,
+			String buildPath, String appName) throws IOException {
 		if (reflects != null) {
 			for (int i = 0; i < reflects.length; i++) {
 				final String refPackName = reflects[i];
@@ -78,7 +79,7 @@ public class CInitialize {
 		cbuildConfiguration.assetsPath.add(new AssetFile("../assets"));
 		cbuildConfiguration.assetsPath.add(new AssetFile("../src/main/java/loon/assets"));
 		cbuildConfiguration.assetsPath.add(new AssetFile("../src/loon/assets"));
-		cbuildConfiguration.assetsPath.add(new AssetFile("src/main/webapp/assets"));
+		cbuildConfiguration.assetsPath.add(new AssetFile("src/main/assets"));
 		cbuildConfiguration.assetsPath.add(new AssetFile("src/assets"));
 		cbuildConfiguration.assetsPath.add(new AssetFile("assets"));
 		if (assetPath != null) {
@@ -88,6 +89,7 @@ public class CInitialize {
 			}
 		}
 		cbuildConfiguration.shouldGenerateAssetFile = true;
+		cbuildConfiguration.outputResources = outputResources;
 		cbuildConfiguration.cappPath = new File(buildPath).getCanonicalPath();
 		cbuildConfiguration.targetType = target;
 		CBuilder.config(cbuildConfiguration);

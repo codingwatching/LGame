@@ -1,58 +1,95 @@
 @echo off
-setlocal
+setlocal enabledelayedexpansion
 
+:: Check if source path parameter is provided
 if "%~1"=="" (
-    echo [错误] 请在运行脚本时指定源码路径。
-    echo 用法: build_uwp.bat <源码路径>
+    echo [ERROR] Please specify the source path when running the script.
+    echo Usage: build_uwp.bat <source_path>
     pause
     exit /b 1
 )
 
 set SRC_DIR=%~1
 
+:: Check if source path exists
 if not exist "%SRC_DIR%" (
-    echo [错误] 指定的源码路径不存在: %SRC_DIR%
+    echo [ERROR] The specified source path does not exist: %SRC_DIR%
     pause
     exit /b 1
 )
 
-REM 检查是否安装了 CMake
+:: Check if CMake is installed
 where cmake >nul 2>nul
 if errorlevel 1 (
-    echo [错误] 未检测到 CMake，请先安装并加入 PATH。
+    echo [ERROR] CMake not detected. Please install CMake and add it to PATH.
     pause
     exit /b 1
 )
 
-REM 检查是否安装了 Visual Studio UWP 工具集
-where msbuild >nul 2>nul
-if errorlevel 1 (
-    echo [错误] 未检测到 MSBuild，请确认已安装 Visual Studio 并启用 UWP 工作负载。
+:: Detect available Visual Studio version
+set GENERATOR=
+cmake --help | findstr /C:"Visual Studio 18 2026" >nul && set GENERATOR=Visual Studio 18 2026
+if "!GENERATOR!"=="" (
+    cmake --help | findstr /C:"Visual Studio 17 2022" >nul && set GENERATOR=Visual Studio 17 2022
+)
+if "!GENERATOR!"=="" (
+    cmake --help | findstr /C:"Visual Studio 16 2019" >nul && set GENERATOR=Visual Studio 16 2019
+)
+
+if "!GENERATOR!"=="" (
+    echo [ERROR] No supported Visual Studio generator found (2019, 2022, 2026).
     pause
     exit /b 1
 )
 
-echo [信息] 使用 UWP 工具链进行构建
+echo [INFO] Using generator: !GENERATOR!
+echo [INFO] Using UWP toolchain for build
 
-cmake -B build -S . -G "Visual Studio 17 2022" -A x64 ^
+:: Build for x64
+echo [INFO] Configuring UWP project for x64...
+cmake -B build_x64 -S . -G "!GENERATOR!" -A x64 ^
     -DCMAKE_SYSTEM_NAME=WindowsStore ^
     -DCMAKE_SYSTEM_VERSION=10.0 ^
     -DCMAKE_GENERATOR_PLATFORM=x64 ^
     -DCMAKE_BUILD_TYPE=Release ^
-    -DSRC_DIR="%SRC_DIR%"
+    -DSRC_DIR="!SRC_DIR!"
 
 if errorlevel 1 (
-    echo [错误] CMake 配置失败。
+    echo [ERROR] CMake configuration failed for x64.
     pause
     exit /b 1
 )
 
-cmake --build build --config Release
+cmake --build build_x64 --config Release
 if errorlevel 1 (
-    echo [错误] 构建失败。
+    echo [ERROR] Build failed for x64.
     pause
     exit /b 1
 )
 
-echo [成功] 构建完成！UWP 应用包位于 build\Release\MySDLApp.appx，可在 Windows 10/11 UWP 环境中运行。
+:: Build for ARM64
+echo [INFO] Configuring UWP project for ARM64...
+cmake -B build_arm64 -S . -G "!GENERATOR!" -A ARM64 ^
+    -DCMAKE_SYSTEM_NAME=WindowsStore ^
+    -DCMAKE_SYSTEM_VERSION=10.0 ^
+    -DCMAKE_GENERATOR_PLATFORM=ARM64 ^
+    -DCMAKE_BUILD_TYPE=Release ^
+    -DSRC_DIR="!SRC_DIR!"
+
+if errorlevel 1 (
+    echo [ERROR] CMake configuration failed for ARM64.
+    pause
+    exit /b 1
+)
+
+cmake --build build_arm64 --config Release
+if errorlevel 1 (
+    echo [ERROR] Build failed for ARM64.
+    pause
+    exit /b 1
+)
+
+echo [SUCCESS] Build completed! UWP app packages are located at:
+echo   build_x64\Release\MySDLApp.appx   (x64)
+echo   build_arm64\Release\MySDLApp.appx (ARM64)
 pause

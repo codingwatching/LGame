@@ -80,8 +80,8 @@ public class CProperties {
 
 	public static List<String> getResources(ArrayList<URL> acceptedURL) {
 		ArrayList<CProperties> propertiesList = getAllProperties(acceptedURL);
-		ArrayList<URI> filteredUrl = new ArrayList<>();
-		HashSet<String> ignoreResources = new HashSet<>();
+		ArrayList<URI> filteredUrl = new ArrayList<URI>();
+		HashSet<String> ignoreResources = new HashSet<String>();
 		for (URL url : acceptedURL) {
 			String path = url.getPath();
 			boolean accept = false;
@@ -108,7 +108,7 @@ public class CProperties {
 			}
 		}
 
-		ArrayList<String> result = new ArrayList<>();
+		ArrayList<String> result = new ArrayList<String>();
 		for (URI uri : filteredUrl) {
 			ArrayList<String> pathsFromResource = getPathsFromResource(uri, ".");
 			for (String resource : pathsFromResource) {
@@ -130,7 +130,7 @@ public class CProperties {
 	}
 
 	private static ArrayList<CProperties> getAllProperties(ArrayList<URL> acceptedURL) {
-		ArrayList<String> filteredUrl = new ArrayList<>();
+		ArrayList<String> filteredUrl = new ArrayList<String>();
 		for (URL url : acceptedURL) {
 			String path = url.getPath();
 			path = URLDecoder.decode(path, StandardCharsets.UTF_8);

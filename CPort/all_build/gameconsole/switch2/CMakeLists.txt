@@ -102,5 +102,5 @@ target_link_libraries(MySDLApp
     ${SDL_LIB}
     ${SDL_IMAGE}
     ${SDL_MIXER}
-    angle
+    angle_gl
 )

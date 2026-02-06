@@ -5,15 +5,29 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 add_compile_options(-O3)
 
-set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_SYSTEM_NAME Orbis)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
 
 if(NOT DEFINED ENV{PS4SDK})
-    message(FATAL_ERROR "未检测到 PS4SDK 环境变量")
+    message(FATAL_ERROR "未检测到 PS4SDK 环境变量，请设置 PS4SDK 指向 OpenOrbis 工具链目录")
 endif()
 
 set(PS4SDK $ENV{PS4SDK})
-set(CMAKE_TOOLCHAIN_FILE "${PS4SDK}/share/ps4.toolchain.cmake")
+
+set(PS4_TOOLCHAIN_FILE "${PS4SDK}/share/toolchain/ps4.toolchain.cmake")
+
+if(EXISTS "${PS4_TOOLCHAIN_FILE}")
+    set(CMAKE_TOOLCHAIN_FILE "${PS4_TOOLCHAIN_FILE}" CACHE FILEPATH "PS4 toolchain file")
+    message(STATUS "使用的 PS4 toolchain 路径: ${PS4_TOOLCHAIN_FILE}")
+else()
+    set(PS4_TOOLCHAIN_FILE_ALT "${PS4SDK}/share/ps4.toolchain.cmake")
+    if(EXISTS "${PS4_TOOLCHAIN_FILE_ALT}")
+        set(CMAKE_TOOLCHAIN_FILE "${PS4_TOOLCHAIN_FILE_ALT}" CACHE FILEPATH "PS4 toolchain file (alt)")
+        message(STATUS "使用的 PS4 toolchain 路径: ${PS4_TOOLCHAIN_FILE_ALT}")
+    else()
+        message(FATAL_ERROR "未找到 ps4.toolchain.cmake，请检查 PS4SDK 路径是否正确")
+    endif()
+endif()
 
 if(NOT DEFINED SRC_DIR)
     set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
@@ -27,48 +41,65 @@ if(NOT EXISTS ${MAIN_FILE})
 endif()
 
 include(FetchContent)
+
 set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/third_party)
 
-# SDL2
+# SDL2 for PS4
+# 强制限定搜索路径到 PS4SDK，避免误用主机 SDL2
+set(CMAKE_PREFIX_PATH "${PS4SDK}/arm-orbis-eabi" ${CMAKE_PREFIX_PATH})
+
 find_package(SDL2 QUIET)
-if(NOT SDL2_FOUND)
-  FetchContent_Declare(
-    SDL2_PS4
-    GIT_REPOSITORY https://github.com/ps4dev/SDL.git
-    GIT_TAG release-2.30.x-ps4
-    SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_ps4-src
-    BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_ps4-build
-  )
-  FetchContent_MakeAvailable(SDL2_PS4)
-  add_library(SDL2_PS4::SDL2 ALIAS SDL2)
+
+if(SDL2_FOUND AND SDL2_INCLUDE_DIRS MATCHES "${PS4SDK}")
+    message(STATUS "使用 PS4SDK 中的 SDL2 库")
+    add_library(SDL2_PS4::SDL2 ALIAS SDL2)
+else()
+    message(STATUS "未找到 PS4SDK SDL2，开始下载 SDL-PS4")
+    FetchContent_Declare(
+      SDL2_PS4
+      GIT_REPOSITORY https://github.com/OpenOrbis/SDL-PS4.git
+      GIT_TAG master
+      SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_ps4-src
+      BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_ps4-build
+    )
+    FetchContent_MakeAvailable(SDL2_PS4)
+    add_library(SDL2_PS4::SDL2 ALIAS SDL2)
 endif()
 
 # SDL2_image
 find_package(SDL2_image QUIET)
-if(NOT SDL2_IMAGE_FOUND)
-  FetchContent_Declare(
-    SDL2_image_PS4
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
-    GIT_TAG release-2.8.8
-    SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_ps4-src
-    BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_ps4-build
-  )
-  FetchContent_MakeAvailable(SDL2_image_PS4)
-  add_library(SDL2_PS4::SDL2_image ALIAS SDL2_image)
+if(SDL2_IMAGE_FOUND)
+    message(STATUS "使用本地 SDL2_image 库")
+    add_library(SDL2_PS4::SDL2_image ALIAS SDL2_image)
+else()
+    message(STATUS "未找到本地 SDL2_image，开始下载")
+    FetchContent_Declare(
+      SDL2_image_PS4
+      GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
+      GIT_TAG release-2.8.8
+      SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_ps4-src
+      BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_ps4-build
+    )
+    FetchContent_MakeAvailable(SDL2_image_PS4)
+    add_library(SDL2_PS4::SDL2_image ALIAS SDL2_image)
 endif()
 
 # SDL2_mixer
 find_package(SDL2_mixer QUIET)
-if(NOT SDL2_MIXER_FOUND)
-  FetchContent_Declare(
-    SDL2_mixer_PS4
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
-    GIT_TAG release-2.8.1
-    SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_ps4-src
-    BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_ps4-build
-  )
-  FetchContent_MakeAvailable(SDL2_mixer_PS4)
-  add_library(SDL2_PS4::SDL2_mixer ALIAS SDL2_mixer)
+if(SDL2_MIXER_FOUND)
+    message(STATUS "使用本地 SDL2_mixer 库")
+    add_library(SDL2_PS4::SDL2_mixer ALIAS SDL2_mixer)
+else()
+    message(STATUS "未找到本地 SDL2_mixer，开始下载")
+    FetchContent_Declare(
+      SDL2_mixer_PS4
+      GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
+      GIT_TAG release-2.8.1
+      SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_ps4-src
+      BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_ps4-build
+    )
+    FetchContent_MakeAvailable(SDL2_mixer_PS4)
+    add_library(SDL2_PS4::SDL2_mixer ALIAS SDL2_mixer)
 endif()
 
 add_executable(MySDLApp ${SOURCES} ${MAIN_FILE})

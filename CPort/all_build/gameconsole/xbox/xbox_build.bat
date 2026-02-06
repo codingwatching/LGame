@@ -1,51 +1,107 @@
 @echo off
-setlocal
+setlocal enabledelayedexpansion
 
 if "%~1"=="" (
-    echo [错误] 请在运行脚本时指定源码路径。
-    echo 用法: xbox_build.bat <源码路径>
+    echo [ERROR] Please specify the source path when running the script.
+    echo Usage: xbox_build.bat <source_path>
     pause
     exit /b 1
 )
 
 set SRC_DIR=%~1
 
-if not exist "%SRC_DIR%" (
-    echo [错误] 指定的源码路径不存在: %SRC_DIR%
+if not exist "!SRC_DIR!" (
+    echo [ERROR] The specified source path does not exist: !SRC_DIR!
     pause
     exit /b 1
 )
 
 if not "%GDKXSDK%"=="" (
-    echo [信息] 检测到 GDKX SDK，使用 GDKX 工具链。
-    cmake -B build -S . -G "Visual Studio 17 2022" -A x64 ^
+    echo [INFO] GDKX SDK detected, using GDKX toolchain.
+
+    set GENERATOR=
+    cmake --help | findstr /C:"Visual Studio 18 2026" >nul && set GENERATOR=Visual Studio 18 2026
+    if "!GENERATOR!"=="" (
+        cmake --help | findstr /C:"Visual Studio 17 2022" >nul && set GENERATOR=Visual Studio 17 2022
+    )
+    if "!GENERATOR!"=="" (
+        cmake --help | findstr /C:"Visual Studio 16 2019" >nul && set GENERATOR=Visual Studio 16 2019
+    )
+
+    if "!GENERATOR!"=="" (
+        echo [ERROR] No supported Visual Studio generator found (2019, 2022, 2026).
+        pause
+        exit /b 1
+    )
+
+    echo [INFO] Using generator: !GENERATOR!
+
+    cmake -B build -S . -G "!GENERATOR!" -A x64 ^
         -DCMAKE_SYSTEM_NAME=WindowsStore ^
         -DCMAKE_SYSTEM_VERSION=10.0 ^
         -DCMAKE_GENERATOR_PLATFORM=Gaming.Desktop.x64 ^
         -DCMAKE_BUILD_TYPE=Release ^
-        -DSRC_DIR="%SRC_DIR%" ^
+        -DSRC_DIR="!SRC_DIR!" ^
         -DGDKXSDK="%GDKXSDK%"
+    if errorlevel 1 (
+        echo [ERROR] CMake configuration failed.
+        pause
+        exit /b 1
+    )
     cmake --build build --config Release
+    if errorlevel 1 (
+        echo [ERROR] Build failed.
+        pause
+        exit /b 1
+    )
     goto :done
 )
 
 if not "%XDKSDK%"=="" (
-    echo [信息] 检测到 XDK SDK，使用 XDK 工具链。
-    cmake -B build -S . -G "Visual Studio 17 2022" -A x64 ^
+    echo [INFO] XDK SDK detected, using XDK toolchain.
+
+    set GENERATOR=
+    cmake --help | findstr /C:"Visual Studio 18 2026" >nul && set GENERATOR=Visual Studio 18 2026
+    if "!GENERATOR!"=="" (
+        cmake --help | findstr /C:"Visual Studio 17 2022" >nul && set GENERATOR=Visual Studio 17 2022
+    )
+    if "!GENERATOR!"=="" (
+        cmake --help | findstr /C:"Visual Studio 16 2019" >nul && set GENERATOR=Visual Studio 16 2019
+    )
+
+    if "!GENERATOR!"=="" (
+        echo [ERROR] No supported Visual Studio generator found (2019, 2022, 2026).
+        pause
+        exit /b 1
+    )
+
+    echo [INFO] Using generator: !GENERATOR!
+
+    cmake -B build -S . -G "!GENERATOR!" -A x64 ^
         -DCMAKE_SYSTEM_NAME=Windows ^
         -DCMAKE_SYSTEM_VERSION=10.0 ^
         -DCMAKE_GENERATOR_PLATFORM=Xbox360 ^
         -DCMAKE_BUILD_TYPE=Release ^
-        -DSRC_DIR="%SRC_DIR%" ^
+        -DSRC_DIR="!SRC_DIR!" ^
         -DXDKSDK="%XDKSDK%"
+    if errorlevel 1 (
+        echo [ERROR] CMake configuration failed.
+        pause
+        exit /b 1
+    )
     cmake --build build --config Release
+    if errorlevel 1 (
+        echo [ERROR] Build failed.
+        pause
+        exit /b 1
+    )
     goto :done
 )
 
-echo [错误] 未检测到 GDKXSDK 或 XDKSDK 环境变量，请设置其中之一。
+echo [ERROR] Neither GDKXSDK nor XDKSDK environment variable detected. Please set one of them.
 pause
 exit /b 1
 
 :done
-echo [成功] 构建完成！可执行文件位于 build\Release\MySDLApp.exe
+echo [SUCCESS] Build completed! Executable file is located at build\Release\MySDLApp.exe
 pause

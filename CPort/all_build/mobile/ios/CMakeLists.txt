@@ -25,36 +25,62 @@ set(MAIN_FILE ${SRC_DIR}/all.c)
 
 include(FetchContent)
 
-find_package(ANGLE QUIET)
-if(NOT ANGLE_FOUND)
-    FetchContent_Declare(angle GIT_REPOSITORY https://github.com/google/angle.git GIT_TAG main)
-    FetchContent_MakeAvailable(angle)
-endif()
+# =========================
+# ANGLE
+# =========================
+message(STATUS "配置 ANGLE for iOS...")
+FetchContent_Declare(
+  angle
+  GIT_REPOSITORY https://github.com/google/angle.git
+  GIT_TAG main
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(angle)
 
-find_package(SDL2 QUIET)
-if(NOT SDL2_FOUND)
-    FetchContent_Declare(SDL2 GIT_REPOSITORY https://github.com/libsdl-org/SDL.git GIT_TAG release-2.32.10)
-    FetchContent_MakeAvailable(SDL2)
-endif()
+set(ANGLE_ENABLE_METAL ON CACHE BOOL "Enable Metal backend" FORCE)
+set(ANGLE_ENABLE_OPENGL OFF CACHE BOOL "Disable OpenGL backend" FORCE)
+set(ANGLE_ENABLE_VULKAN OFF CACHE BOOL "Disable Vulkan backend" FORCE)
+set(ANGLE_ENABLE_D3D11 OFF CACHE BOOL "Disable D3D11 backend" FORCE)
 
-find_package(SDL2_image QUIET)
-if(NOT SDL2_IMAGE_FOUND)
-    FetchContent_Declare(SDL2_image GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git GIT_TAG release-2.8.8)
-    FetchContent_MakeAvailable(SDL2_image)
-endif()
+# =========================
+# SDL2
+# =========================
+FetchContent_Declare(
+  SDL2
+  GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+  GIT_TAG release-2.32.10
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(SDL2)
 
-find_package(SDL2_mixer QUIET)
-if(NOT SDL2_MIXER_FOUND)
-    FetchContent_Declare(SDL2_mixer GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git GIT_TAG release-2.8.1)
-    FetchContent_MakeAvailable(SDL2_mixer)
-endif()
+# =========================
+# SDL2_image
+# =========================
+FetchContent_Declare(
+  SDL2_image
+  GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
+  GIT_TAG release-2.8.8
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(SDL2_image)
 
-#构建iOS静态库（供Xcode项目使用）
+# =========================
+# SDL2_mixer
+# =========================
+FetchContent_Declare(
+  SDL2_mixer
+  GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
+  GIT_TAG release-2.8.1
+  DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+)
+FetchContent_MakeAvailable(SDL2_mixer)
+
 add_library(MySDLApp STATIC ${SOURCES} ${MAIN_FILE})
 
 target_link_libraries(MySDLApp
     SDL2
     SDL2_image
     SDL2_mixer
-    angle
+    EGL
+    GLESv2
 )

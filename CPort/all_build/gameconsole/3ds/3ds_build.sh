@@ -1,62 +1,118 @@
 #!/bin/bash
 
+# Check if source path parameter is provided
 if [ -z "$1" ]; then
-    echo "[错误] 请在运行脚本时指定源码路径。"
-    echo "用法: ./3ds_build.sh <源码路径>"
-    exit 1
+    echo "[INFO] No source path specified, defaulting to 'src' under the script directory."
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    SRC_DIR="$SCRIPT_DIR/src"
+else
+    SRC_DIR="$1"
 fi
 
-SRC_DIR=$1
-
+# Check if source path exists
 if [ ! -d "$SRC_DIR" ]; then
-    echo "[错误] 指定的源码路径不存在: $SRC_DIR"
-    exit 1
+    echo "[WARNING] The specified source path does not exist: $SRC_DIR"
+    echo "Trying to use the script directory as base..."
+
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    SRC_DIR="$SCRIPT_DIR/$1"
+
+    if [ ! -d "$SRC_DIR" ]; then
+        echo "[ERROR] Path still does not exist: $SRC_DIR"
+        exit 1
+    else
+        echo "[INFO] Using corrected path: $SRC_DIR"
+    fi
+else
+    echo "[INFO] Using path: $SRC_DIR"
 fi
 
+# Check if DEVKITPRO is set
 if [ -z "$DEVKITPRO" ]; then
-    echo "[错误] 未检测到 DEVKITPRO 环境变量，请先安装 devkitPro 并设置环境变量。"
-    echo "下载地址: https://devkitpro.org"
+    echo "[ERROR] DEVKITPRO environment variable not detected. Please install devkitPro and set the environment variable."
+    echo "Download: https://devkitpro.org"
     exit 1
 fi
 
-TOOLCHAIN_FILE=$DEVKITPRO/cmake/3DS.cmake
+TOOLCHAIN_FILE="$DEVKITPRO/cmake/3DS.cmake"
 if [ ! -f "$TOOLCHAIN_FILE" ]; then
-    echo "[错误] 未找到 3DS Toolchain 文件: $TOOLCHAIN_FILE"
+    echo "[ERROR] 3DS Toolchain file not found: $TOOLCHAIN_FILE"
     exit 1
 fi
 
-echo "[信息] 使用 3DS 工具链: $TOOLCHAIN_FILE"
+echo "[INFO] Using 3DS toolchain: $TOOLCHAIN_FILE"
 
+# Check if CMake is installed
+if ! command -v cmake &> /dev/null; then
+    echo "[ERROR] CMake not detected. Please install CMake and add it to PATH."
+    exit 1
+fi
+
+# Check if Ninja is available
+if command -v ninja &> /dev/null; then
+    GENERATOR="Ninja"
+    echo "[INFO] Ninja build system detected, using Ninja generator."
+else
+    GENERATOR="Unix Makefiles"
+    echo "[INFO] Ninja not detected, falling back to Unix Makefiles."
+fi
+
+# Configure project
 cmake -B build -S . \
-    -DCMAKE_TOOLCHAIN_FILE=$TOOLCHAIN_FILE \
+    -G "$GENERATOR" \
+    -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" \
     -DCMAKE_BUILD_TYPE=Release \
     -DSRC_DIR="$SRC_DIR"
 
 if [ $? -ne 0 ]; then
-    echo "[错误] CMake 配置失败。"
+    echo "[ERROR] CMake configuration failed."
     exit 1
 fi
 
-cmake --build build
+# Build project with parallel jobs
+cmake --build build -- -j"$(nproc)"
 if [ $? -ne 0 ]; then
-    echo "[错误] 构建失败。"
+    echo "[ERROR] Build failed."
     exit 1
 fi
 
 OUTPUT_ELF="build/MySDLApp.elf"
 OUTPUT_3DSX="build/MySDLApp.3dsx"
+OUTPUT_CIA="build/MySDLApp.cia"
 
 if [ ! -f "$OUTPUT_ELF" ]; then
-    echo "[错误] 未生成 ELF 文件: $OUTPUT_ELF"
+    echo "[ERROR] ELF file not generated: $OUTPUT_ELF"
     exit 1
 fi
 
-echo "[信息] 正在转换 ELF 为 3DSX..."
+echo "[INFO] Converting ELF to 3DSX..."
 3dsxtool "$OUTPUT_ELF" "$OUTPUT_3DSX"
-
 if [ $? -ne 0 ]; then
-    echo "[错误] 转换为 3DSX 失败。"
+    echo "[ERROR] Conversion to 3DSX failed."
     exit 1
 fi
 
-echo "[成功] 构建完成！.3DSX 文件位于 build/ 目录下，可在 3DS 上运行。"
+echo "[INFO] Generating CIA package..."
+if command -v makerom &> /dev/null; then
+    # Paths to banner/icon assets (replace with your own files)
+    BANNER="assets/banner.bin"
+    ICON="assets/icon.png"
+    RSF="$DEVKITPRO/3ds_rules/template.rsf"
+
+    if [ ! -f "$BANNER" ] || [ ! -f "$ICON" ]; then
+        echo "[WARNING] Banner or icon not found in assets/. CIA will be generated without custom graphics."
+        makerom -f cia -o "$OUTPUT_CIA" -elf "$OUTPUT_ELF" -rsf "$RSF"
+    else
+        echo "[INFO] Injecting banner and icon into CIA..."
+        makerom -f cia -o "$OUTPUT_CIA" -elf "$OUTPUT_ELF" -rsf "$RSF" -banner "$BANNER" -icon "$ICON"
+    fi
+
+    if [ $? -ne 0 ]; then
+        echo "[ERROR] CIA packaging failed."
+        exit 1
+    fi
+    echo "[SUCCESS] Build completed! .3DSX and .CIA files are located in the build/ directory."
+else
+    echo "[WARNING] makerom not detected. Skipping CIA packaging."
+    echo "[SUCCESS] Build completed! .3DSX file is located in the build/ directory."
+fi

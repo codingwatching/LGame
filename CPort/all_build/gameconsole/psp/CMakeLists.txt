@@ -9,7 +9,7 @@ set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR mips)
 
 if(NOT DEFINED ENV{PSPDEV})
-    message(FATAL_ERROR "未检测到 PSPDEV 环境变量")
+    message(FATAL_ERROR "未检测到 PSPDEV 环境变量，请设置 PSPDEV 指向 PSP 工具链目录")
 endif()
 
 set(PSPDEV $ENV{PSPDEV})
@@ -29,49 +29,63 @@ endif()
 include(FetchContent)
 set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/third_party)
 
+# 限定搜索路径到 PSPDEV，避免误用主机 SDL2
+set(CMAKE_PREFIX_PATH "${PSPDEV}/psp" ${CMAKE_PREFIX_PATH})
+
 # SDL2 (PSP)
 find_package(SDL2 QUIET)
-if(NOT SDL2_FOUND)
-  FetchContent_Declare(
-    SDL2_PSP
-    GIT_REPOSITORY https://github.com/pspdev/SDL.git
-    GIT_TAG psp-2.30.x
-    SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_psp-src
-    BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_psp-build
-  )
-  FetchContent_MakeAvailable(SDL2_PSP)
-  add_library(SDL2_PSP::SDL2 ALIAS SDL2)
+if(SDL2_FOUND AND SDL2_INCLUDE_DIRS MATCHES "${PSPDEV}")
+    message(STATUS "使用 PSPDEV 中的 SDL2 库")
+    add_library(SDL2_PSP::SDL2 ALIAS SDL2)
+else()
+    message(STATUS "未找到 PSPDEV SDL2，开始下载 SDL-PSP")
+    FetchContent_Declare(
+      SDL2_PSP
+      GIT_REPOSITORY https://github.com/pspdev/SDL.git
+      GIT_TAG master
+      SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_psp-src
+      BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_psp-build
+    )
+    FetchContent_MakeAvailable(SDL2_PSP)
+    add_library(SDL2_PSP::SDL2 ALIAS SDL2)
 endif()
 
 # SDL2_image
 find_package(SDL2_image QUIET)
-if(NOT SDL2_IMAGE_FOUND)
-  FetchContent_Declare(
-    SDL2_image_PSP
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
-    GIT_TAG release-2.8.8
-    SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_psp-src
-    BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_psp-build
-  )
-  FetchContent_MakeAvailable(SDL2_image_PSP)
-  add_library(SDL2_PSP::SDL2_image ALIAS SDL2_image)
+if(SDL2_IMAGE_FOUND AND SDL2_IMAGE_INCLUDE_DIRS MATCHES "${PSPDEV}")
+    message(STATUS "使用 PSPDEV 中的 SDL2_image 库")
+    add_library(SDL2_PSP::SDL2_image ALIAS SDL2_image)
+else()
+    message(STATUS "未找到 PSPDEV SDL2_image，开始下载")
+    FetchContent_Declare(
+      SDL2_image_PSP
+      GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
+      GIT_TAG release-2.8.8
+      SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_psp-src
+      BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_psp-build
+    )
+    FetchContent_MakeAvailable(SDL2_image_PSP)
+    add_library(SDL2_PSP::SDL2_image ALIAS SDL2_image)
 endif()
 
 # SDL2_mixer
 find_package(SDL2_mixer QUIET)
-if(NOT SDL2_MIXER_FOUND)
-  FetchContent_Declare(
-    SDL2_mixer_PSP
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
-    GIT_TAG release-2.8.1
-    SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_psp-src
-    BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_psp-build
-  )
-  FetchContent_MakeAvailable(SDL2_mixer_PSP)
-  add_library(SDL2_PSP::SDL2_mixer ALIAS SDL2_mixer)
+if(SDL2_MIXER_FOUND AND SDL2_MIXER_INCLUDE_DIRS MATCHES "${PSPDEV}")
+    message(STATUS "使用 PSPDEV 中的 SDL2_mixer 库")
+    add_library(SDL2_PSP::SDL2_mixer ALIAS SDL2_mixer)
+else()
+    message(STATUS "未找到 PSPDEV SDL2_mixer，开始下载")
+    FetchContent_Declare(
+      SDL2_mixer_PSP
+      GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
+      GIT_TAG release-2.8.1
+      SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_psp-src
+      BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_psp-build
+    )
+    FetchContent_MakeAvailable(SDL2_mixer_PSP)
+    add_library(SDL2_PSP::SDL2_mixer ALIAS SDL2_mixer)
 endif()
 
-# 构建 PSP 可执行文件（EBOOT.PBP）
 add_executable(MySDLApp ${SOURCES} ${MAIN_FILE})
 
 target_link_libraries(MySDLApp

@@ -154,6 +154,30 @@ public class CCodeFix {
 					e.printStackTrace();
 				}
 			}
+			String fixMacroName2 = "definitions";
+			if (fixBaseName.equalsIgnoreCase(fixMacroName2)) {
+				Map<String, MacroReplacement> replacements = new HashMap<String, MacroReplacement>();
+				replacements.put("TEAVM_OBFUSCATED", new MacroReplacement(null, null));
+				Map<String, MacroInjection> append = new HashMap<String, MacroInjection>();
+				append.put("TEAVM_OBFUSCATED", new MacroInjection(
+						"\r\n#if defined(__SWITCH__)      || defined(__3DS__)        || defined(_3DS)          || \\\r\n"
+								+ "    defined(__WII__)         || defined(__WIIU__)       || defined(__NDS__)       || \\\r\n"
+								+ "    defined(__GAMECUBE__)    || defined(__NINTENDO64__) || \\\r\n"
+								+ "    defined(__PSP__)         || defined(__PSV__)        || defined(__PS2__)       || \\\r\n"
+								+ "    defined(__PS3__)         || defined(__PS4__)        || defined(__ORBIS__)     || \\\r\n"
+								+ "    defined(__PS5__)         || defined(__PROSPERO__)   || \\\r\n"
+								+ "    defined(_XBOX)           || defined(__XBOX__)       || defined(__XBOX360__)   || \\\r\n"
+								+ "    defined(_XBOX_ONE)       || defined(__XBOXONE__)    || defined(_XBOX_SERIES)  || defined(__XBOXSERIES__) || \\\r\n"
+								+ "    defined(__DREAMCAST__)   || defined(__SATURN__)     || defined(__SEGA__)      || \\\r\n"
+								+ "    defined(__ATARI__)       || defined(__NGAGE__)      || defined(__OUYA__)\r\n"
+								+ "    #undef TEAVM_UNIX\r\n" + "    #define TEAVM_UNIX 0\r\n" + "#endif",
+						true, "DEFAULT"));
+				try {
+					CMacroFix.processFile(fixFileName, replacements, append);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
 		}
 	}
 

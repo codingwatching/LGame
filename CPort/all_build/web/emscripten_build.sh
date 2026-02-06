@@ -1,37 +1,82 @@
 #!/bin/bash
 
+# Check if source path parameter is provided
 if [ -z "$1" ]; then
-    echo "[错误] 请在运行脚本时指定源码路径。"
-    echo "用法: ./emscripten_build.sh <源码路径>"
-    exit 1
+    echo "[INFO] No source path specified, defaulting to 'src' under the script directory."
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    SRC_DIR="$SCRIPT_DIR/src"
+else
+    SRC_DIR="$1"
 fi
 
-SRC_DIR=$1
-
+# Check if source path exists
 if [ ! -d "$SRC_DIR" ]; then
-    echo "[错误] 指定的源码路径不存在: $SRC_DIR"
-    exit 1
+    echo "[WARNING] The specified source path does not exist: $SRC_DIR"
+    echo "Trying to use the script directory as base..."
+
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    SRC_DIR="$SCRIPT_DIR/$1"
+
+    if [ ! -d "$SRC_DIR" ]; then
+        echo "[ERROR] Path still does not exist: $SRC_DIR"
+        exit 1
+    else
+        echo "[INFO] Using corrected path: $SRC_DIR"
+    fi
+else
+    echo "[INFO] Using path: $SRC_DIR"
 fi
 
-# 检查是否安装了 Emscripten
+# Check if Emscripten is installed
 if ! command -v emcmake &> /dev/null; then
-    echo "[错误] 未检测到 Emscripten，请先安装并配置环境。"
-    echo "安装指南: https://emscripten.org/docs/getting_started/downloads.html"
+    echo "[ERROR] Emscripten not detected. Please install and configure the environment."
+    echo "Installation guide: https://emscripten.org/docs/getting_started/downloads.html"
     exit 1
 fi
 
-echo "[信息] 使用 Emscripten 工具链进行构建"
+echo "[INFO] Using Emscripten toolchain for build"
 
-emcmake cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DSRC_DIR="$SRC_DIR"
+# Check if Ninja is available
+if command -v ninja &> /dev/null; then
+    GENERATOR="Ninja"
+    echo "[INFO] Ninja build system detected, using Ninja generator."
+else
+    GENERATOR="Unix Makefiles"
+    echo "[INFO] Ninja not detected, falling back to Unix Makefiles."
+fi
+
+# Configure project
+echo "[INFO] Running cmake with generator: $GENERATOR"
+emcmake cmake -B "build" -S "$SRC_DIR" \
+    -G "$GENERATOR" \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DSRC_DIR="$SRC_DIR"
+
 if [ $? -ne 0 ]; then
-    echo "[错误] CMake 配置失败。"
+    echo "[ERROR] CMake configuration failed."
     exit 1
 fi
 
-emmake make -C build
+# Build project with parallel jobs
+if [ "$GENERATOR" = "Ninja" ]; then
+    cmake --build "build" -- -j"$(nproc)"
+else
+    emmake make -C "build" -j"$(nproc)"
+fi
+
 if [ $? -ne 0 ]; then
-    echo "[错误] 构建失败。"
+    echo "[ERROR] Build failed."
     exit 1
 fi
 
-echo "[成功] 构建完成！可在 build/ 目录下找到 MySDLApp.js 和 MySDLApp.wasm，可在浏览器中运行。"
+OUTPUT_JS="build/MySDLApp.js"
+OUTPUT_WASM="build/MySDLApp.wasm"
+
+if [ -f "$OUTPUT_JS" ] && [ -f "$OUTPUT_WASM" ]; then
+    echo "[SUCCESS] Build completed! Files located at:"
+    echo "  $OUTPUT_JS"
+    echo "  $OUTPUT_WASM"
+    echo "These can be run in a browser."
+else
+    echo "[WARNING] Expected output files not found. Please check your CMake configuration."
+fi

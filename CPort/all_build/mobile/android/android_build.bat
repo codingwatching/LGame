@@ -1,51 +1,90 @@
-#!/bin/bash
+@echo off
+setlocal enabledelayedexpansion
 
-# 检查是否传入源码路径参数
-if [ -z "$1" ]; then
-    echo "[错误] 请在运行脚本时指定源码路径。"
-    echo "用法: ./android_build.sh <源码路径>"
-    exit 1
-fi
+if "%~1"=="" (
+    echo [INFO] No source path specified, defaulting to "src" under the script directory.
+    set SCRIPT_DIR=%~dp0
+    set SRC_DIR=%SCRIPT_DIR%src
+) else (
+    set SRC_DIR=%~1
+)
 
-SRC_DIR=$1
+if not exist "%SRC_DIR%" (
+    echo [ERROR] The specified source path does not exist: %SRC_DIR%
+    pause
+    exit /b 1
+)
 
-# 检查源码路径是否存在
-if [ ! -d "$SRC_DIR" ]; then
-    echo "[错误] 指定的源码路径不存在: $SRC_DIR"
-    exit 1
-fi
+if "%ANDROID_NDK%"=="" (
+    echo [ERROR] ANDROID_NDK environment variable not detected.
+    echo Please download and install Android NDK, then set the ANDROID_NDK environment variable.
+    echo Download: https://developer.android.com/ndk/downloads
+    pause
+    exit /b 1
+)
 
-# 检查是否设置了 ANDROID_NDK 环境变量
-if [ -z "$ANDROID_NDK" ]; then
-    echo "[错误] 未检测到 ANDROID_NDK 环境变量。"
-    echo "请先下载并安装 Android NDK，然后设置 ANDROID_NDK 环境变量。"
-    echo "下载地址: https://developer.android.com/ndk/downloads"
-    exit 1
-fi
+if not exist "%ANDROID_NDK%" (
+    echo [ERROR] ANDROID_NDK path is invalid: %ANDROID_NDK%
+    pause
+    exit /b 1
+)
 
-# 检查路径是否存在
-if [ ! -d "$ANDROID_NDK" ]; then
-    echo "[错误] ANDROID_NDK 路径无效: $ANDROID_NDK"
-    exit 1
-fi
+echo [INFO] Detected Android NDK path: %ANDROID_NDK%
 
-echo "[信息] 检测到 Android NDK 路径: $ANDROID_NDK"
+where cmake >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] CMake not detected. Please install CMake and add it to PATH.
+    pause
+    exit /b 1
+)
 
-# 配置并编译项目
-cmake -B build -S "$SRC_DIR" \
-    -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK/build/cmake/android.toolchain.cmake \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DSRC_DIR="$SRC_DIR"
+where ninja >nul 2>nul
+if not errorlevel 1 (
+    set GENERATOR=Ninja
+    echo [INFO] Ninja build system detected, using Ninja generator.
+) else (
+    set GENERATOR=Unix Makefiles
+    echo [INFO] Ninja not detected, falling back to Unix Makefiles.
+)
 
-if [ $? -ne 0 ]; then
-    echo "[错误] CMake 配置失败。"
-    exit 1
-fi
+set ABIS=arm64-v8a armeabi-v7a x86_64
 
-cmake --build build
-if [ $? -ne 0 ]; then
-    echo "[错误] 构建失败。"
-    exit 1
-fi
+for %%A in (%ABIS%) do (
+    echo [INFO] Building for ABI: %%A
 
-echo "[成功] 构建完成！可执行文件位于 build/ 目录下"
+    set BUILD_DIR=build_%%A
+    if not exist "!BUILD_DIR!" mkdir "!BUILD_DIR!"
+
+    echo [INFO] Running cmake with generator: !GENERATOR!
+
+    cmake -B "!BUILD_DIR!" -S "!SRC_DIR!" ^
+        -G "!GENERATOR!" ^
+        -DCMAKE_TOOLCHAIN_FILE="!ANDROID_NDK!\build\cmake\android.toolchain.cmake" ^
+        -DANDROID_ABI=%%A ^
+        -DANDROID_PLATFORM=android-21 ^
+        -DCMAKE_BUILD_TYPE=Release ^
+        -DSRC_DIR="!SRC_DIR!"
+
+    if errorlevel 1 (
+        echo [ERROR] CMake configuration failed for ABI: %%A
+        pause
+        exit /b 1
+    )
+
+    cmake --build "!BUILD_DIR!" -- -j%NUMBER_OF_PROCESSORS%
+    if errorlevel 1 (
+        echo [ERROR] Build failed for ABI: %%A
+        pause
+        exit /b 1
+    )
+
+    set OUTPUT_APK=!BUILD_DIR!\MyAndroidApp-%%A.apk
+    if exist "!OUTPUT_APK!" (
+        echo [SUCCESS] Build completed for ABI: %%A. APK located at: !OUTPUT_APK!
+    ) else (
+        echo [WARNING] APK file not found for ABI: %%A. Please check your CMake configuration.
+    )
+)
+
+echo [SUCCESS] Multi-ABI build completed! APK files are located in their respective build directories.
+pause

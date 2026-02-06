@@ -56,6 +56,7 @@ import loon.utils.ObjectMap;
 import loon.utils.ObjectMap.Entries;
 import loon.utils.ObjectMap.Entry;
 import loon.utils.ObjectMap.Values;
+import loon.utils.PathUtils;
 import loon.utils.StringUtils;
 import loon.utils.TArray;
 
@@ -224,6 +225,13 @@ public class CBuilder {
 							}
 						}
 					}
+					CBuilder.println("*********************************");
+				}
+
+				if (configuration.outputResources) {
+					CBuilder.begin("OUTPUT RESOURCE");
+					JarZipExtractor.extractMetaInfoZipFromJar("resources",
+							PathUtils.getCombinePaths(cappDirectory, cappName));
 					CBuilder.println("*********************************");
 				}
 

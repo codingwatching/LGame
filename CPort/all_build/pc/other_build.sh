@@ -1,49 +1,53 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -e
 
-# 检查是否传入源码路径参数
+if [ -d "build" ]; then
+    echo "[INFO] Removing old build directory..."
+    rm -rf build
+fi
+
 if [ -z "$1" ]; then
-    echo "[错误] 请在运行脚本时指定源码路径。"
-    echo "用法: ./other_build.sh <源码路径>"
-    exit 1
-fi
-
-SRC_DIR=$1
-
-# 检查源码路径是否存在
-if [ ! -d "$SRC_DIR" ]; then
-    echo "[错误] 指定的源码路径不存在: $SRC_DIR"
-    exit 1
-fi
-
-# 检查是否安装了 CMake
-if ! command -v cmake &> /dev/null; then
-    echo "[错误] 未检测到 CMake，请先安装 CMake。"
-    exit 1
-fi
-
-# 检查编译器
-if command -v gcc &> /dev/null; then
-    COMPILER=gcc
-elif command -v clang &> /dev/null; then
-    COMPILER=clang
+    echo "[INFO] No source path specified, defaulting to src under script directory"
+    SRC_DIR="$(dirname "$0")/src"
 else
-    echo "[错误] 未检测到 GCC 或 Clang 编译器。"
+    SRC_DIR="$1"
+fi
+
+if [ ! -d "$SRC_DIR" ]; then
+    echo "[ERROR] Source path does not exist: $SRC_DIR"
+    exit 1
+else
+    echo "[INFO] Using source path: $SRC_DIR"
+fi
+
+if ! command -v cmake >/dev/null 2>&1; then
+    echo "[ERROR] CMake not detected. Please install it."
     exit 1
 fi
 
-echo "[信息] 使用编译器: $COMPILER"
-
-# 配置并编译
-cmake -B build -S . -DCMAKE_BUILD_TYPE=Release -DSRC_DIR="$SRC_DIR"
-if [ $? -ne 0 ]; then
-    echo "[错误] CMake 配置失败。"
+GENERATOR=""
+if command -v ninja >/dev/null 2>&1; then
+    echo "[INFO] Ninja detected, using Ninja generator."
+    GENERATOR="Ninja"
+elif command -v clang >/dev/null 2>&1; then
+    echo "[INFO] Clang detected, using Unix Makefiles."
+    GENERATOR="Unix Makefiles"
+elif command -v gcc >/dev/null 2>&1; then
+    echo "[INFO] GCC detected, using Unix Makefiles."
+    GENERATOR="Unix Makefiles"
+else
+    echo "[ERROR] No supported compiler detected. Please install clang, gcc, or ninja."
     exit 1
 fi
 
-cmake --build build --config Release
-if [ $? -ne 0 ]; then
-    echo "[错误] 构建失败。"
-    exit 1
-fi
+echo "[INFO] Running cmake with generator: $GENERATOR"
+cmake -B build -S . -G "$GENERATOR" -DCMAKE_BUILD_TYPE=Release -DSRC_DIR="$SRC_DIR"
+cmake --build build
 
-echo "[成功] 构建完成！可执行文件位于 build/ 目录下。"
+if [ -f "build/MySDLApp" ]; then
+    echo "[SUCCESS] Build completed! Executable located at build/MySDLApp"
+elif [ -f "build/MySDLApp.exe" ]; then
+    echo "[SUCCESS] Build completed! Executable located at build/MySDLApp.exe"
+else
+    echo "[WARNING] Build finished but executable not found in expected location."
+fi

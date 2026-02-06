@@ -9,6 +9,7 @@ if(MSVC)
     add_compile_options(/Ox)
 endif()
 
+# 检查 Xbox SDK 环境变量
 if(DEFINED ENV{GDKXSDK})
     message(STATUS "检测到 GDKX SDK，使用 GDKX 工具链")
     set(CMAKE_SYSTEM_NAME WindowsStore)
@@ -16,6 +17,7 @@ if(DEFINED ENV{GDKXSDK})
     set(CMAKE_GENERATOR_PLATFORM Gaming.Desktop.x64)
     set(GDKXSDK $ENV{GDKXSDK})
     set(CMAKE_TOOLCHAIN_FILE "${GDKXSDK}/share/gdkx.toolchain.cmake")
+    set(XBOXSDK_PATH "${GDKXSDK}")
 elseif(DEFINED ENV{XDKSDK})
     message(STATUS "检测到 XDK SDK，使用 XDK 工具链")
     set(CMAKE_SYSTEM_NAME Generic)
@@ -23,10 +25,16 @@ elseif(DEFINED ENV{XDKSDK})
     set(CMAKE_GENERATOR_PLATFORM Xbox360)
     set(XDKSDK $ENV{XDKSDK})
     set(CMAKE_TOOLCHAIN_FILE "${XDKSDK}/share/xdk.toolchain.cmake")
+    set(XBOXSDK_PATH "${XDKSDK}")
+elseif(DEFINED ENV{NXDK})
+    message(STATUS "检测到 NXDK 环境，使用原始 Xbox 工具链")
+    set(CMAKE_SYSTEM_NAME Generic)
+    set(XBOXSDK_PATH $ENV{NXDK})
 else()
-    message(FATAL_ERROR "未检测到 GDKX 或 XDK SDK，请设置环境变量 GDKXSDK 或 XDKSDK")
+    message(FATAL_ERROR "未检测到 GDKX、XDK 或 NXDK SDK，请设置环境变量")
 endif()
 
+# 源码目录
 if(NOT DEFINED SRC_DIR)
     set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 endif()
@@ -41,46 +49,80 @@ endif()
 include(FetchContent)
 set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/third_party)
 
-# SDL2 (Xbox)
+# 限定搜索路径到 Xbox SDK，避免误用主机 SDL2
+set(CMAKE_PREFIX_PATH "${XBOXSDK_PATH}" ${CMAKE_PREFIX_PATH})
+
 find_package(SDL2 QUIET)
-if(NOT SDL2_FOUND)
-  FetchContent_Declare(
-    SDL2_Xbox
-    GIT_REPOSITORY https://github.com/xboxdev/SDL.git
-    GIT_TAG xbox-2.30.x
-    SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_xbox-src
-    BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_xbox-build
-  )
-  FetchContent_MakeAvailable(SDL2_Xbox)
-  add_library(SDL2_Xbox::SDL2 ALIAS SDL2)
+if(SDL2_FOUND AND SDL2_INCLUDE_DIRS MATCHES "${XBOXSDK_PATH}")
+    message(STATUS "使用 Xbox SDK 中的 SDL2 库")
+    add_library(SDL2_Xbox::SDL2 ALIAS SDL2)
+
+elseif(DEFINED ENV{NXDK})
+    message(STATUS "未找到 Xbox SDK SDL2，开始下载 nxdk-sdl (原始 Xbox)")
+    FetchContent_Declare(
+      SDL2_Xbox
+      GIT_REPOSITORY https://github.com/XboxDev/nxdk-sdl.git
+      GIT_TAG master
+      SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_xbox-src
+      BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_xbox-build
+    )
+    FetchContent_GetProperties(SDL2_Xbox)
+    if(NOT SDL2_Xbox_POPULATED)
+        FetchContent_Populate(SDL2_Xbox)
+        file(GLOB NXDK_SDL_SRC ${SDL2_Xbox_SOURCE_DIR}/src/*.c)
+        add_library(SDL2_Xbox::SDL2 STATIC ${NXDK_SDL_SRC})
+        target_include_directories(SDL2_Xbox::SDL2 PUBLIC
+            ${SDL2_Xbox_SOURCE_DIR}/include
+        )
+    endif()
+
+else()
+    message(STATUS "未找到 Xbox SDK SDL2，开始下载官方 SDL2 源码")
+    FetchContent_Declare(
+      SDL2_Xbox
+      GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+      GIT_TAG release-2.32.10
+      SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_xbox-src
+      BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_xbox-build
+    )
+    FetchContent_MakeAvailable(SDL2_Xbox)
+    add_library(SDL2_Xbox::SDL2 ALIAS SDL2)
 endif()
 
 # SDL2_image
 find_package(SDL2_image QUIET)
-if(NOT SDL2_IMAGE_FOUND)
-  FetchContent_Declare(
-    SDL2_image_Xbox
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
-    GIT_TAG release-2.8.8
-    SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_xbox-src
-    BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_xbox-build
-  )
-  FetchContent_MakeAvailable(SDL2_image_Xbox)
-  add_library(SDL2_Xbox::SDL2_image ALIAS SDL2_image)
+if(SDL2_IMAGE_FOUND AND SDL2_IMAGE_INCLUDE_DIRS MATCHES "${XBOXSDK_PATH}")
+    message(STATUS "使用 Xbox SDK 中的 SDL2_image 库")
+    add_library(SDL2_Xbox::SDL2_image ALIAS SDL2_image)
+else()
+    message(STATUS "未找到 Xbox SDK SDL2_image，开始下载")
+    FetchContent_Declare(
+      SDL2_image_Xbox
+      GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
+      GIT_TAG release-2.8.8
+      SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_xbox-src
+      BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_xbox-build
+    )
+    FetchContent_MakeAvailable(SDL2_image_Xbox)
+    add_library(SDL2_Xbox::SDL2_image ALIAS SDL2_image)
 endif()
 
 # SDL2_mixer
 find_package(SDL2_mixer QUIET)
-if(NOT SDL2_MIXER_FOUND)
-  FetchContent_Declare(
-    SDL2_mixer_Xbox
-    GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
-    GIT_TAG release-2.8.1
-    SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_xbox-src
-    BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_xbox-build
-  )
-  FetchContent_MakeAvailable(SDL2_mixer_Xbox)
-  add_library(SDL2_Xbox::SDL2_mixer ALIAS SDL2_mixer)
+if(SDL2_MIXER_FOUND AND SDL2_MIXER_INCLUDE_DIRS MATCHES "${XBOXSDK_PATH}")
+    message(STATUS "使用 Xbox SDK 中的 SDL2_mixer 库")
+    add_library(SDL2_Xbox::SDL2_mixer ALIAS SDL2_mixer)
+else()
+    message(STATUS "未找到 Xbox SDK SDL2_mixer，开始下载")
+    FetchContent_Declare(
+      SDL2_mixer_Xbox
+      GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
+      GIT_TAG release-2.8.1
+      SOURCE_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_xbox-src
+      BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_xbox-build
+    )
+    FetchContent_MakeAvailable(SDL2_mixer_Xbox)
+    add_library(SDL2_Xbox::SDL2_mixer ALIAS SDL2_mixer)
 endif()
 
 add_executable(MySDLApp ${SOURCES} ${MAIN_FILE})
@@ -91,9 +133,10 @@ target_link_libraries(MySDLApp
     SDL2_Xbox::SDL2_mixer
 )
 
-# 平台特定库
 if(DEFINED ENV{GDKXSDK})
   target_link_libraries(MySDLApp d3d11 xinput xaudio2)
 elseif(DEFINED ENV{XDKSDK})
   target_link_libraries(MySDLApp xboxkrnl)
+elseif(DEFINED ENV{NXDK})
+  target_link_libraries(MySDLApp nxdk)
 endif()

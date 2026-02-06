@@ -60,4 +60,6 @@ public class CBuildConfiguration {
 	public int minDirectBuffersSize = 4 * (1 << 20);
 
 	public int maxDirectBuffersSize = 64 * (1 << 20);
+	
+	public boolean outputResources = true;
 }
