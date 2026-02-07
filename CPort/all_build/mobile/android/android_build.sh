@@ -1,44 +1,52 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Check if source path parameter is provided
-if [ -z "$1" ]; then
-    echo "[INFO] No source path specified, defaulting to 'src' under the script directory."
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-    SRC_DIR="$SCRIPT_DIR/src"
-else
-    SRC_DIR="$1"
+# ---------------- 参数处理 ----------------
+ACTION="${1:-release}"
+
+if [[ "$ACTION" == "clean" ]]; then
+    echo "[INFO] Cleaning build directories..."
+    for ABI in arm64-v8a armeabi-v7a x86_64; do
+        rm -rf "$(dirname "$0")/build_$ABI"
+    done
+    echo "[SUCCESS] Clean completed."
+    exit 0
 fi
 
-# Check if source path exists
-if [ ! -d "$SRC_DIR" ]; then
+# ---------------- 源码路径处理 ----------------
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SRC_DIR="${2:-$SCRIPT_DIR/src}"
+
+if [[ ! -d "$SRC_DIR" ]]; then
     echo "[ERROR] The specified source path does not exist: $SRC_DIR"
     exit 1
+else
+    echo "[INFO] Using path: $SRC_DIR"
 fi
 
-# Check if ANDROID_NDK is set
-if [ -z "$ANDROID_NDK" ]; then
+# ---------------- ANDROID NDK 检测 ----------------
+if [[ -z "${ANDROID_NDK:-}" ]]; then
     echo "[ERROR] ANDROID_NDK environment variable not detected."
     echo "Please download and install Android NDK, then set the ANDROID_NDK environment variable."
     echo "Download: https://developer.android.com/ndk/downloads"
     exit 1
 fi
 
-# Check if ANDROID_NDK path exists
-if [ ! -d "$ANDROID_NDK" ]; then
+if [[ ! -d "$ANDROID_NDK" ]]; then
     echo "[ERROR] ANDROID_NDK path is invalid: $ANDROID_NDK"
     exit 1
 fi
 
 echo "[INFO] Detected Android NDK path: $ANDROID_NDK"
 
-# Check if CMake is installed
-if ! command -v cmake &> /dev/null; then
-    echo "[ERROR] CMake not detected. Please install CMake and add it to PATH."
+# ---------------- 工具检测 ----------------
+if ! command -v cmake >/dev/null 2>&1; then
+    echo "[ERROR] CMake not detected. Please install it."
     exit 1
 fi
 
-# Check if Ninja is available
-if command -v ninja &> /dev/null; then
+GENERATOR=""
+if command -v ninja >/dev/null 2>&1; then
     GENERATOR="Ninja"
     echo "[INFO] Ninja build system detected, using Ninja generator."
 else
@@ -46,37 +54,34 @@ else
     echo "[INFO] Ninja not detected, falling back to Unix Makefiles."
 fi
 
-# Define target ABIs
+# ---------------- 多 ABI 构建 ----------------
 ABIS=("arm64-v8a" "armeabi-v7a" "x86_64")
 
-# Build for each ABI
 for ABI in "${ABIS[@]}"; do
     echo "[INFO] Building for ABI: $ABI"
 
     BUILD_DIR="build_$ABI"
     mkdir -p "$BUILD_DIR"
 
+    echo "[INFO] Running cmake with generator: $GENERATOR"
+
     cmake -B "$BUILD_DIR" -S "$SRC_DIR" \
         -G "$GENERATOR" \
         -DCMAKE_TOOLCHAIN_FILE="$ANDROID_NDK/build/cmake/android.toolchain.cmake" \
         -DANDROID_ABI="$ABI" \
         -DANDROID_PLATFORM=android-21 \
-        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_BUILD_TYPE="$ACTION" \
         -DSRC_DIR="$SRC_DIR"
 
-    if [ $? -ne 0 ]; then
-        echo "[ERROR] CMake configuration failed for ABI: $ABI"
-        exit 1
-    fi
-
-    cmake --build "$BUILD_DIR" -- -j"$(nproc)"
-    if [ $? -ne 0 ]; then
-        echo "[ERROR] Build failed for ABI: $ABI"
-        exit 1
+    echo "[INFO] Building..."
+    if [[ "$GENERATOR" == "Ninja" ]]; then
+        cmake --build "$BUILD_DIR" -- -j"$(nproc)"
+    else
+        make -C "$BUILD_DIR" -j"$(nproc)"
     fi
 
     OUTPUT_APK="$BUILD_DIR/MyAndroidApp-$ABI.apk"
-    if [ -f "$OUTPUT_APK" ]; then
+    if [[ -f "$OUTPUT_APK" ]]; then
         echo "[SUCCESS] Build completed for ABI: $ABI. APK located at: $OUTPUT_APK"
     else
         echo "[WARNING] APK file not found for ABI: $ABI. Please check your CMake configuration."

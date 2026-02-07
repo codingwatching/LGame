@@ -5,9 +5,11 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 add_compile_options(-O3)
 
+# 指定交叉编译目标为 PS Vita
 set(CMAKE_SYSTEM_NAME Vita)
 set(CMAKE_SYSTEM_PROCESSOR arm)
 
+# 检查 VITASDK 环境变量
 if(NOT DEFINED ENV{VITASDK})
     message(FATAL_ERROR "未检测到 VITASDK 环境变量，请设置 VITASDK 指向 Vita SDK 根目录")
 endif()
@@ -15,12 +17,12 @@ endif()
 set(VITASDK $ENV{VITASDK})
 set(CMAKE_TOOLCHAIN_FILE "${VITASDK}/share/vita.toolchain.cmake")
 
+# 源码目录
 if(NOT DEFINED SRC_DIR)
     set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 endif()
 
-file(GLOB_RECURSE SOURCES ${SRC_DIR}/*.c)
-
+# 入口文件 all.c
 set(MAIN_FILE ${SRC_DIR}/all.c)
 if(NOT EXISTS ${MAIN_FILE})
     message(FATAL_ERROR "未找到入口文件 all.c")
@@ -51,6 +53,10 @@ else()
 endif()
 
 # SDL2_image
+set(SDL2IMAGE_AVIF OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_WEBP OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_TIF OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_VENDORED OFF CACHE BOOL "" FORCE)
 find_package(SDL2_image QUIET)
 if(SDL2_IMAGE_FOUND AND SDL2_IMAGE_INCLUDE_DIRS MATCHES "${VITASDK}")
     message(STATUS "使用 VITASDK 中的 SDL2_image 库")
@@ -69,6 +75,7 @@ else()
 endif()
 
 # SDL2_mixer
+set(SDL2MIXER_WAVPACK OFF CACHE BOOL "" FORCE)
 find_package(SDL2_mixer QUIET)
 if(SDL2_MIXER_FOUND AND SDL2_MIXER_INCLUDE_DIRS MATCHES "${VITASDK}")
     message(STATUS "使用 VITASDK 中的 SDL2_mixer 库")
@@ -86,7 +93,8 @@ else()
     add_library(SDL2_Vita::SDL2_mixer ALIAS SDL2_mixer)
 endif()
 
-add_executable(MySDLApp ${SOURCES} ${MAIN_FILE})
+# 构建 PS Vita 可执行文件，只编译 all.c
+add_executable(MySDLApp ${MAIN_FILE})
 
 target_link_libraries(MySDLApp
     SDL2_Vita::SDL2

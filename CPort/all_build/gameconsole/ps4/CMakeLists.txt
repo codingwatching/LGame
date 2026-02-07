@@ -5,17 +5,19 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 add_compile_options(-O3)
 
+# 指定交叉编译目标为 PS4 (OpenOrbis)
 set(CMAKE_SYSTEM_NAME Orbis)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
 
+# 检查 PS4SDK 环境变量
 if(NOT DEFINED ENV{PS4SDK})
     message(FATAL_ERROR "未检测到 PS4SDK 环境变量，请设置 PS4SDK 指向 OpenOrbis 工具链目录")
 endif()
 
 set(PS4SDK $ENV{PS4SDK})
 
+# 工具链文件
 set(PS4_TOOLCHAIN_FILE "${PS4SDK}/share/toolchain/ps4.toolchain.cmake")
-
 if(EXISTS "${PS4_TOOLCHAIN_FILE}")
     set(CMAKE_TOOLCHAIN_FILE "${PS4_TOOLCHAIN_FILE}" CACHE FILEPATH "PS4 toolchain file")
     message(STATUS "使用的 PS4 toolchain 路径: ${PS4_TOOLCHAIN_FILE}")
@@ -29,27 +31,25 @@ else()
     endif()
 endif()
 
+# 源码目录
 if(NOT DEFINED SRC_DIR)
     set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 endif()
 
-file(GLOB_RECURSE SOURCES ${SRC_DIR}/*.c)
-
+# 入口文件 all.c
 set(MAIN_FILE ${SRC_DIR}/all.c)
 if(NOT EXISTS ${MAIN_FILE})
     message(FATAL_ERROR "未找到入口文件 all.c")
 endif()
 
 include(FetchContent)
-
 set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/third_party)
 
-# SDL2 for PS4
-# 强制限定搜索路径到 PS4SDK，避免误用主机 SDL2
+# 限定搜索路径到 PS4SDK，避免误用主机 SDL2
 set(CMAKE_PREFIX_PATH "${PS4SDK}/arm-orbis-eabi" ${CMAKE_PREFIX_PATH})
 
+# SDL2 for PS4
 find_package(SDL2 QUIET)
-
 if(SDL2_FOUND AND SDL2_INCLUDE_DIRS MATCHES "${PS4SDK}")
     message(STATUS "使用 PS4SDK 中的 SDL2 库")
     add_library(SDL2_PS4::SDL2 ALIAS SDL2)
@@ -67,6 +67,10 @@ else()
 endif()
 
 # SDL2_image
+set(SDL2IMAGE_AVIF OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_WEBP OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_TIF OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_VENDORED OFF CACHE BOOL "" FORCE)
 find_package(SDL2_image QUIET)
 if(SDL2_IMAGE_FOUND)
     message(STATUS "使用本地 SDL2_image 库")
@@ -85,6 +89,7 @@ else()
 endif()
 
 # SDL2_mixer
+set(SDL2MIXER_WAVPACK OFF CACHE BOOL "" FORCE)
 find_package(SDL2_mixer QUIET)
 if(SDL2_MIXER_FOUND)
     message(STATUS "使用本地 SDL2_mixer 库")
@@ -102,7 +107,8 @@ else()
     add_library(SDL2_PS4::SDL2_mixer ALIAS SDL2_mixer)
 endif()
 
-add_executable(MySDLApp ${SOURCES} ${MAIN_FILE})
+# 构建 PS4 可执行文件，只编译 all.c
+add_executable(MySDLApp ${MAIN_FILE})
 
 target_link_libraries(MySDLApp
     SDL2_PS4::SDL2

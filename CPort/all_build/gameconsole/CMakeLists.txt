@@ -5,18 +5,12 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 add_compile_options(-O3)
 
+# 源码目录
 if(NOT DEFINED SRC_DIR)
     set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 endif()
 
-file(GLOB_RECURSE ALL_FILES ${SRC_DIR}/*)
-set(SOURCES "")
-foreach(file ${ALL_FILES})
-    if(file MATCHES "\\.c$")
-        list(APPEND SOURCES ${file})
-    endif()
-endforeach()
-
+# 入口文件 all.c
 set(MAIN_FILE ${SRC_DIR}/all.c)
 if(NOT EXISTS ${MAIN_FILE})
     message(FATAL_ERROR "未找到入口文件 all.c，请确认源码目录是否正确: ${SRC_DIR}")
@@ -102,5 +96,7 @@ if(NOT SDL2_MIXER_FOUND)
   FetchContent_MakeAvailable(SDL2_mixer)
 endif()
 
-add_executable(MySDLApp ${SOURCES} ${MAIN_FILE})
+# 构建可执行文件，只编译 all.c
+add_executable(MySDLApp ${MAIN_FILE})
+
 target_link_libraries(MySDLApp SDL2 SDL2_image SDL2_mixer)

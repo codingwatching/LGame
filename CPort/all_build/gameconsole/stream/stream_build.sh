@@ -1,65 +1,101 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -e
 
-# Check if source path parameter is provided
+# 检查参数
 if [ -z "$1" ]; then
-    echo "[INFO] No source path specified, defaulting to 'src' under the script directory."
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-    SRC_DIR="$SCRIPT_DIR/src"
-else
-    SRC_DIR="$1"
+  echo "[ERROR] Please specify the source path when running the script."
+  echo "Usage: ./steam_build.sh <source_path>"
+  exit 1
 fi
 
-# Check if source path exists
+SRC_DIR="$1"
+
 if [ ! -d "$SRC_DIR" ]; then
-    echo "[ERROR] The specified source path does not exist: $SRC_DIR"
-    exit 1
+  echo "[ERROR] The specified source path does not exist: $SRC_DIR"
+  exit 1
 fi
 
-# Check if STEAMWORKS_SDK_PATH is set
+# 检查 Steamworks SDK 环境变量
 if [ -z "$STEAMWORKS_SDK_PATH" ]; then
-    echo "[ERROR] STEAMWORKS_SDK_PATH environment variable not detected. Please set it to the Steamworks SDK path."
-    exit 1
+  echo "[ERROR] STEAMWORKS_SDK_PATH environment variable not detected. Please set it to the Steamworks SDK path."
+  exit 1
 fi
 
-# Check if CMake is installed
-if ! command -v cmake &> /dev/null; then
-    echo "[ERROR] CMake not detected. Please install CMake and add it to PATH."
-    exit 1
+# 检查 CMake
+if ! command -v cmake >/dev/null 2>&1; then
+  echo "[ERROR] CMake not detected. Please install it."
+  exit 1
 fi
 
-# Check if Ninja is available
-if command -v ninja &> /dev/null; then
-    GENERATOR="Ninja"
-    echo "[INFO] Ninja build system detected, using Ninja generator."
+TOOLS_DIR="$(dirname "$0")/external/tools"
+mkdir -p "$TOOLS_DIR"
+
+# 自动安装 GN
+if ! command -v gn >/dev/null 2>&1; then
+  echo "[INFO] GN not found, downloading..."
+  GN_URL="https://storage.googleapis.com/chrome-infra/gn/gn$(uname | tr '[:upper:]' '[:lower:]')"
+  curl -L "$GN_URL" -o "$TOOLS_DIR/gn"
+  chmod +x "$TOOLS_DIR/gn"
+  export PATH="$TOOLS_DIR:$PATH"
+  echo "[SUCCESS] GN installed to $TOOLS_DIR"
+fi
+
+# 自动安装 Ninja
+if ! command -v ninja >/dev/null 2>&1; then
+  echo "[INFO] Ninja not found, downloading..."
+  NINJA_URL="https://github.com/ninja-build/ninja/releases/download/v1.11.1/ninja-$(uname | tr '[:upper:]' '[:lower:]').zip"
+  curl -L "$NINJA_URL" -o "$TOOLS_DIR/ninja.zip"
+  unzip -o "$TOOLS_DIR/ninja.zip" -d "$TOOLS_DIR"
+  chmod +x "$TOOLS_DIR/ninja"
+  export PATH="$TOOLS_DIR:$PATH"
+  echo "[SUCCESS] Ninja installed to $TOOLS_DIR"
+fi
+
+# 优先 GN+Ninja 构建 ANGLE
+if command -v gn >/dev/null 2>&1 && command -v ninja >/dev/null 2>&1; then
+  echo "[INFO] GN and Ninja detected. Using GN/Ninja to build ANGLE first..."
+
+  ANGLE_DIR="$(dirname "$0")/external/angle"
+  if [ ! -d "$ANGLE_DIR" ]; then
+    echo "[INFO] Cloning ANGLE repository..."
+    git clone https://github.com/google/angle.git "$ANGLE_DIR"
+  fi
+
+  cd "$ANGLE_DIR"
+  gn gen out/Release --args="is_debug=false angle_enable_gl=true angle_enable_vulkan=true"
+  ninja -C out/Release libEGL libGLESv2
+  echo "[SUCCESS] ANGLE built successfully with GN/Ninja."
+  ANGLE_BUILT=1
+  cd -
 else
-    GENERATOR="Unix Makefiles"
-    echo "[INFO] Ninja not detected, falling back to Unix Makefiles."
+  ANGLE_BUILT=0
 fi
 
-# Configure project
-cmake -B build -S . \
-    -G "$GENERATOR" \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DSRC_DIR="$SRC_DIR" \
-    -DSTEAMWORKS_SDK_PATH="$STEAMWORKS_SDK_PATH"
-
-if [ $? -ne 0 ]; then
-    echo "[ERROR] CMake configuration failed."
-    exit 1
+# 使用 CMake 构建主项目
+if [ "$ANGLE_BUILT" -eq 1 ]; then
+  echo "[INFO] Configuring CMake project with local ANGLE build..."
+  cmake -B build -S . -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DSRC_DIR="$SRC_DIR" -DSTEAMWORKS_SDK_PATH="$STEAMWORKS_SDK_PATH" -DFETCHCONTENT_FULLY_DISCONNECTED=ON -DANGLE_DIR="$ANGLE_DIR/out/Release"
+  cmake --build build
+  echo "[SUCCESS] Build completed with GN/Ninja ANGLE! Executable located at build/MySDLApp"
+  exit 0
 fi
 
-# Build project with parallel jobs
-cmake --build build -- -j"$(nproc)"
-if [ $? -ne 0 ]; then
-    echo "[ERROR] Build failed."
-    exit 1
+# 回退到 GCC/Ninja
+if command -v gcc >/dev/null 2>&1; then
+  echo "[INFO] GCC compiler detected."
+  cmake -B build -S . -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DSRC_DIR="$SRC_DIR" -DSTEAMWORKS_SDK_PATH="$STEAMWORKS_SDK_PATH" -DFETCHCONTENT_FULLY_DISCONNECTED=ON
+  cmake --build build
+  echo "[SUCCESS] Build completed with GCC! Executable located at build/MySDLApp"
+  exit 0
 fi
 
-OUTPUT_EXE="build/MySDLApp"
-
-if [ ! -f "$OUTPUT_EXE" ]; then
-    echo "[ERROR] Executable file not generated: $OUTPUT_EXE"
-    exit 1
+if command -v ninja >/dev/null 2>&1; then
+  echo "[INFO] Ninja detected, using Ninja generator."
+  cmake -B build -S . -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DSRC_DIR="$SRC_DIR" -DSTEAMWORKS_SDK_PATH="$STEAMWORKS_SDK_PATH" -DFETCHCONTENT_FULLY_DISCONNECTED=ON
+  cmake --build build
+  echo "[SUCCESS] Build completed with Ninja! Executable located at build/MySDLApp"
+  exit 0
 fi
 
-echo "[SUCCESS] Build completed! Executable file is located in the build/ directory and can be run through Steam."
+echo "[ERROR] No supported compiler detected. Please install GN/Ninja or GCC."
+exit 1

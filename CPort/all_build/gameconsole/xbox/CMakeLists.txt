@@ -91,6 +91,10 @@ endif()
 
 # SDL2_image
 find_package(SDL2_image QUIET)
+set(SDL2IMAGE_AVIF OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_WEBP OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_TIF OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_VENDORED OFF CACHE BOOL "" FORCE)
 if(SDL2_IMAGE_FOUND AND SDL2_IMAGE_INCLUDE_DIRS MATCHES "${XBOXSDK_PATH}")
     message(STATUS "使用 Xbox SDK 中的 SDL2_image 库")
     add_library(SDL2_Xbox::SDL2_image ALIAS SDL2_image)
@@ -108,6 +112,7 @@ else()
 endif()
 
 # SDL2_mixer
+set(SDL2MIXER_WAVPACK OFF CACHE BOOL "" FORCE)
 find_package(SDL2_mixer QUIET)
 if(SDL2_MIXER_FOUND AND SDL2_MIXER_INCLUDE_DIRS MATCHES "${XBOXSDK_PATH}")
     message(STATUS "使用 Xbox SDK 中的 SDL2_mixer 库")
@@ -128,10 +133,14 @@ endif()
 add_executable(MySDLApp ${SOURCES} ${MAIN_FILE})
 
 target_link_libraries(MySDLApp
-    SDL2_Xbox::SDL2
-    SDL2_Xbox::SDL2_image
-    SDL2_Xbox::SDL2_mixer
+    SDL2::SDL2
+    SDL2_image::SDL2_image
+    SDL2_mixer::SDL2_mixer
 )
+
+if(WIN32)
+    target_link_libraries(MySDLApp SDL2::SDL2main)
+endif()
 
 if(DEFINED ENV{GDKXSDK})
   target_link_libraries(MySDLApp d3d11 xinput xaudio2)

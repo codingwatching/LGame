@@ -1,23 +1,25 @@
-#!/bin/bash
+#!/usr/bin/env bash
+set -euo pipefail
 
-# Check if source path parameter is provided
-if [ -z "$1" ]; then
-    echo "[INFO] No source path specified, defaulting to 'src' under the script directory."
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-    SRC_DIR="$SCRIPT_DIR/src"
-else
-    SRC_DIR="$1"
+# ---------------- 参数处理 ----------------
+ACTION="${1:-release}"
+
+if [[ "$ACTION" == "clean" ]]; then
+    echo "[INFO] Cleaning build directory..."
+    rm -rf "$(dirname "$0")/build"
+    echo "[SUCCESS] Clean completed."
+    exit 0
 fi
 
-# Check if source path exists
-if [ ! -d "$SRC_DIR" ]; then
+# ---------------- 源码路径处理 ----------------
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SRC_DIR="${2:-$SCRIPT_DIR/src}"
+
+if [[ ! -d "$SRC_DIR" ]]; then
     echo "[WARNING] The specified source path does not exist: $SRC_DIR"
     echo "Trying to use the script directory as base..."
-
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-    SRC_DIR="$SCRIPT_DIR/$1"
-
-    if [ ! -d "$SRC_DIR" ]; then
+    SRC_DIR="$SCRIPT_DIR/$2"
+    if [[ ! -d "$SRC_DIR" ]]; then
         echo "[ERROR] Path still does not exist: $SRC_DIR"
         exit 1
     else
@@ -27,17 +29,21 @@ else
     echo "[INFO] Using path: $SRC_DIR"
 fi
 
-# Check if Emscripten is installed
-if ! command -v emcmake &> /dev/null; then
+# ---------------- 工具检测 ----------------
+if ! command -v emcmake >/dev/null 2>&1; then
     echo "[ERROR] Emscripten not detected. Please install and configure the environment."
     echo "Installation guide: https://emscripten.org/docs/getting_started/downloads.html"
     exit 1
 fi
 
-echo "[INFO] Using Emscripten toolchain for build"
+if ! command -v cmake >/dev/null 2>&1; then
+    echo "[ERROR] CMake not detected. Please install it."
+    exit 1
+fi
 
-# Check if Ninja is available
-if command -v ninja &> /dev/null; then
+# ---------------- Ninja 检测 ----------------
+GENERATOR=""
+if command -v ninja >/dev/null 2>&1; then
     GENERATOR="Ninja"
     echo "[INFO] Ninja build system detected, using Ninja generator."
 else
@@ -45,34 +51,25 @@ else
     echo "[INFO] Ninja not detected, falling back to Unix Makefiles."
 fi
 
-# Configure project
+# ---------------- 配置项目 ----------------
 echo "[INFO] Running cmake with generator: $GENERATOR"
-emcmake cmake -B "build" -S "$SRC_DIR" \
+emcmake cmake -B build -S "$SRC_DIR" \
     -G "$GENERATOR" \
-    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_BUILD_TYPE="$ACTION" \
     -DSRC_DIR="$SRC_DIR"
 
-if [ $? -ne 0 ]; then
-    echo "[ERROR] CMake configuration failed."
-    exit 1
-fi
-
-# Build project with parallel jobs
-if [ "$GENERATOR" = "Ninja" ]; then
-    cmake --build "build" -- -j"$(nproc)"
+# ---------------- 构建项目 ----------------
+if [[ "$GENERATOR" == "Ninja" ]]; then
+    cmake --build build -- -j"$(nproc)"
 else
-    emmake make -C "build" -j"$(nproc)"
+    emmake make -C build -j"$(nproc)"
 fi
 
-if [ $? -ne 0 ]; then
-    echo "[ERROR] Build failed."
-    exit 1
-fi
-
+# ---------------- 输出检查 ----------------
 OUTPUT_JS="build/MySDLApp.js"
 OUTPUT_WASM="build/MySDLApp.wasm"
 
-if [ -f "$OUTPUT_JS" ] && [ -f "$OUTPUT_WASM" ]; then
+if [[ -f "$OUTPUT_JS" && -f "$OUTPUT_WASM" ]]; then
     echo "[SUCCESS] Build completed! Files located at:"
     echo "  $OUTPUT_JS"
     echo "  $OUTPUT_WASM"
