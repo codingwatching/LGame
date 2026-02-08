@@ -29,6 +29,10 @@ if(NOT EXISTS ${MAIN_FILE})
 endif()
 
 include(FetchContent)
+
+# 禁止SDL2编译test文件夹 
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+
 set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/third_party)
 
 # 限定搜索路径到 PSPDEV，避免误用主机 SDL2
@@ -38,7 +42,7 @@ set(CMAKE_PREFIX_PATH "${PSPDEV}/psp" ${CMAKE_PREFIX_PATH})
 find_package(SDL2 QUIET)
 if(SDL2_FOUND AND SDL2_INCLUDE_DIRS MATCHES "${PSPDEV}")
     message(STATUS "使用 PSPDEV 中的 SDL2 库")
-    add_library(SDL2_PSP::SDL2 ALIAS SDL2)
+    add_library(SDL2_PSP::SDL2 ALIAS SDL2::SDL2-static)
 else()
     message(STATUS "未找到 PSPDEV SDL2，开始下载 SDL-PSP")
     FetchContent_Declare(
@@ -49,7 +53,7 @@ else()
       BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_psp-build
     )
     FetchContent_MakeAvailable(SDL2_PSP)
-    add_library(SDL2_PSP::SDL2 ALIAS SDL2)
+    add_library(SDL2_PSP::SDL2 ALIAS SDL2::SDL2-static)
 endif()
 
 # SDL2_image
@@ -60,7 +64,7 @@ set(SDL2IMAGE_VENDORED OFF CACHE BOOL "" FORCE)
 find_package(SDL2_image QUIET)
 if(SDL2_IMAGE_FOUND AND SDL2_IMAGE_INCLUDE_DIRS MATCHES "${PSPDEV}")
     message(STATUS "使用 PSPDEV 中的 SDL2_image 库")
-    add_library(SDL2_PSP::SDL2_image ALIAS SDL2_image)
+    add_library(SDL2_PSP::SDL2_image ALIAS SDL2_image::SDL2_image-static)
 else()
     message(STATUS "未找到 PSPDEV SDL2_image，开始下载")
     FetchContent_Declare(
@@ -71,7 +75,7 @@ else()
       BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_psp-build
     )
     FetchContent_MakeAvailable(SDL2_image_PSP)
-    add_library(SDL2_PSP::SDL2_image ALIAS SDL2_image)
+    add_library(SDL2_PSP::SDL2_image ALIAS SDL2_image::SDL2_image-static)
 endif()
 
 # SDL2_mixer
@@ -79,7 +83,7 @@ set(SDL2MIXER_WAVPACK OFF CACHE BOOL "" FORCE)
 find_package(SDL2_mixer QUIET)
 if(SDL2_MIXER_FOUND AND SDL2_MIXER_INCLUDE_DIRS MATCHES "${PSPDEV}")
     message(STATUS "使用 PSPDEV 中的 SDL2_mixer 库")
-    add_library(SDL2_PSP::SDL2_mixer ALIAS SDL2_mixer)
+    add_library(SDL2_PSP::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer-static)
 else()
     message(STATUS "未找到 PSPDEV SDL2_mixer，开始下载")
     FetchContent_Declare(
@@ -90,12 +94,13 @@ else()
       BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_psp-build
     )
     FetchContent_MakeAvailable(SDL2_mixer_PSP)
-    add_library(SDL2_PSP::SDL2_mixer ALIAS SDL2_mixer)
+    add_library(SDL2_PSP::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer-static)
 endif()
 
 # 构建 PSP 可执行文件，只编译 all.c
 add_executable(MySDLApp ${MAIN_FILE})
 
+# 在 PSP 下使用静态链接，避免运行时依赖动态库
 target_link_libraries(MySDLApp
     SDL2_PSP::SDL2
     SDL2_PSP::SDL2_image

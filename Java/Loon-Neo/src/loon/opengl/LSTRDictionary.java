@@ -222,7 +222,7 @@ public final class LSTRDictionary implements LRelease {
 	}
 
 	private void closeDict(final IntMap<Dict> list) {
-		synchronized (list) {
+		synchronized (LSTRDictionary.class) {
 			for (Iterator<Dict> it = list.iterator(); it.hasNext();) {
 				Dict dict = it.next();
 				if (dict != null) {
@@ -318,7 +318,7 @@ public final class LSTRDictionary implements LRelease {
 		if (_cacheList == null) {
 			return;
 		}
-		synchronized (_cacheList) {
+		synchronized (LSTRDictionary.class) {
 			if (_cacheList != null) {
 				_cacheList.clear();
 			}

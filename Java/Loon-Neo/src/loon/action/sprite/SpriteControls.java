@@ -139,9 +139,7 @@ public final class SpriteControls {
 		if (sprites == null) {
 			return this;
 		}
-		synchronized (sprites) {
-			set(sprites.getSpritesArray());
-		}
+		set(sprites.getSpritesArray());
 		return this;
 	}
 
@@ -175,10 +173,8 @@ public final class SpriteControls {
 		if (sprites == null) {
 			return this;
 		}
-		synchronized (sprites) {
-			sprites.clear(this._sprs);
-			clear();
-		}
+		sprites.clear(this._sprs);
+		clear();
 		return this;
 	}
 
@@ -252,9 +248,7 @@ public final class SpriteControls {
 		if (sprites == null) {
 			return this;
 		}
-		synchronized (sprites) {
-			set(sprites.getSpritesArray());
-		}
+		set(sprites.getSpritesArray());
 		return this;
 	}
 

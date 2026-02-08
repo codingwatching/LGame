@@ -272,74 +272,70 @@ public class LLayer extends ActorLayer {
 	}
 
 	public void paintObjects(final GLEx g, final int minX, final int minY, final int maxX, final int maxY) {
-		synchronized (objects) {
-			final LIterator<Actor> it = objects.iterator();
-			for (; it.hasNext();) {
-				_thing = it.next();
-				if (!_thing.visible) {
-					continue;
+		final LIterator<Actor> it = objects.iterator();
+		for (; it.hasNext();) {
+			_thing = it.next();
+			if (!_thing.visible) {
+				continue;
+			}
+			_currentLayerListener = (_thing.actorListener != null);
+			if (_currentLayerVSync) {
+				if (_currentLayerListener) {
+					_thing.actorListener.update(elapsedTime);
 				}
-				_currentLayerListener = (_thing.actorListener != null);
-				if (_currentLayerVSync) {
-					if (_currentLayerListener) {
-						_thing.actorListener.update(elapsedTime);
-					}
-					_thing.update(elapsedTime);
-				}
+				_thing.update(elapsedTime);
+			}
 
-				_actorX = minX + _thing.getX();
-				_actorY = minY + _thing.getY();
-				_actorWidth = _thing.pixelWidth();
-				_actorHeight = _thing.pixelHeight();
-				if (_component_elastic && (_actorX + _actorWidth < minX || _actorX > maxX
-						|| _actorY + _actorHeight < minY || _actorY > maxY)) {
-					continue;
+			_actorX = minX + _thing.getX();
+			_actorY = minY + _thing.getY();
+			_actorWidth = _thing.pixelWidth();
+			_actorHeight = _thing.pixelHeight();
+			if (_component_elastic && (_actorX + _actorWidth < minX || _actorX > maxX || _actorY + _actorHeight < minY
+					|| _actorY > maxY)) {
+				continue;
+			}
+			final int tint = g.color();
+			final float alpha = g.alpha();
+			LTexture actorImage = _thing.getImage();
+			if (actorImage != null) {
+				final float width = _thing.pixelWidth();
+				final float height = _thing.pixelHeight();
+				_thing.setLastPaintSeqNum(_paintSeq++);
+				float oldAlpha = g.alpha();
+				_colorAlpha = _thing.getAlpha();
+				if (_colorAlpha != oldAlpha) {
+					g.setAlpha(_colorAlpha);
 				}
-				final int tint = g.color();
-				final float alpha = g.alpha();
-				LTexture actorImage = _thing.getImage();
-				if (actorImage != null) {
-					final float width = _thing.pixelWidth();
-					final float height = _thing.pixelHeight();
-					_thing.setLastPaintSeqNum(_paintSeq++);
-					float oldAlpha = g.alpha();
-					_colorAlpha = _thing.getAlpha();
-					if (_colorAlpha != oldAlpha) {
-						g.setAlpha(_colorAlpha);
-					}
-					g.draw(actorImage, _actorX, _actorY, width, height,
-							_colorTemp
-									.setColor(_component_baseColor == null ? LColor.getColorARGBInt(_thing.filterColor)
-											: LColor.combine(_component_baseColor, _thing.filterColor)),
-							_thing.getRotation(), _thing.scaleX, _thing.scaleY, _thing.flipX, _thing.flipY);
-					if (_colorAlpha != oldAlpha) {
-						g.setAlpha(oldAlpha);
-					}
+				g.draw(actorImage, _actorX, _actorY, width, height,
+						_colorTemp.setColor(_component_baseColor == null ? LColor.getColorARGBInt(_thing.filterColor)
+								: LColor.combine(_component_baseColor, _thing.filterColor)),
+						_thing.getRotation(), _thing.scaleX, _thing.scaleY, _thing.flipX, _thing.flipY);
+				if (_colorAlpha != oldAlpha) {
+					g.setAlpha(oldAlpha);
 				}
-				if (_thing.isConsumerDrawing) {
-					if (_actorX == 0 && _actorY == 0) {
+			}
+			if (_thing.isConsumerDrawing) {
+				if (_actorX == 0 && _actorY == 0) {
+					_thing.draw(g);
+					if (_currentLayerListener) {
+						_thing.actorListener.draw(g);
+					}
+				} else {
+					try {
+						g.saveTx();
+						g.translate(_actorX, _actorY);
 						_thing.draw(g);
 						if (_currentLayerListener) {
 							_thing.actorListener.draw(g);
 						}
-					} else {
-						try {
-							g.saveTx();
-							g.translate(_actorX, _actorY);
-							_thing.draw(g);
-							if (_currentLayerListener) {
-								_thing.actorListener.draw(g);
-							}
-						} finally {
-							g.translate(-_actorX, -_actorY);
-							g.restoreTx();
-						}
+					} finally {
+						g.translate(-_actorX, -_actorY);
+						g.restoreTx();
 					}
 				}
-				g.setAlpha(alpha);
-				g.setTint(tint);
 			}
-
+			g.setAlpha(alpha);
+			g.setTint(tint);
 		}
 	}
 
@@ -572,22 +568,20 @@ public class LLayer extends ActorLayer {
 					moveActor = checkDragActor();
 				}
 				if (!moveActor) {
-					synchronized (_input) {
-						validatePosition();
-						dropX = this._input.getTouchIntDX();
-						dropY = this._input.getTouchIntDY();
-						if (isNotMoveInScreen(dropX + x(), dropY + y())) {
-							return;
-						}
-						if (getContainer() != null) {
-							getContainer().sendToFront(this);
-						}
-						try {
-							this.move(dropX, dropY);
-							this.dragClick(dropX, dropY);
-						} catch (Throwable e) {
-							LSystem.error("Layer drag() exception", e);
-						}
+					validatePosition();
+					dropX = this._input.getTouchIntDX();
+					dropY = this._input.getTouchIntDY();
+					if (isNotMoveInScreen(dropX + x(), dropY + y())) {
+						return;
+					}
+					if (getContainer() != null) {
+						getContainer().sendToFront(this);
+					}
+					try {
+						this.move(dropX, dropY);
+						this.dragClick(dropX, dropY);
+					} catch (Throwable e) {
+						LSystem.error("Layer drag() exception", e);
 					}
 				}
 			} else {
@@ -613,32 +607,28 @@ public class LLayer extends ActorLayer {
 		int dropY = 0;
 		boolean moveActor = false;
 		if (_actorDrag) {
-			synchronized (objects) {
-				final Vector2f pos = getUITouchXY();
-				dropX = MathUtils.floor(pos.x);
-				dropY = MathUtils.floor(pos.y);
-				if (_lastDropX == dropX && _lastDropY == dropY) {
-					return (_dragActor != null && _dragActor.isDrag());
-				}
-				if (_dragActor == null) {
-					_dragActor = getSynchronizedObject(dropX, dropY);
-				}
-				if (_dragActor != null && _dragActor.isDrag() && _dragActor.isClick()) {
-					synchronized (_dragActor) {
-						objects.sendToFront(_dragActor);
-						RectBox rect = _dragActor.getBoundingRect();
-						int dx = dropX - (rect.width / 2);
-						int dy = dropY - (rect.height / 2);
-						if (_dragActor.getLLayer() != null) {
-							_dragActor.setLocation(dx, dy);
-							_dragActor.drag(dropX, dropY);
-							if (_dragActor.actorListener != null) {
-								_dragActor.actorListener.drag(dropX, dropY);
-							}
-						}
-						moveActor = true;
+			final Vector2f pos = getUITouchXY();
+			dropX = MathUtils.floor(pos.x);
+			dropY = MathUtils.floor(pos.y);
+			if (_lastDropX == dropX && _lastDropY == dropY) {
+				return (_dragActor != null && _dragActor.isDrag());
+			}
+			if (_dragActor == null) {
+				_dragActor = getSynchronizedObject(dropX, dropY);
+			}
+			if (_dragActor != null && _dragActor.isDrag() && _dragActor.isClick()) {
+				objects.sendToFront(_dragActor);
+				RectBox rect = _dragActor.getBoundingRect();
+				int dx = dropX - (rect.width / 2);
+				int dy = dropY - (rect.height / 2);
+				if (_dragActor.getLLayer() != null) {
+					_dragActor.setLocation(dx, dy);
+					_dragActor.drag(dropX, dropY);
+					if (_dragActor.actorListener != null) {
+						_dragActor.actorListener.drag(dropX, dropY);
 					}
 				}
+				moveActor = true;
 			}
 		}
 		_lastDropX = dropX;

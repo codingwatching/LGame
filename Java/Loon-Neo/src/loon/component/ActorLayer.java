@@ -101,10 +101,8 @@ public abstract class ActorLayer extends LContainer {
 	}
 
 	public void setCellSize(int cellSize) {
-		synchronized (collisionChecker) {
-			this.cellSize = cellSize;
-			this.collisionChecker.initialize(cellSize);
-		}
+		this.cellSize = cellSize;
+		this.collisionChecker.initialize(cellSize);
 	}
 
 	/**
@@ -521,13 +519,11 @@ public abstract class ActorLayer extends LContainer {
 		if (_destroyed) {
 			return;
 		}
-		synchronized (objects) {
-			if (this.objects.add(object)) {
-				object.addLayer(x, y, this);
-				object.setState(State.ADDED);
-				this.collisionChecker.addObject(object);
-				object.addLayer(this);
-			}
+		if (this.objects.add(object)) {
+			object.addLayer(x, y, this);
+			object.setState(State.ADDED);
+			this.collisionChecker.addObject(object);
+			object.addLayer(this);
 		}
 	}
 
@@ -553,10 +549,8 @@ public abstract class ActorLayer extends LContainer {
 			return;
 		}
 		if (objects != null) {
-			synchronized (objects) {
-				if (objects != null) {
-					objects.sendToFront(actor);
-				}
+			if (objects != null) {
+				objects.sendToFront(actor);
 			}
 		}
 	}
@@ -571,10 +565,8 @@ public abstract class ActorLayer extends LContainer {
 			return;
 		}
 		if (objects != null) {
-			synchronized (objects) {
-				if (objects != null) {
-					objects.sendToBack(actor);
-				}
+			if (objects != null) {
+				objects.sendToBack(actor);
 			}
 		}
 	}
@@ -691,15 +683,13 @@ public abstract class ActorLayer extends LContainer {
 		if (objects.size() == 0) {
 			return;
 		}
-		synchronized (objects) {
-			if (this.objects.remove(object)) {
-				this.collisionChecker.removeObject(object);
-			}
-			if (object != null) {
-				object.setState(State.REMOVED);
-				removeActionEvents(object);
-				object.setLayer((ActorLayer) null);
-			}
+		if (this.objects.remove(object)) {
+			this.collisionChecker.removeObject(object);
+		}
+		if (object != null) {
+			object.setState(State.REMOVED);
+			removeActionEvents(object);
+			object.setLayer((ActorLayer) null);
 		}
 	}
 
@@ -712,12 +702,10 @@ public abstract class ActorLayer extends LContainer {
 		if (_destroyed) {
 			return;
 		}
-		synchronized (objects) {
-			Iterator<Actor> iter = objects.iterator();
-			while (iter.hasNext()) {
-				Actor actor = iter.next();
-				this.removeObject(actor);
-			}
+		Iterator<Actor> iter = objects.iterator();
+		while (iter.hasNext()) {
+			Actor actor = iter.next();
+			this.removeObject(actor);
 		}
 	}
 
@@ -730,22 +718,20 @@ public abstract class ActorLayer extends LContainer {
 		if (_destroyed) {
 			return;
 		}
-		synchronized (objects) {
-			Iterator<Actor> it = objects.iterator();
-			while (it.hasNext()) {
-				Actor actor = it.next();
-				if (actor == null) {
-					continue;
+		Iterator<Actor> it = objects.iterator();
+		while (it.hasNext()) {
+			Actor actor = it.next();
+			if (actor == null) {
+				continue;
+			}
+			String flag = actor.getObjectFlag();
+			if (flagName == null || flagName == flag || flagName.equals(flag)) {
+				if (this.objects.remove(actor)) {
+					this.collisionChecker.removeObject(actor);
 				}
-				String flag = actor.getObjectFlag();
-				if (flagName == null || flagName == flag || flagName.equals(flag)) {
-					if (this.objects.remove(actor)) {
-						this.collisionChecker.removeObject(actor);
-					}
-					actor.setState(State.REMOVED);
-					removeActionEvents(actor);
-					actor.setLayer((ActorLayer) null);
-				}
+				actor.setState(State.REMOVED);
+				removeActionEvents(actor);
+				actor.setLayer((ActorLayer) null);
 			}
 		}
 	}

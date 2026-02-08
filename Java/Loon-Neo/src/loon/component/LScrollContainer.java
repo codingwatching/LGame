@@ -149,33 +149,30 @@ public class LScrollContainer extends LContainer {
 		if (!this.isVisible()) {
 			return;
 		}
-		final LComponent[] childs = super._childs;
-		synchronized (childs) {
-			try {
-				g.saveTx();
-				if (_visibleBackground) {
-					if (_background == null) {
-						g.fillRect(getScreenX(), getScreenY(), getWidth(), getHeight(),
-								_colorTemp.setColor(_component_baseColor == null ? LColor.gray.getARGB()
-										: LColor.combine(_component_baseColor, LColor.gray)));
-					} else {
-						g.draw(_background, getScreenX(), getScreenY(), getWidth(), getHeight(), _component_baseColor);
-					}
+		try {
+			g.saveTx();
+			if (_visibleBackground) {
+				if (_background == null) {
+					g.fillRect(getScreenX(), getScreenY(), getWidth(), getHeight(),
+							_colorTemp.setColor(_component_baseColor == null ? LColor.gray.getARGB()
+									: LColor.combine(_component_baseColor, LColor.gray)));
+				} else {
+					g.draw(_background, getScreenX(), getScreenY(), getWidth(), getHeight(), _component_baseColor);
 				}
-				g.translate(-_boxScrollX, -_boxScrollY);
-				super.createUI(g);
-				g.translate(_boxScrollX, _boxScrollY);
-				if (_showScroll) {
-					if (_verticalScrollbar != null) {
-						_verticalScrollbar.paint(g);
-					}
-					if (_horizontalScrollbar != null) {
-						_horizontalScrollbar.paint(g);
-					}
-				}
-			} finally {
-				g.restoreTx();
 			}
+			g.translate(-_boxScrollX, -_boxScrollY);
+			super.createUI(g);
+			g.translate(_boxScrollX, _boxScrollY);
+			if (_showScroll) {
+				if (_verticalScrollbar != null) {
+					_verticalScrollbar.paint(g);
+				}
+				if (_horizontalScrollbar != null) {
+					_horizontalScrollbar.paint(g);
+				}
+			}
+		} finally {
+			g.restoreTx();
 		}
 	}
 

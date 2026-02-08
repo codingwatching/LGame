@@ -31,6 +31,9 @@ endif()
 
 include(FetchContent)
 
+# 禁止SDL2编译test文件夹 
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+
 # =========================
 # ANGLE
 # =========================
@@ -51,16 +54,16 @@ set(ANGLE_ENABLE_METAL OFF CACHE BOOL "Disable Metal backend" FORCE)
 # SDL2/SDL3 检测与配置
 find_package(SDL2 QUIET)
 if(SDL2_FOUND)
-    message(STATUS "检测到 SDL2，使用 SDL2 构建")
-    set(SDL_LIB SDL2)
-    set(SDL_IMAGE SDL2_image)
-    set(SDL_MIXER SDL2_mixer)
+    message(STATUS "检测到 SDL2，使用 SDL2 构建 (静态链接)")
+    set(SDL_LIB SDL2::SDL2-static)
+    set(SDL_IMAGE SDL2_image::SDL2_image-static)
+    set(SDL_MIXER SDL2_mixer::SDL2_mixer-static)
 
     # SDL2_image
-	set(SDL2IMAGE_AVIF OFF CACHE BOOL "" FORCE)
-	set(SDL2IMAGE_WEBP OFF CACHE BOOL "" FORCE)
-	set(SDL2IMAGE_TIF OFF CACHE BOOL "" FORCE)
-	set(SDL2IMAGE_VENDORED OFF CACHE BOOL "" FORCE)
+    set(SDL2IMAGE_AVIF OFF CACHE BOOL "" FORCE)
+    set(SDL2IMAGE_WEBP OFF CACHE BOOL "" FORCE)
+    set(SDL2IMAGE_TIF OFF CACHE BOOL "" FORCE)
+    set(SDL2IMAGE_VENDORED OFF CACHE BOOL "" FORCE)
     find_package(SDL2_image QUIET)
     if(NOT SDL2_IMAGE_FOUND)
         FetchContent_Declare(SDL2_image
@@ -71,7 +74,7 @@ if(SDL2_FOUND)
     endif()
 
     # SDL2_mixer
-	set(SDL2MIXER_WAVPACK OFF CACHE BOOL "" FORCE)
+    set(SDL2MIXER_WAVPACK OFF CACHE BOOL "" FORCE)
     find_package(SDL2_mixer QUIET)
     if(NOT SDL2_MIXER_FOUND)
         FetchContent_Declare(SDL2_mixer
@@ -82,10 +85,10 @@ if(SDL2_FOUND)
     endif()
 
 else()
-    message(STATUS "未检测到 SDL2，切换到 SDL3 构建")
-    set(SDL_LIB SDL3)
-    set(SDL_IMAGE SDL3_image)
-    set(SDL_MIXER SDL3_mixer)
+    message(STATUS "未检测到 SDL2，切换到 SDL3 构建 (静态链接)")
+    set(SDL_LIB SDL3::SDL3-static)
+    set(SDL_IMAGE SDL3_image::SDL3_image-static)
+    set(SDL_MIXER SDL3_mixer::SDL3_mixer-static)
 
     # SDL3
     FetchContent_Declare(SDL3
@@ -95,10 +98,10 @@ else()
     FetchContent_MakeAvailable(SDL3)
 
     # SDL3_image
-	set(SDL2IMAGE_AVIF OFF CACHE BOOL "" FORCE)
-	set(SDL2IMAGE_WEBP OFF CACHE BOOL "" FORCE)
-	set(SDL2IMAGE_TIF OFF CACHE BOOL "" FORCE)
-	set(SDL2IMAGE_VENDORED OFF CACHE BOOL "" FORCE)
+    set(SDL2IMAGE_AVIF OFF CACHE BOOL "" FORCE)
+    set(SDL2IMAGE_WEBP OFF CACHE BOOL "" FORCE)
+    set(SDL2IMAGE_TIF OFF CACHE BOOL "" FORCE)
+    set(SDL2IMAGE_VENDORED OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(SDL3_image
       GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
       GIT_TAG SDL3
@@ -106,7 +109,7 @@ else()
     FetchContent_MakeAvailable(SDL3_image)
 
     # SDL3_mixer
-	set(SDL2MIXER_WAVPACK OFF CACHE BOOL "" FORCE)
+    set(SDL2MIXER_WAVPACK OFF CACHE BOOL "" FORCE)
     FetchContent_Declare(SDL3_mixer
       GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
       GIT_TAG SDL3
@@ -117,10 +120,11 @@ endif()
 # 构建 Switch2 可执行文件，只编译 all.c
 add_executable(MySDLApp ${MAIN_FILE})
 
+# 在 Switch2 下使用静态链接，避免运行时依赖动态库
 target_link_libraries(MySDLApp
     ${SDL_LIB}
     ${SDL_IMAGE}
     ${SDL_MIXER}
-    EGL
-    GLESv2
+    angle::libEGL-static
+    angle::libGLESv2-static
 )

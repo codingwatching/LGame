@@ -54,7 +54,7 @@ public class CCodeFix {
 		// "TeaVM_Class* fixedname, TeaVM_Class* cls");
 	}
 
-	public static void fixMacro(Path fixFile) {
+	public void fixMacro(Path fixFile) {
 		if (fixFile == null) {
 			return;
 		}
@@ -181,7 +181,7 @@ public class CCodeFix {
 		}
 	}
 
-	private static void fixProcessFile(Path filePath) {
+	private void fixProcessFile(Path filePath) {
 		if (ALL_FILE_REPLACEMENT_RULES.size() == 0) {
 			return;
 		}
@@ -218,10 +218,9 @@ public class CCodeFix {
 		}
 	}
 
-	public final static void fixAllFiles(String folderPath) throws IOException {
+	public final void fixAllFiles(String folderPath) throws IOException {
 
 		final Path rootPath = Paths.get(folderPath);
-
 		// 清理不需要的宏(我自己做多环境适配了，会冲突，删了干净，预防性多加几个删除宏……)
 		final HashSet<String> clearMacros = new HashSet<String>();
 		clearMacros.add("TEAVM_PSP");
@@ -229,18 +228,18 @@ public class CCodeFix {
 		clearMacros.add("TEAVM_XBOX");
 		clearMacros.add("TEAVM_STREAM");
 
-		CMacroCleaner cleaner = new CMacroCleaner(clearMacros);
+		CMacroCleaner cleaner = new CMacroCleaner(clearMacros, targetPath);
 		try {
 			cleaner.cleanMacros(rootPath);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-
 		Stream<Path> paths = Files.walk(rootPath);
 		try {
 			for (Path path : (Iterable<Path>) paths::iterator) {
 				String pathEx = path.toString();
-				if (Files.isRegularFile(path) && (pathEx.endsWith(".c") || pathEx.endsWith(".h"))) {
+				if (pathEx.contains(targetPath) && Files.isRegularFile(path)
+						&& (pathEx.endsWith(".c") || pathEx.endsWith(".h"))) {
 					fixProcessFile(path);
 					fixMacro(path);
 				}
@@ -271,9 +270,13 @@ public class CCodeFix {
 		}
 	}
 
-	public final TArray<FileFix> fixContexts = new TArray<FileFix>();
+	private final TArray<FileFix> fixContexts = new TArray<FileFix>();
+	private final CBuildConfiguration buildConfiguration;
+	private final String targetPath;
 
-	public CCodeFix() {
+	public CCodeFix(CBuildConfiguration config) {
+		buildConfiguration = config;
+		targetPath = PathUtils.normalizeCombinePaths(buildConfiguration.cappPath, buildConfiguration.cappOutputSource);
 		FileFix fix1 = new FileFix("file.c", "file, size, 0, where)", "file, size, 0, FILE_BEGIN)");
 		FileFix fix2 = new FileFix("definitions.h", "#define TEAVM_UNIX 1",
 				"   #if defined(__linux__) || defined(__APPLE__) || defined(__ANDROID__) || defined(__IOS__) || defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || defined(__HAIKU__)\r\n"

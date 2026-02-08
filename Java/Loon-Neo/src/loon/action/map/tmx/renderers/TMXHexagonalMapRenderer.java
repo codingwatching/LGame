@@ -158,141 +158,138 @@ public class TMXHexagonalMapRenderer extends TMXMapRenderer {
 
 	@Override
 	protected void renderTileLayer(GLEx g, TMXTileLayer tileLayer) {
+		if (!tileLayer.isVisible()) {
+			return;
+		}
+		final float viewWidth = MathUtils.min(getViewWidth(), getWidth());
+		final float viewHeight = MathUtils.min(getViewHeight(), getHeight());
+		final int screenWidth = MathUtils.iceil(viewWidth - _objectLocation.x);
+		final int screenHeight = MathUtils.iceil(viewHeight - _objectLocation.y);
+		final int tx = MathUtils.iceil((getRenderX() + _objectLocation.x) / map.getTileWidth());
+		final int ty = MathUtils.iceil((getRenderY() + _objectLocation.y) / map.getTileHeight());
+		final int windowWidth = MathUtils.iceil(screenWidth / map.getTileWidth() / scaleX) + 2;
+		final int windowHeight = MathUtils.iceil(screenHeight / map.getTileHeight() / scaleY) + 2;
 
-		synchronized (this) {
-			if (!tileLayer.isVisible()) {
-				return;
+		final int layerWidth = tileLayer.getWidth();
+		final int layerHeight = tileLayer.getHeight();
+
+		final float layerTileWidth = tileLayer.getTileWidth();
+		final float layerTileHeight = tileLayer.getTileHeight();
+
+		final float layerOffsetX = tileLayer.getRenderOffsetX() - (tileLayer.getParallaxX() - 1f);
+		final float layerOffsetY = -tileLayer.getRenderOffsetY() - (tileLayer.getParallaxY() - 1f);
+
+		final float layerHexLength = hexSideLength;
+
+		final boolean saveCache = textureMap.size == 1 && allowCache;
+
+		_texCurrent = textureMap.get(map.getTileset(tileIndex).getSource());
+		_texBatch = _texCurrent.getTextureBatch();
+
+		boolean isCached = false;
+
+		final LColor drawColor = tileLayer.getTileLayerColor(baseColor);
+
+		try {
+
+			if (saveCache) {
+				int hashCode = 1;
+				hashCode = LSystem.unite(hashCode, tx);
+				hashCode = LSystem.unite(hashCode, ty);
+				hashCode = LSystem.unite(hashCode, windowWidth);
+				hashCode = LSystem.unite(hashCode, windowHeight);
+				hashCode = LSystem.unite(hashCode, layerWidth);
+				hashCode = LSystem.unite(hashCode, layerHeight);
+				hashCode = LSystem.unite(hashCode, layerTileWidth);
+				hashCode = LSystem.unite(hashCode, layerTileHeight);
+				hashCode = LSystem.unite(hashCode, layerOffsetX);
+				hashCode = LSystem.unite(hashCode, layerOffsetY);
+				hashCode = LSystem.unite(hashCode, layerHexLength);
+				hashCode = LSystem.unite(hashCode, scaleX);
+				hashCode = LSystem.unite(hashCode, scaleY);
+				hashCode = LSystem.unite(hashCode, staggerAxisX);
+				hashCode = LSystem.unite(hashCode, tileLayer.isDirty());
+				hashCode = LSystem.unite(hashCode, _objectRotation);
+
+				if (isCached = postCache(_texBatch, hashCode)) {
+					return;
+				}
+
+			} else {
+				_texBatch.begin();
 			}
-			final float viewWidth = MathUtils.min(getViewWidth(), getWidth());
-			final float viewHeight = MathUtils.min(getViewHeight(), getHeight());
-			final int screenWidth = MathUtils.iceil(viewWidth - _objectLocation.x);
-			final int screenHeight = MathUtils.iceil(viewHeight - _objectLocation.y);
-			final int tx = MathUtils.iceil((getRenderX() + _objectLocation.x) / map.getTileWidth());
-			final int ty = MathUtils.iceil((getRenderY() + _objectLocation.y) / map.getTileHeight());
-			final int windowWidth = MathUtils.iceil(screenWidth / map.getTileWidth() / scaleX) + 2;
-			final int windowHeight = MathUtils.iceil(screenHeight / map.getTileHeight() / scaleY) + 2;
+			_texBatch.setBlendState(BlendState.AlphaBlend);
+			_texBatch.setColor(drawColor);
 
-			final int layerWidth = tileLayer.getWidth();
-			final int layerHeight = tileLayer.getHeight();
+			if (staggerAxisX) {
+				final float tileWidthLowerCorner = (layerTileWidth - layerHexLength) / 2;
+				final float tileWidthUpperCorner = (layerTileWidth + layerHexLength) / 2;
+				final float layerTileHeight50 = layerTileHeight * 0.5f;
 
-			final float layerTileWidth = tileLayer.getTileWidth();
-			final float layerTileHeight = tileLayer.getTileHeight();
+				final int ya = MathUtils.max(0,
+						MathUtils.ifloor((0f - layerTileHeight50 - layerOffsetX) / layerTileHeight));
+				final int yb = MathUtils.min(layerHeight,
+						MathUtils.ifloor((0f + screenHeight + layerTileHeight - layerOffsetX) / layerTileHeight));
 
-			final float layerOffsetX = tileLayer.getRenderOffsetX() - (tileLayer.getParallaxX() - 1f);
-			final float layerOffsetY = -tileLayer.getRenderOffsetY() - (tileLayer.getParallaxY() - 1f);
+				final int xa = MathUtils.max(0,
+						MathUtils.ifloor(((0f - tileWidthLowerCorner - layerOffsetY) / tileWidthUpperCorner)));
+				final int xb = MathUtils.min(layerWidth, MathUtils
+						.ifloor((0f + screenWidth + tileWidthUpperCorner - layerOffsetY) / tileWidthUpperCorner));
 
-			final float layerHexLength = hexSideLength;
+				final int maxXa = (staggerIndexEven == (xa % 2 == 0)) ? xa + 1 : xa;
+				final int maxXb = (staggerIndexEven == (xa % 2 == 0)) ? xa : xa + 1;
 
-			final boolean saveCache = textureMap.size == 1 && allowCache;
+				for (int row = yb - 1; row >= ya; row--) {
+					for (int col = maxXa; col < xb; col += 2) {
+						float tileX = tileWidthUpperCorner * col + layerOffsetX;
+						float tileY = layerTileHeight50 + (layerTileHeight * row) + layerOffsetY;
+						drawTile(tileLayer, col, row, tileX, tileY);
+					}
 
-			_texCurrent = textureMap.get(map.getTileset(tileIndex).getSource());
-			_texBatch = _texCurrent.getTextureBatch();
+					for (int col = maxXb; col < xb; col += 2) {
+						float tileX = tileWidthUpperCorner * col + layerOffsetX;
+						float tileY = layerTileHeight * row + layerOffsetY;
+						drawTile(tileLayer, col, row, tileX, tileY);
+					}
+				}
+			} else {
+				final float tileHeightLowerCorner = (layerTileHeight - layerHexLength) / 2f;
+				final float tileHeightUpperCorner = (layerTileHeight + layerHexLength) / 2f + layerTileWidth / 6f;
+				final float layerTileWidth50 = layerTileWidth * 0.5f;
 
-			boolean isCached = false;
+				final int maxYa = MathUtils.max(0,
+						MathUtils.ifloor(((0f - tileHeightLowerCorner - layerOffsetX) / tileHeightUpperCorner)));
+				final int maxYb = MathUtils.min(layerHeight, MathUtils
+						.ifloor((0f + screenHeight + tileHeightUpperCorner - layerOffsetX) / tileHeightUpperCorner));
 
-			final LColor drawColor = tileLayer.getTileLayerColor(baseColor);
+				final int maxXa = MathUtils.max(0,
+						MathUtils.ifloor(((0f - layerTileWidth50 - layerOffsetY) / layerTileWidth)));
+				final int maxXb = MathUtils.min(layerWidth,
+						MathUtils.ifloor((0f + screenWidth + layerTileWidth - layerOffsetY) / layerTileWidth));
 
-			try {
+				float shiftX = 0;
+				for (int y = maxYb - 1; y >= maxYa; y--) {
+					if ((y % 2 == 0) == staggerIndexEven) {
+						shiftX = layerTileWidth50;
+					} else {
+						shiftX = 0;
+					}
+					for (int x = maxXa; x < maxXb; x++) {
+						drawTile(tileLayer, x, y, layerTileWidth * x + shiftX + layerOffsetX,
+								tileHeightUpperCorner * y + layerOffsetY);
 
+					}
+				}
+			}
+
+		} finally {
+			if (!isCached) {
+				_texBatch.end();
 				if (saveCache) {
-					int hashCode = 1;
-					hashCode = LSystem.unite(hashCode, tx);
-					hashCode = LSystem.unite(hashCode, ty);
-					hashCode = LSystem.unite(hashCode, windowWidth);
-					hashCode = LSystem.unite(hashCode, windowHeight);
-					hashCode = LSystem.unite(hashCode, layerWidth);
-					hashCode = LSystem.unite(hashCode, layerHeight);
-					hashCode = LSystem.unite(hashCode, layerTileWidth);
-					hashCode = LSystem.unite(hashCode, layerTileHeight);
-					hashCode = LSystem.unite(hashCode, layerOffsetX);
-					hashCode = LSystem.unite(hashCode, layerOffsetY);
-					hashCode = LSystem.unite(hashCode, layerHexLength);
-					hashCode = LSystem.unite(hashCode, scaleX);
-					hashCode = LSystem.unite(hashCode, scaleY);
-					hashCode = LSystem.unite(hashCode, staggerAxisX);
-					hashCode = LSystem.unite(hashCode, tileLayer.isDirty());
-					hashCode = LSystem.unite(hashCode, _objectRotation);
-
-					if (isCached = postCache(_texBatch, hashCode)) {
-						return;
-					}
-
-				} else {
-					_texBatch.begin();
+					saveCache(_texBatch);
 				}
-				_texBatch.setBlendState(BlendState.AlphaBlend);
-				_texBatch.setColor(drawColor);
-
-				if (staggerAxisX) {
-					final float tileWidthLowerCorner = (layerTileWidth - layerHexLength) / 2;
-					final float tileWidthUpperCorner = (layerTileWidth + layerHexLength) / 2;
-					final float layerTileHeight50 = layerTileHeight * 0.5f;
-
-					final int ya = MathUtils.max(0,
-							MathUtils.ifloor((0f - layerTileHeight50 - layerOffsetX) / layerTileHeight));
-					final int yb = MathUtils.min(layerHeight,
-							MathUtils.ifloor((0f + screenHeight + layerTileHeight - layerOffsetX) / layerTileHeight));
-
-					final int xa = MathUtils.max(0,
-							MathUtils.ifloor(((0f - tileWidthLowerCorner - layerOffsetY) / tileWidthUpperCorner)));
-					final int xb = MathUtils.min(layerWidth, MathUtils
-							.ifloor((0f + screenWidth + tileWidthUpperCorner - layerOffsetY) / tileWidthUpperCorner));
-
-					final int maxXa = (staggerIndexEven == (xa % 2 == 0)) ? xa + 1 : xa;
-					final int maxXb = (staggerIndexEven == (xa % 2 == 0)) ? xa : xa + 1;
-
-					for (int row = yb - 1; row >= ya; row--) {
-						for (int col = maxXa; col < xb; col += 2) {
-							float tileX = tileWidthUpperCorner * col + layerOffsetX;
-							float tileY = layerTileHeight50 + (layerTileHeight * row) + layerOffsetY;
-							drawTile(tileLayer, col, row, tileX, tileY);
-						}
-
-						for (int col = maxXb; col < xb; col += 2) {
-							float tileX = tileWidthUpperCorner * col + layerOffsetX;
-							float tileY = layerTileHeight * row + layerOffsetY;
-							drawTile(tileLayer, col, row, tileX, tileY);
-						}
-					}
-				} else {
-					final float tileHeightLowerCorner = (layerTileHeight - layerHexLength) / 2f;
-					final float tileHeightUpperCorner = (layerTileHeight + layerHexLength) / 2f + layerTileWidth / 6f;
-					final float layerTileWidth50 = layerTileWidth * 0.5f;
-
-					final int maxYa = MathUtils.max(0,
-							MathUtils.ifloor(((0f - tileHeightLowerCorner - layerOffsetX) / tileHeightUpperCorner)));
-					final int maxYb = MathUtils.min(layerHeight, MathUtils.ifloor(
-							(0f + screenHeight + tileHeightUpperCorner - layerOffsetX) / tileHeightUpperCorner));
-
-					final int maxXa = MathUtils.max(0,
-							MathUtils.ifloor(((0f - layerTileWidth50 - layerOffsetY) / layerTileWidth)));
-					final int maxXb = MathUtils.min(layerWidth,
-							MathUtils.ifloor((0f + screenWidth + layerTileWidth - layerOffsetY) / layerTileWidth));
-
-					float shiftX = 0;
-					for (int y = maxYb - 1; y >= maxYa; y--) {
-						if ((y % 2 == 0) == staggerIndexEven) {
-							shiftX = layerTileWidth50;
-						} else {
-							shiftX = 0;
-						}
-						for (int x = maxXa; x < maxXb; x++) {
-							drawTile(tileLayer, x, y, layerTileWidth * x + shiftX + layerOffsetX,
-									tileHeightUpperCorner * y + layerOffsetY);
-
-						}
-					}
-				}
-
-			} finally {
-				if (!isCached) {
-					_texBatch.end();
-					if (saveCache) {
-						saveCache(_texBatch);
-					}
-				}
-
 			}
+
 		}
 	}
 

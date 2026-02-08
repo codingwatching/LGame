@@ -72,9 +72,7 @@ public class ShakeTo extends ActionEvent {
 			this.offsetX = this.shakeX;
 			this.offsetY = this.shakeY;
 		}
-		synchronized (original) {
-			original.setLocation(this.startOffsetX + this.offsetX, this.startOffsetY + this.offsetY);
-		}
+		original.setLocation(this.startOffsetX + this.offsetX, this.startOffsetY + this.offsetY);
 	}
 
 	public float getShakeX() {

@@ -133,47 +133,43 @@ public class ActorTreeSet {
 
 	public void sendToFront(Actor actor) {
 		if (_generalSet != null) {
-			synchronized (_generalSet) {
-				Actor[] o = _generalSet.toArray(false);
-				int size = o.length;
-				if (o == null || size <= 0 || (o[size - 1] == actor)) {
-					return;
-				}
-				for (int i = 0; i < size; i++) {
-					if (o[i] == actor) {
-						o = CollectionUtils.cut(o, i);
-						o = CollectionUtils.expand(o, 1, true);
-						o[size - 1] = actor;
-						SortUtils.defaultSort(o);
-						break;
-					}
-				}
-				_generalSet.clear();
-				_generalSet.addAll(o);
+			Actor[] o = _generalSet.toArray(false);
+			int size = o.length;
+			if (o == null || size <= 0 || (o[size - 1] == actor)) {
+				return;
 			}
+			for (int i = 0; i < size; i++) {
+				if (o[i] == actor) {
+					o = CollectionUtils.cut(o, i);
+					o = CollectionUtils.expand(o, 1, true);
+					o[size - 1] = actor;
+					SortUtils.defaultSort(o);
+					break;
+				}
+			}
+			_generalSet.clear();
+			_generalSet.addAll(o);
 		}
 	}
 
 	public void sendToBack(Actor actor) {
 		if (_generalSet != null) {
-			synchronized (_generalSet) {
-				Actor[] o = _generalSet.toArray(false);
-				int size = o.length;
-				if (o == null || size <= 0 || (o[0] == actor)) {
-					return;
-				}
-				for (int i = 0; i < size; i++) {
-					if (o[i] == actor) {
-						o = CollectionUtils.cut(o, i);
-						o = CollectionUtils.expand(o, 1, false);
-						o[0] = actor;
-						SortUtils.defaultSort(o);
-						break;
-					}
-				}
-				_generalSet.clear();
-				_generalSet.addAll(o);
+			Actor[] o = _generalSet.toArray(false);
+			int size = o.length;
+			if (o == null || size <= 0 || (o[0] == actor)) {
+				return;
 			}
+			for (int i = 0; i < size; i++) {
+				if (o[i] == actor) {
+					o = CollectionUtils.cut(o, i);
+					o = CollectionUtils.expand(o, 1, false);
+					o[0] = actor;
+					SortUtils.defaultSort(o);
+					break;
+				}
+			}
+			_generalSet.clear();
+			_generalSet.addAll(o);
 		}
 	}
 

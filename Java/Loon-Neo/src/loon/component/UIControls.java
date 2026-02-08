@@ -138,9 +138,7 @@ public final class UIControls {
 		if (desktop == null) {
 			return this;
 		}
-		synchronized (desktop) {
-			set(desktop.getComponentsArray());
-		}
+		set(desktop.getComponentsArray());
 		return this;
 	}
 
@@ -148,10 +146,8 @@ public final class UIControls {
 		if (comps == null || comps.size == 0 || comps.equals(this._comps)) {
 			return this;
 		}
-		synchronized (UIControls.class) {
-			clear();
-			this._comps = comps;
-		}
+		clear();
+		this._comps = comps;
 		return this;
 	}
 
@@ -174,10 +170,8 @@ public final class UIControls {
 		if (desktop == null) {
 			return this;
 		}
-		synchronized (desktop) {
-			desktop.clear(this._comps);
-			clear();
-		}
+		desktop.clear(this._comps);
+		clear();
 		return this;
 	}
 
@@ -248,9 +242,7 @@ public final class UIControls {
 		if (desktop == null) {
 			return this;
 		}
-		synchronized (desktop) {
-			set(desktop.getComponentsArray());
-		}
+		set(desktop.getComponentsArray());
 		return this;
 	}
 

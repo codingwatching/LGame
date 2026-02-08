@@ -34,37 +34,40 @@ import loon.cport.assets.AssetFile;
 
 public class CInitialize {
 
+	public static void create(Class<?> clazz, TeaVMOptimizationLevel level, String buildPath) throws IOException {
+		create(clazz, false, false, true, level, buildPath, "src");
+	}
+
 	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, boolean outputResources,
 			TeaVMOptimizationLevel level) throws IOException {
-		create(clazz, obfuscated, debug, outputResources, level, "build/dist", "capp");
+		create(clazz, obfuscated, debug, outputResources, level, "build/dist", "src");
 	}
 
 	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, boolean outputResources,
-			TeaVMOptimizationLevel level, String appName) throws IOException {
-		create(clazz, obfuscated, debug, outputResources, level, "build/dist", appName);
+			TeaVMOptimizationLevel level, String source) throws IOException {
+		create(clazz, obfuscated, debug, outputResources, level, "build/dist", source);
 	}
 
 	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, boolean outputResources,
-			TeaVMOptimizationLevel level, String buildPath, String appName) throws IOException {
-		create(clazz, obfuscated, debug, outputResources, level, TargetType.CPort, null, null, null, buildPath,
-				appName);
+			TeaVMOptimizationLevel level, String buildPath, String source) throws IOException {
+		create(clazz, obfuscated, debug, outputResources, level, TargetType.CPort, null, null, null, buildPath, source);
 	}
 
 	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, boolean outputResources,
-			TeaVMOptimizationLevel level, TargetType target, String buildPath, String appName) throws IOException {
-		create(clazz, obfuscated, debug, outputResources, level, target, null, null, null, buildPath, appName);
+			TeaVMOptimizationLevel level, TargetType target, String buildPath, String source) throws IOException {
+		create(clazz, obfuscated, debug, outputResources, level, target, null, null, null, buildPath, source);
 	}
 
 	public static void create(Class<?> clazz, boolean obfuscated, boolean debug, boolean outputResources,
 			TeaVMOptimizationLevel level, TargetType target, String[] assetPath, String[] sourcePath, String[] reflects,
-			String buildPath, String appName) throws IOException {
+			String buildPath, String source) throws IOException {
 		create((clazz == null ? "none" : clazz.getName()), obfuscated, debug, outputResources, level, target, assetPath,
-				sourcePath, reflects, buildPath, appName);
+				sourcePath, reflects, buildPath, source);
 	}
 
 	public static void create(String mainClassName, boolean obfuscated, boolean debug, boolean outputResources,
 			TeaVMOptimizationLevel level, TargetType target, String[] assetPath, String[] sourcePath, String[] reflects,
-			String buildPath, String appName) throws IOException {
+			String buildPath, String source) throws IOException {
 		if (reflects != null) {
 			for (int i = 0; i < reflects.length; i++) {
 				final String refPackName = reflects[i];
@@ -75,7 +78,7 @@ public class CInitialize {
 			debug = false;
 		}
 		CBuildConfiguration cbuildConfiguration = new CBuildConfiguration();
-		cbuildConfiguration.cappName = appName;
+		cbuildConfiguration.cappOutputSource = source;
 		cbuildConfiguration.assetsPath.add(new AssetFile("../assets"));
 		cbuildConfiguration.assetsPath.add(new AssetFile("../src/main/java/loon/assets"));
 		cbuildConfiguration.assetsPath.add(new AssetFile("../src/loon/assets"));
@@ -125,6 +128,7 @@ public class CInitialize {
 				tool.addSourceFileProvider(new DirectorySourceFileProvider(sourceFile));
 			}
 		}
+
 		CBuilder.build(tool);
 	}
 

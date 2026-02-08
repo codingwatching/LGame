@@ -843,25 +843,23 @@ public final class Print implements FontSet<Print>, LRelease {
 	}
 
 	public boolean next() {
-		synchronized (_messageBuffer) {
-			if (!_onComplete) {
-				if (_messageCount == _nextflag) {
-					_onComplete = true;
-					return false;
-				}
-				if (_messageBuffer.length() > 0) {
-					_messageBuffer.delete(_messageBuffer.length() - 1, _messageBuffer.length());
-				}
-				this._messageBuffer.append(_messages.charAt(_messageCount));
-				this._messageBuffer.append(LSystem.UNDERLINE);
-				this._showMessages = _messageBuffer.toString().toCharArray();
-				this._textsize = _showMessages.length;
-				this._messageCount++;
-			} else {
+		if (!_onComplete) {
+			if (_messageCount == _nextflag) {
+				_onComplete = true;
 				return false;
 			}
-			return true;
+			if (_messageBuffer.length() > 0) {
+				_messageBuffer.delete(_messageBuffer.length() - 1, _messageBuffer.length());
+			}
+			this._messageBuffer.append(_messages.charAt(_messageCount));
+			this._messageBuffer.append(LSystem.UNDERLINE);
+			this._showMessages = _messageBuffer.toString().toCharArray();
+			this._textsize = _showMessages.length;
+			this._messageCount++;
+		} else {
+			return false;
 		}
+		return true;
 	}
 
 	public LTexture getCreeseIcon() {

@@ -130,20 +130,18 @@ public class LTimer implements LTimerListener, LRelease {
 	}
 
 	public static Task postTask(String name, EventActionT<Task> e, float seconds, int loopCount) {
-		synchronized (RealtimeProcessManager.class) {
-			synchronized (LTimer.class) {
-				if (e != null) {
-					synchronized (e) {
-						final Task task = new Task(name, seconds, loopCount);
-						if (e != null) {
-							task.setEventAction(e);
-							task.start();
-						}
-						return task;
+		synchronized (LTimer.class) {
+			if (e != null) {
+				synchronized (e) {
+					final Task task = new Task(name, seconds, loopCount);
+					if (e != null) {
+						task.setEventAction(e);
+						task.start();
 					}
-				} else {
-					return new Task(name, seconds, loopCount);
+					return task;
 				}
+			} else {
+				return new Task(name, seconds, loopCount);
 			}
 		}
 	}
@@ -178,7 +176,6 @@ public class LTimer implements LTimerListener, LRelease {
 	 * @return
 	 */
 	public static Task postTask(String name, Runnable e, float seconds, int loopCount) {
-		synchronized (RealtimeProcessManager.class) {
 			synchronized (LTimer.class) {
 				if (e != null) {
 					synchronized (e) {
@@ -190,7 +187,6 @@ public class LTimer implements LTimerListener, LRelease {
 					return new Task(name, seconds, loopCount);
 				}
 			}
-		}
 	}
 
 	public static Scheduler schedulerTask(float seconds, boolean sequence, Interval... tasks) {
@@ -217,7 +213,6 @@ public class LTimer implements LTimerListener, LRelease {
 	 */
 	public static Scheduler schedulerTask(String name, float seconds, boolean removeTask, boolean sequence,
 			Interval... tasks) {
-		synchronized (RealtimeProcessManager.class) {
 			synchronized (LTimer.class) {
 				final Scheduler scheduler = new Scheduler(name, Duration.ofS(seconds), removeTask, sequence);
 				if (tasks != null && tasks.length > 0) {
@@ -228,7 +223,6 @@ public class LTimer implements LTimerListener, LRelease {
 				}
 				return scheduler;
 			}
-		}
 	}
 
 	public static LTimer ZERO() {
@@ -636,7 +630,6 @@ public class LTimer implements LTimerListener, LRelease {
 	}
 
 	public LTimer submit() {
-		synchronized (RealtimeProcessManager.class) {
 			if (_process != null) {
 				RealtimeProcessManager.get().delete(_process);
 			}
@@ -645,17 +638,14 @@ public class LTimer implements LTimerListener, LRelease {
 			}
 			_process.setDelay(0);
 			RealtimeProcessManager.get().addProcess(_process);
-		}
 		return this;
 	}
 
 	public LTimer cancel() {
 		this.pause();
-		synchronized (RealtimeProcessManager.class) {
 			if (_process != null) {
 				_process.cancel();
 			}
-		}
 		return this;
 	}
 

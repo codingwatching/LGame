@@ -236,14 +236,12 @@ public class SpriteSheet implements LRelease {
 	@Override
 	public void close() {
 		if (_subImages != null) {
-			synchronized (_subImages) {
-				for (int i = 0; i < _subImages.length; i++) {
-					for (int j = 0; j < _subImages[i].length; j++) {
-						_subImages[i][j].close();
-					}
+			for (int i = 0; i < _subImages.length; i++) {
+				for (int j = 0; j < _subImages[i].length; j++) {
+					_subImages[i][j].close();
 				}
-				this._subImages = null;
 			}
+			this._subImages = null;
 		}
 		if (_target != null) {
 			_target.close();

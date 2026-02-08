@@ -24,6 +24,9 @@ endif()
 
 include(FetchContent)
 
+# 禁止SDL2编译test文件夹 
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+
 # SDL2
 find_package(SDL2 QUIET)
 if(NOT SDL2_FOUND)
@@ -68,24 +71,25 @@ endif()
 # 构建 iOS 静态库，只编译 all.c
 add_library(MySDLApp STATIC ${MAIN_FILE})
 
+# 在 iOS 下使用静态链接，避免运行时依赖动态库
 target_link_libraries(MySDLApp
-    SDL2
-    SDL2_image
-    SDL2_mixer
+    SDL2::SDL2-static
+    SDL2_image::SDL2_image-static
+    SDL2_mixer::SDL2_mixer-static
 )
 
 # 可选 ANGLE 支持
 option(USE_ANGLE "Enable ANGLE support" OFF)
 
 if(USE_ANGLE)
-    message(STATUS "启用 ANGLE 支持")
+    message(STATUS "启用 ANGLE 支持 (静态链接)")
     if(DEFINED ANGLE_DIR AND EXISTS "${ANGLE_DIR}/libEGL.a" AND EXISTS "${ANGLE_DIR}/libGLESv2.a")
         target_link_directories(MySDLApp PRIVATE ${ANGLE_DIR})
         target_link_libraries(MySDLApp EGL GLESv2)
     else()
         find_package(angle QUIET)
         if(angle_FOUND)
-            target_link_libraries(MySDLApp angle::libEGL angle::libGLESv2)
+            target_link_libraries(MySDLApp angle::libEGL-static angle::libGLESv2-static)
         endif()
     endif()
 endif()

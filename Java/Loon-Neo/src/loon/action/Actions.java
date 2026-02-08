@@ -276,29 +276,27 @@ public final class Actions {
 			if (currentTarget == null) {
 				continue;
 			}
-			synchronized (currentTarget) {
-				if (!currentTarget.paused) {
-					for (currentTarget.actionIndex = 0; currentTarget.actionIndex < currentTarget.actions.size; currentTarget.actionIndex++) {
-						currentTarget.currentAction = currentTarget.actions.get(currentTarget.actionIndex);
-						if (currentTarget.currentAction == null) {
-							continue;
-						}
-						if (!currentTarget.currentAction.isInit) {
-							currentTarget.currentAction.isInit = true;
-							currentTarget.currentAction.initAction();
-							currentTarget.currentAction.onLoad();
-						}
-						currentTarget.currentAction.step(elapsedTime);
-						if (currentTarget.currentAction.isComplete()) {
-							currentTarget.currentAction.stop();
-							removeAction(currentTarget.currentAction);
-						}
-						currentTarget.currentAction = null;
+			if (!currentTarget.paused) {
+				for (currentTarget.actionIndex = 0; currentTarget.actionIndex < currentTarget.actions.size; currentTarget.actionIndex++) {
+					currentTarget.currentAction = currentTarget.actions.get(currentTarget.actionIndex);
+					if (currentTarget.currentAction == null) {
+						continue;
 					}
+					if (!currentTarget.currentAction.isInit) {
+						currentTarget.currentAction.isInit = true;
+						currentTarget.currentAction.initAction();
+						currentTarget.currentAction.onLoad();
+					}
+					currentTarget.currentAction.step(elapsedTime);
+					if (currentTarget.currentAction.isComplete()) {
+						currentTarget.currentAction.stop();
+						removeAction(currentTarget.currentAction);
+					}
+					currentTarget.currentAction = null;
 				}
-				if (currentTarget.actions.isEmpty()) {
-					deleteElement(currentTarget);
-				}
+			}
+			if (currentTarget.actions.isEmpty()) {
+				deleteElement(currentTarget);
 			}
 		}
 	}

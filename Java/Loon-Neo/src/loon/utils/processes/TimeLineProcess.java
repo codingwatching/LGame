@@ -276,19 +276,15 @@ public class TimeLineProcess extends RealtimeProcess {
 					continue;
 				}
 				final TArray<TimeLineEventTarget> list = _listeners.get(keyName);
-				synchronized (list) {
-					_tempEvents = new TArray<TimeLineEventTarget>(list);
-				}
+				_tempEvents = new TArray<TimeLineEventTarget>(list);
 				for (int i = 0, size = _tempEvents.size; i < size; i++) {
 					final TimeLineEventTarget eve = _tempEvents.get(i);
 					if (eve == null) {
 						continue;
 					}
-					synchronized (eve) {
-						if (!callEvent(_isFrameBased ? _frameBase : time.getMilliseconds(), eve,
-								i == 0 ? null : list.get(i - 1))) {
-							continue;
-						}
+					if (!callEvent(_isFrameBased ? _frameBase : time.getMilliseconds(), eve,
+							i == 0 ? null : list.get(i - 1))) {
+						continue;
 					}
 				}
 

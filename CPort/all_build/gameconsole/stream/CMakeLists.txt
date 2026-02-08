@@ -27,6 +27,9 @@ endif()
 
 include(FetchContent)
 
+# 禁止SDL2编译test文件夹 
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+
 # SDL2
 find_package(SDL2 QUIET)
 if(NOT SDL2_FOUND)
@@ -77,11 +80,11 @@ link_directories(${STEAMWORKS_SDK_PATH}/redistributable_bin)
 # 构建可执行文件，只编译 all.c
 add_executable(MySDLApp ${MAIN_FILE})
 
-# 链接依赖库
+# 优先使用静态链接，避免运行时依赖动态库
 target_link_libraries(MySDLApp
-    SDL2::SDL2
-    SDL2_image::SDL2_image
-    SDL2_mixer::SDL2_mixer
+    SDL2::SDL2-static
+    SDL2_image::SDL2_image-static
+    SDL2_mixer::SDL2_mixer-static
     steam_api
 )
 
@@ -93,13 +96,14 @@ endif()
 option(USE_ANGLE "Enable ANGLE support" OFF)
 
 if(USE_ANGLE)
-    if(DEFINED ANGLE_DIR AND EXISTS "${ANGLE_DIR}/libEGL.dll" AND EXISTS "${ANGLE_DIR}/libGLESv2.dll")
+    if(DEFINED ANGLE_DIR AND EXISTS "${ANGLE_DIR}/libEGL.a" AND EXISTS "${ANGLE_DIR}/libGLESv2.a")
         target_link_directories(MySDLApp PRIVATE ${ANGLE_DIR})
-        target_link_libraries(MySDLApp libEGL libGLESv2)
+        target_link_libraries(MySDLApp EGL GLESv2)
     else()
         find_package(angle QUIET)
         if(angle_FOUND)
-            target_link_libraries(MySDLApp angle::libEGL angle::libGLESv2)
+            # 静态链接 ANGLE 库
+            target_link_libraries(MySDLApp angle::libEGL-static angle::libGLESv2-static)
         endif()
     endif()
 endif()

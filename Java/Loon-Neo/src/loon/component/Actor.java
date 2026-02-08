@@ -490,9 +490,7 @@ public class Actor extends LObject<Actor>
 					setImage(animation.getSpriteImage());
 				}
 			}
-			synchronized (LLayer.class) {
-				action(elapsedTime);
-			}
+			action(elapsedTime);
 		}
 	}
 

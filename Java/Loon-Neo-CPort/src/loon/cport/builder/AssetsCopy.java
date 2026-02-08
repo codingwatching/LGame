@@ -20,6 +20,7 @@
  */
 package loon.cport.builder;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -30,6 +31,7 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -40,6 +42,7 @@ import java.util.stream.Stream;
 import loon.cport.assets.AssetFile;
 import loon.cport.assets.AssetType;
 import loon.utils.PathUtils;
+import loon.utils.StringUtils;
 
 public class AssetsCopy {
 
@@ -52,6 +55,79 @@ public class AssetsCopy {
 			this.file = file;
 			this.type = type;
 			this.op = op;
+		}
+	}
+
+	public static String getRuntimePath(Class<?> clazz) {
+		try {
+			URL location = clazz.getProtectionDomain().getCodeSource().getLocation();
+			if (location != null) {
+				File file = new File(location.toURI());
+				if (file.isFile()) {
+					return file.getParentFile().getAbsolutePath();
+				} else {
+					return file.getParentFile().getAbsolutePath();
+				}
+			}
+		} catch (Exception e) {
+		}
+		try {
+			URL resource = clazz.getResource(clazz.getSimpleName() + ".class");
+			if (resource != null) {
+				String path = resource.toString();
+				if (path.startsWith("file:")) {
+					return new File(resource.toURI()).getParentFile().getAbsolutePath();
+				} else if (path.startsWith("jar:file:")) {
+					String jarPath = path.substring("jar:file:".length(), path.indexOf("!"));
+					return Paths.get(jarPath).toFile().getParentFile().getAbsolutePath();
+				}
+			}
+		} catch (Exception e) {
+		}
+		try {
+			return new File("").getAbsolutePath();
+		} catch (Exception e) {
+		}
+		return System.getProperty("user.dir");
+	}
+
+	public static void copyDirectory(String source, String target, String... allowed) throws IOException {
+		copyDirectory(new File(source), new File(target), allowed);
+	}
+
+	public static void copyDirectory(File sourceDir, File targetDir, String... allowed) throws IOException {
+		if (!sourceDir.exists() || !sourceDir.isDirectory()) {
+			return;
+		}
+		if (targetDir.getAbsolutePath().startsWith(sourceDir.getAbsolutePath())) {
+			return;
+		}
+		if (!targetDir.exists()) {
+			if (!targetDir.mkdirs()) {
+				return;
+			}
+		}
+		File[] files = sourceDir.listFiles();
+		if (files == null) {
+			return;
+		}
+		for (File file : files) {
+			File newTarget = new File(targetDir, file.getName());
+			if (file.isDirectory()) {
+				copyDirectory(file, newTarget, allowed);
+			} else {
+				if (StringUtils.isEmpty(allowed)) {
+					Files.copy(file.toPath(), newTarget.toPath(), StandardCopyOption.REPLACE_EXISTING);
+				} else {
+					String name = file.getName().toLowerCase();
+					for (String ext : allowed) {
+						if (name.endsWith(ext.toLowerCase())) {
+							Files.copy(file.toPath(), newTarget.toPath(), StandardCopyOption.REPLACE_EXISTING);
+							break;
+						}
+					}
+				}
+			}
 		}
 	}
 

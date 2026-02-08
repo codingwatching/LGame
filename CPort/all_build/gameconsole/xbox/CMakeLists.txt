@@ -47,15 +47,20 @@ if(NOT EXISTS ${MAIN_FILE})
 endif()
 
 include(FetchContent)
+
+# 禁止SDL2编译test文件夹 
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+
 set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/third_party)
 
 # 限定搜索路径到 Xbox SDK，避免误用主机 SDL2
 set(CMAKE_PREFIX_PATH "${XBOXSDK_PATH}" ${CMAKE_PREFIX_PATH})
 
+# SDL2
 find_package(SDL2 QUIET)
 if(SDL2_FOUND AND SDL2_INCLUDE_DIRS MATCHES "${XBOXSDK_PATH}")
     message(STATUS "使用 Xbox SDK 中的 SDL2 库")
-    add_library(SDL2_Xbox::SDL2 ALIAS SDL2)
+    add_library(SDL2_Xbox::SDL2 ALIAS SDL2::SDL2-static)
 
 elseif(DEFINED ENV{NXDK})
     message(STATUS "未找到 Xbox SDK SDL2，开始下载 nxdk-sdl (原始 Xbox)")
@@ -86,18 +91,18 @@ else()
       BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_xbox-build
     )
     FetchContent_MakeAvailable(SDL2_Xbox)
-    add_library(SDL2_Xbox::SDL2 ALIAS SDL2)
+    add_library(SDL2_Xbox::SDL2 ALIAS SDL2::SDL2-static)
 endif()
 
 # SDL2_image
-find_package(SDL2_image QUIET)
 set(SDL2IMAGE_AVIF OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_WEBP OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_TIF OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_VENDORED OFF CACHE BOOL "" FORCE)
+find_package(SDL2_image QUIET)
 if(SDL2_IMAGE_FOUND AND SDL2_IMAGE_INCLUDE_DIRS MATCHES "${XBOXSDK_PATH}")
     message(STATUS "使用 Xbox SDK 中的 SDL2_image 库")
-    add_library(SDL2_Xbox::SDL2_image ALIAS SDL2_image)
+    add_library(SDL2_Xbox::SDL2_image ALIAS SDL2_image::SDL2_image-static)
 else()
     message(STATUS "未找到 Xbox SDK SDL2_image，开始下载")
     FetchContent_Declare(
@@ -108,7 +113,7 @@ else()
       BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_xbox-build
     )
     FetchContent_MakeAvailable(SDL2_image_Xbox)
-    add_library(SDL2_Xbox::SDL2_image ALIAS SDL2_image)
+    add_library(SDL2_Xbox::SDL2_image ALIAS SDL2_image::SDL2_image-static)
 endif()
 
 # SDL2_mixer
@@ -116,7 +121,7 @@ set(SDL2MIXER_WAVPACK OFF CACHE BOOL "" FORCE)
 find_package(SDL2_mixer QUIET)
 if(SDL2_MIXER_FOUND AND SDL2_MIXER_INCLUDE_DIRS MATCHES "${XBOXSDK_PATH}")
     message(STATUS "使用 Xbox SDK 中的 SDL2_mixer 库")
-    add_library(SDL2_Xbox::SDL2_mixer ALIAS SDL2_mixer)
+    add_library(SDL2_Xbox::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer-static)
 else()
     message(STATUS "未找到 Xbox SDK SDL2_mixer，开始下载")
     FetchContent_Declare(
@@ -127,15 +132,16 @@ else()
       BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_xbox-build
     )
     FetchContent_MakeAvailable(SDL2_mixer_Xbox)
-    add_library(SDL2_Xbox::SDL2_mixer ALIAS SDL2_mixer)
+    add_library(SDL2_Xbox::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer-static)
 endif()
 
 add_executable(MySDLApp ${SOURCES} ${MAIN_FILE})
 
+# 链接依赖库
 target_link_libraries(MySDLApp
-    SDL2::SDL2
-    SDL2_image::SDL2_image
-    SDL2_mixer::SDL2_mixer
+    SDL2_Xbox::SDL2
+    SDL2_Xbox::SDL2_image
+    SDL2_Xbox::SDL2_mixer
 )
 
 if(WIN32)
@@ -148,4 +154,20 @@ elseif(DEFINED ENV{XDKSDK})
   target_link_libraries(MySDLApp xboxkrnl)
 elseif(DEFINED ENV{NXDK})
   target_link_libraries(MySDLApp nxdk)
+endif()
+
+# 可选 ANGLE 支持
+option(USE_ANGLE "Enable ANGLE support" OFF)
+
+if(USE_ANGLE)
+    message(STATUS "启用 ANGLE 支持")
+    if(DEFINED ANGLE_DIR AND EXISTS "${ANGLE_DIR}/libEGL.a" AND EXISTS "${ANGLE_DIR}/libGLESv2.a")
+        target_link_directories(MySDLApp PRIVATE ${ANGLE_DIR})
+        target_link_libraries(MySDLApp EGL GLESv2)
+    else()
+        find_package(angle QUIET)
+        if(angle_FOUND)
+            target_link_libraries(MySDLApp angle::libEGL-static angle::libGLESv2-static)
+        endif()
+    endif()
 endif()

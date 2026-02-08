@@ -26,6 +26,9 @@ endif()
 
 include(FetchContent)
 
+# 禁止SDL2编译test文件夹 
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+
 find_package(SDL2 QUIET)
 if(NOT SDL2_FOUND)
     FetchContent_Declare(
@@ -73,6 +76,9 @@ if(NOT SDL2_mixer_FOUND)
     FetchContent_MakeAvailable(SDL2_mixer)
 endif()
 
+# 设置统一输出目录
+set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin)
+
 add_executable(MySDLApp ${MAIN_FILE})
 
 target_link_libraries(MySDLApp
@@ -81,8 +87,41 @@ target_link_libraries(MySDLApp
     SDL2_mixer::SDL2_mixer
 )
 
+# 设置输出目录
+set_target_properties(MySDLApp PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+    LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+    ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+)
+
+# 确保 SDL2/SDL2_image/SDL2_mixer 库也输出到同一目录
+foreach(target SDL2 SDL2_image SDL2_mixer)
+    if(TARGET ${target})
+        set_target_properties(${target} PROPERTIES
+            RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+            LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+            ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+        )
+    endif()
+endforeach()
+
+# 平台设置
 if(WIN32)
+    # Windows下生成纯GUI程序，无控制台，若需要控制台记得删除这段
+    set_target_properties(MySDLApp PROPERTIES WIN32_EXECUTABLE TRUE)
     target_link_libraries(MySDLApp SDL2::SDL2main)
+
+    # 自动拷贝 SDL2.dll / SDL2_image.dll / SDL2_mixer.dll 到输出目录
+    add_custom_command(TARGET MySDLApp POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:MySDLApp>
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2_image::SDL2_image> $<TARGET_FILE_DIR:MySDLApp>
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2_mixer::SDL2_mixer> $<TARGET_FILE_DIR:MySDLApp>
+    )
+elseif(APPLE)
+    # macOS 生成.app bundle，无控制台
+    set_target_properties(MySDLApp PROPERTIES MACOSX_BUNDLE TRUE)
+elseif(UNIX)
+    # Linux ？ 天然没有，这不是关的问题，而是不知道怎么开控制台跟随启动……
 endif()
 
 option(USE_ANGLE "Enable ANGLE support" OFF)

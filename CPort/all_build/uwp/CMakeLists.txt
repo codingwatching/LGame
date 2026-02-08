@@ -26,6 +26,9 @@ endif()
 
 include(FetchContent)
 
+# 禁止SDL2编译test文件夹 
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+
 # SDL2
 find_package(SDL2 QUIET)
 if(NOT SDL2_FOUND)
@@ -61,7 +64,6 @@ if(NOT SDL2_MIXER_FOUND)
     FetchContent_MakeAvailable(SDL2_mixer)
 endif()
 
-# 构建 UWP 可执行文件，只编译 all.c
 add_executable(MySDLApp ${MAIN_FILE})
 
 target_link_libraries(MySDLApp
@@ -72,6 +74,38 @@ target_link_libraries(MySDLApp
 
 if(WIN32)
     target_link_libraries(MySDLApp SDL2::SDL2main)
+
+    set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin)
+    set_target_properties(MySDLApp PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+        LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+        ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+    )
+
+    foreach(target SDL2 SDL2_image SDL2_mixer)
+        if(TARGET ${target})
+            set_target_properties(${target} PROPERTIES
+                RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+                LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+                ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+            )
+        endif()
+    endforeach()
+
+    if(NOT CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
+        add_custom_command(TARGET MySDLApp POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:MySDLApp>
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2_image::SDL2_image> $<TARGET_FILE_DIR:MySDLApp>
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2_mixer::SDL2_mixer> $<TARGET_FILE_DIR:MySDLApp>
+        )
+    else()
+        message(STATUS "UWP 模式下使用 SDL 静态库链接，避免 DLL 依赖。")
+        target_link_libraries(MySDLApp
+            SDL2::SDL2-static
+            SDL2_image::SDL2_image-static
+            SDL2_mixer::SDL2_mixer-static
+        )
+    endif()
 endif()
 
 set_target_properties(MySDLApp PROPERTIES

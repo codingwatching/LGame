@@ -95,7 +95,7 @@ public abstract class DrawableScreen extends Screen {
 	public void draw(GLEx g) {
 		if (isOnLoadComplete()) {
 			if (batch != null) {
-				synchronized (batch) {
+				synchronized (DrawableScreen.class) {
 					try {
 						batch.begin();
 						gameCollection.draw(batch, gameTime);

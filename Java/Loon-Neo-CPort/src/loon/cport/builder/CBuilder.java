@@ -80,7 +80,6 @@ public class CBuilder {
 		msg += "*********************************\n";
 		msg += "|\n| " + text + "\n|";
 		msg += "\n" + "*********************************";
-
 		println(msg);
 	}
 
@@ -93,7 +92,7 @@ public class CBuilder {
 		ACCEPT, NOT_ACCEPT, NO_MATCH
 	}
 
-	private static String cappName = "capp";
+	private static String outputSourceName = "src";
 	private static CBuildConfiguration configuration;
 	private static File setTargetDirectory;
 	private static TeaClassLoader classLoader;
@@ -101,7 +100,7 @@ public class CBuilder {
 
 	public static void config(CBuildConfiguration configuration) {
 		CBuilder.configuration = configuration;
-		CBuilder.cappName = configuration.cappName;
+		CBuilder.outputSourceName = configuration.cappOutputSource;
 		CBuilder.acceptedURL = new ArrayList<URL>();
 		String cappDirectory = configuration.cappPath;
 
@@ -120,7 +119,7 @@ public class CBuilder {
 		}
 		classLoader = new TeaClassLoader(classPaths, loader);
 
-		setTargetDirectory = new File(cappDirectory + File.separator + cappName);
+		setTargetDirectory = new File(cappDirectory + File.separator + outputSourceName);
 
 		if (configuration.baseApp == null) {
 			configuration.baseApp = new DefaultCPortApp();
@@ -174,14 +173,14 @@ public class CBuilder {
 
 				CBuilder.begin("FIX SOURCE CODE");
 
-				final CCodeFix fixCFile = new CCodeFix();
+				final CCodeFix fixCFile = new CCodeFix(configuration);
 
 				String cappDirectory = configuration.cappPath;
 
-				CCodeFix.fixAllFiles(cappDirectory);
+				fixCFile.fixAllFiles(cappDirectory);
 
 				AssetFile distFolder = new AssetFile(cappDirectory);
-				AssetFile cappFolder = distFolder.child(cappName);
+				AssetFile cappFolder = distFolder.child(outputSourceName);
 
 				final TArray<FileFix> fixs = fixCFile.getFixList();
 				for (FileFix fix : fixs) {
@@ -231,7 +230,7 @@ public class CBuilder {
 				if (configuration.outputResources) {
 					CBuilder.begin("OUTPUT RESOURCE");
 					JarZipExtractor.extractMetaInfoZipFromJar("resources",
-							PathUtils.getCombinePaths(cappDirectory, cappName));
+							PathUtils.normalizeCombinePaths(cappDirectory, outputSourceName));
 					CBuilder.println("*********************************");
 				}
 
@@ -354,7 +353,6 @@ public class CBuilder {
 			} catch (URISyntaxException e) {
 			}
 		}
-
 		tool.setClassLoader(classLoader);
 		tool.setTargetDirectory(setTargetDirectory);
 		tool.setCacheDirectory(setCacheDirectory);
@@ -390,7 +388,7 @@ public class CBuilder {
 		String cappDirectory = configuration.cappPath;
 
 		AssetFile distFolder = new AssetFile(cappDirectory);
-		AssetFile cappFolder = distFolder.child(cappName);
+		AssetFile cappFolder = distFolder.child(outputSourceName);
 		AssetFile assetsFolder = cappFolder.child("assets");
 		AssetFile scriptsFolder = cappFolder.child("scripts");
 		AssetFile assetFile = assetsFolder.child("assets.txt");

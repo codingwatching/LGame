@@ -50,14 +50,15 @@ public class CMacroUpdater {
 		}
 	}
 
-	public static void replaceInFolder(String rootDir, Map<String, List<MacroRule>> fileRules) throws IOException {
+	public static void replaceInFolder(String rootDir, String targetDir, Map<String, List<MacroRule>> fileRules)
+			throws IOException {
 		Path startPath = Paths.get(rootDir);
 
 		Files.walkFileTree(startPath, new SimpleFileVisitor<Path>() {
 			@Override
 			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
 				String filePath = file.toString();
-				if (fileRules.containsKey(filePath)) {
+				if (filePath.contains(targetDir) && fileRules.containsKey(filePath)) {
 					replaceComplexBlocks(filePath, fileRules.get(filePath));
 				}
 				return FileVisitResult.CONTINUE;

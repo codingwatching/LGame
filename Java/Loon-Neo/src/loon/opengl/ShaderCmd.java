@@ -39,7 +39,7 @@ public final class ShaderCmd {
 	public final static ShaderCmd getCmd(String name) {
 		ShaderCmd cmd = _instance.get(name);
 		if (cmd == null) {
-			synchronized (_instance) {
+			synchronized (ShaderCmd.class) {
 				cmd = new ShaderCmd();
 				_instance.put(name, cmd);
 			}

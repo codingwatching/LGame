@@ -25,6 +25,9 @@ endif()
 
 include(FetchContent)
 
+# 禁止SDL2编译test文件夹 
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+
 # SDL2
 find_package(SDL2 QUIET)
 if(NOT SDL2_FOUND)
@@ -60,10 +63,11 @@ endif()
 # 构建 Android 共享库（供 APK 使用），只编译 all.c
 add_library(MySDLApp SHARED ${MAIN_FILE})
 
+# 在 Android 下使用静态链接，避免运行时依赖外部 .so
 target_link_libraries(MySDLApp
-    SDL2
-    SDL2_image
-    SDL2_mixer
+    SDL2::SDL2-static
+    SDL2_image::SDL2_image-static
+    SDL2_mixer::SDL2_mixer-static
     log
     android
 )

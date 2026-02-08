@@ -34,10 +34,12 @@ public class CBuildConfiguration {
 	public ArrayList<String> assetsClasspath = new ArrayList<String>();
 
 	public boolean shouldGenerateAssetFile = true;
+	
+	public boolean synRemoved = true;
 
 	public String cappPath = "";
 
-	public String cappName = "capp";
+	public String cappOutputSource = "src";
 
 	public final ArrayList<URL> additionalClasspath = new ArrayList<URL>();
 

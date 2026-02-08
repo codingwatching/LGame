@@ -124,9 +124,11 @@ public class CMacroCleaner {
 
 	private final Set<String> macroNames;
 	private final ConditionParser parser;
+	private final String targetPath;
 
-	public CMacroCleaner(Set<String> macroNames) {
+	public CMacroCleaner(Set<String> macroNames, String targetPath) {
 		this.macroNames = macroNames;
+		this.targetPath = targetPath;
 		this.parser = new ConditionParser(macroNames);
 	}
 
@@ -134,7 +136,7 @@ public class CMacroCleaner {
 		Files.walkFileTree(rootDir, new SimpleFileVisitor<Path>() {
 			@Override
 			public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
-				if (Files.isRegularFile(file) && isSourceFile(file)) {
+				if (file.toString().contains(targetPath) && Files.isRegularFile(file) && isSourceFile(file)) {
 					processFile(file);
 				}
 				return FileVisitResult.CONTINUE;

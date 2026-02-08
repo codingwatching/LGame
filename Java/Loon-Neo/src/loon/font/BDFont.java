@@ -1553,12 +1553,10 @@ public final class BDFont extends FontTrans implements IFont, LRelease {
 			return;
 		}
 		if (displays.size > LSystem.DEFAULT_MAX_CACHE_SIZE) {
-			synchronized (displays) {
-				for (Cache cache : displays.values()) {
-					if (cache != null) {
-						cache.close();
-						cache = null;
-					}
+			for (Cache cache : displays.values()) {
+				if (cache != null) {
+					cache.close();
+					cache = null;
 				}
 			}
 			displays.clear();
@@ -1691,12 +1689,10 @@ public final class BDFont extends FontTrans implements IFont, LRelease {
 			return;
 		}
 		if (displays.size > LSystem.DEFAULT_MAX_CACHE_SIZE) {
-			synchronized (displays) {
-				for (Cache cache : displays.values()) {
-					if (cache != null) {
-						cache.close();
-						cache = null;
-					}
+			for (Cache cache : displays.values()) {
+				if (cache != null) {
+					cache.close();
+					cache = null;
 				}
 			}
 			displays.clear();

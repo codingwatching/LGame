@@ -310,7 +310,7 @@ public class CAssets extends Assets {
 				String org = "loon";
 				String app = LSystem.getSystemAppName();
 				String prefPath = SDLCall.getPrefPath(org, app);
-				return in = new ByteArrayInputStream(loadRwFile(PathUtils.getCombinePaths(prefPath, path)));
+				return in = new ByteArrayInputStream(loadRwFile(PathUtils.normalizeCombinePaths(prefPath, path)));
 			} catch (Exception e) {
 				throw new RuntimeException("file " + name + " not found !", e);
 			}

@@ -709,12 +709,10 @@ public final class LSTRFont extends FontTrans implements IFont, LRelease {
 			return;
 		}
 		if (displays.size > _fontMaxCache) {
-			synchronized (displays) {
-				for (Cache cache : displays.values()) {
-					if (cache != null) {
-						cache.close();
-						cache = null;
-					}
+			for (Cache cache : displays.values()) {
+				if (cache != null) {
+					cache.close();
+					cache = null;
 				}
 			}
 			displays.clear();
@@ -850,12 +848,10 @@ public final class LSTRFont extends FontTrans implements IFont, LRelease {
 			return;
 		}
 		if (displays.size > _fontMaxCache) {
-			synchronized (displays) {
-				for (Cache cache : displays.values()) {
-					if (cache != null) {
-						cache.close();
-						cache = null;
-					}
+			for (Cache cache : displays.values()) {
+				if (cache != null) {
+					cache.close();
+					cache = null;
 				}
 			}
 			displays.clear();

@@ -126,9 +126,7 @@ public class LLabels extends LComponent implements FontSet<LLabels> {
 	}
 
 	public LLabels clear() {
-		synchronized (_labels) {
-			_labels.clear();
-		}
+		_labels.clear();
 		return this;
 	}
 

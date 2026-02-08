@@ -117,34 +117,32 @@ public class AStarFinder implements Updateable, LRelease {
 	public static TArray<Vector2f> find(final AStarFindHeuristic astarHeuristic, final int[][] maps, final int[] limits,
 			final int x1, final int y1, final int x2, final int y2, final boolean bevel, final boolean flag) {
 		final AStarFindHeuristic heuristic = (astarHeuristic == null ? ASTAR_MANHATTAN : astarHeuristic);
-		synchronized (FINDER_LAZY) {
-			if (FINDER_LAZY.size >= LSystem.DEFAULT_MAX_CACHE_SIZE * 10) {
-				FINDER_LAZY.clear();
-			}
-			final int key = makeLazyKey(heuristic, maps, limits, x1, y1, x2, y2, bevel, flag);
-			TArray<Vector2f> result = FINDER_LAZY.get(key);
-			if (result == null) {
-				final AStarFinder astar = new AStarFinder(heuristic, ASTAR);
-				final Field2D fieldMap = new Field2D(maps);
-				if (limits != null) {
-					fieldMap.setLimit(limits);
-				}
-				final Vector2f start = new Vector2f(x1, y1);
-				final Vector2f over = new Vector2f(x2, y2);
-				result = astar.calc(fieldMap, start, over, bevel, flag);
-				FINDER_LAZY.put(key, result);
-				astar.close();
-			}
-			if (result != null) {
-				final TArray<Vector2f> newResult = new TArray<Vector2f>();
-				newResult.addAll(result);
-				result = newResult;
-			}
-			if (result == null) {
-				return new TArray<Vector2f>();
-			}
-			return new TArray<Vector2f>(result);
+		if (FINDER_LAZY.size >= LSystem.DEFAULT_MAX_CACHE_SIZE * 10) {
+			FINDER_LAZY.clear();
 		}
+		final int key = makeLazyKey(heuristic, maps, limits, x1, y1, x2, y2, bevel, flag);
+		TArray<Vector2f> result = FINDER_LAZY.get(key);
+		if (result == null) {
+			final AStarFinder astar = new AStarFinder(heuristic, ASTAR);
+			final Field2D fieldMap = new Field2D(maps);
+			if (limits != null) {
+				fieldMap.setLimit(limits);
+			}
+			final Vector2f start = new Vector2f(x1, y1);
+			final Vector2f over = new Vector2f(x2, y2);
+			result = astar.calc(fieldMap, start, over, bevel, flag);
+			FINDER_LAZY.put(key, result);
+			astar.close();
+		}
+		if (result != null) {
+			final TArray<Vector2f> newResult = new TArray<Vector2f>();
+			newResult.addAll(result);
+			result = newResult;
+		}
+		if (result == null) {
+			return new TArray<Vector2f>();
+		}
+		return new TArray<Vector2f>(result);
 	}
 
 	public static TArray<Vector2f> find(int[][] maps, int x1, int y1, int x2, int y2, boolean bevel, boolean flag) {

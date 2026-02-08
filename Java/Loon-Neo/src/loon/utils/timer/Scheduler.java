@@ -166,7 +166,7 @@ public class Scheduler implements LRelease {
 
 	public Scheduler start() {
 		this.unpause();
-		synchronized (RealtimeProcessManager.class) {
+		synchronized (Scheduler.class) {
 			if (_processScheduler != null) {
 				RealtimeProcessManager.get().delete(_processScheduler);
 			}

@@ -34,11 +34,9 @@ public final class StatusBars extends Entity {
 	}
 
 	public StatusBar addBar(int value, int maxValue, int x, int y, int w, int h) {
-		synchronized (_barCaches) {
-			StatusBar bar = new StatusBar(value, maxValue, x, y, w, h);
-			_barCaches.add(bar);
-			return bar;
-		}
+		StatusBar bar = new StatusBar(value, maxValue, x, y, w, h);
+		_barCaches.add(bar);
+		return bar;
 	}
 
 	public StatusBar addBar(int x, int y, int width, int height) {
@@ -50,25 +48,19 @@ public final class StatusBars extends Entity {
 	}
 
 	public void addBar(StatusBar bar) {
-		synchronized (_barCaches) {
-			_barCaches.add(bar);
-		}
+		_barCaches.add(bar);
 	}
 
 	public boolean removeBar(StatusBar bar) {
 		if (bar == null) {
 			return false;
 		}
-		synchronized (_barCaches) {
-			return _barCaches.remove(bar);
-		}
+		return _barCaches.remove(bar);
 	}
 
 	@Override
 	public void clear() {
-		synchronized (_barCaches) {
-			_barCaches.clear();
-		}
+		_barCaches.clear();
 	}
 
 	@Override
@@ -92,12 +84,10 @@ public final class StatusBars extends Entity {
 	public void repaint(GLEx g, float offsetX, float offsetY) {
 		int size = _barCaches.size;
 		if (size > 0) {
-			synchronized (_barCaches) {
-				for (int i = 0; i < size; i++) {
-					StatusBar bar = _barCaches.get(i);
-					if (bar != null && bar.isVisible()) {
-						bar.createUI(g, offsetX, offsetY);
-					}
+			for (int i = 0; i < size; i++) {
+				StatusBar bar = _barCaches.get(i);
+				if (bar != null && bar.isVisible()) {
+					bar.createUI(g, offsetX, offsetY);
 				}
 			}
 		}
@@ -107,12 +97,10 @@ public final class StatusBars extends Entity {
 	public void onUpdate(long elapsedTime) {
 		int size = _barCaches.size;
 		if (size > 0) {
-			synchronized (_barCaches) {
-				for (int i = 0; i < size; i++) {
-					StatusBar bar = _barCaches.get(i);
-					if (bar != null) {
-						bar.update(elapsedTime);
-					}
+			for (int i = 0; i < size; i++) {
+				StatusBar bar = _barCaches.get(i);
+				if (bar != null) {
+					bar.update(elapsedTime);
 				}
 			}
 		}

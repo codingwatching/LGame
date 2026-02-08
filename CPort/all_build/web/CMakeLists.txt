@@ -22,6 +22,9 @@ endif()
 
 include(FetchContent)
 
+# 禁止SDL2编译test文件夹 
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
+
 # SDL2
 find_package(SDL2 QUIET)
 if(NOT SDL2_FOUND)
@@ -61,9 +64,9 @@ endif()
 add_executable(MySDLApp ${MAIN_FILE})
 
 target_link_libraries(MySDLApp
-    SDL2
-    SDL2_image
-    SDL2_mixer
+    SDL2::SDL2-static
+    SDL2_image::SDL2_image-static
+    SDL2_mixer::SDL2_mixer-static
 )
 
 # Emscripten 编译选项
