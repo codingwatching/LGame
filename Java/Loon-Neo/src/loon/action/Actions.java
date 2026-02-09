@@ -269,7 +269,7 @@ public final class Actions {
 		return null;
 	}
 
-	public void update(long elapsedTime) {
+	public synchronized void update(long elapsedTime) {
 		final int size = actions.size();
 		for (int i = size - 1; i > -1; --i) {
 			final ActionElement currentTarget = (ActionElement) actions.get(i);

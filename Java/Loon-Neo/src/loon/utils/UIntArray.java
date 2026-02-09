@@ -202,53 +202,35 @@ public class UIntArray implements IArray, LRelease {
 	}
 
 	public long readUInt() {
-		long result = 0l;
-		int firstByte = 0;
-		int secondByte = 0;
-		int thirdByte = 0;
-		int fourthByte = 0;
+		int byteCount;
 		switch (this.uintmode) {
 		case UINT8:
-			return (0x000000FF & (int) readByte());
+			return readByte() & 0xFFL;
 		case UINT16:
-			firstByte = (0x000000FF & (int) readByte());
-			secondByte = (0x000000FF & (int) readByte());
-			if (littleEndian) {
-				result = ((long) (secondByte << 8 | firstByte)) & 0xFFFFFFFFL;
-			} else {
-				result = ((long) (firstByte << 8 | secondByte)) & 0xFFFFFFFFL;
-			}
-			return result;
+			byteCount = 2;
+			break;
 		case UINT32:
-			firstByte = (0x000000FF & (int) readByte());
-			secondByte = (0x000000FF & (int) readByte());
-			thirdByte = (0x000000FF & (int) readByte());
-			fourthByte = (0x000000FF & (int) readByte());
-			if (littleEndian) {
-				result = ((long) (fourthByte << 24 | thirdByte << 16 | secondByte << 8 | firstByte)) & 0xFFFFFFFFL;
-			} else {
-				result = ((long) (firstByte << 24 | secondByte << 16 | thirdByte << 8 | fourthByte)) & 0xFFFFFFFFL;
-
-			}
-			return result;
+			byteCount = 4;
+			break;
 		case UINT64:
-			firstByte = (0x000000FF & (int) readByte());
-			secondByte = (0x000000FF & (int) readByte());
-			thirdByte = (0x000000FF & (int) readByte());
-			fourthByte = (0x000000FF & (int) readByte());
-			int firstByte2 = (0x000000FF & (int) readByte());
-			int secondByte2 = (0x000000FF & (int) readByte());
-			int thirdByte2 = (0x000000FF & (int) readByte());
-			int fourthByte2 = (0x000000FF & (int) readByte());
-			if (littleEndian) {
-				result = ((long) (fourthByte2 << 56 | thirdByte2 << 48 | secondByte2 << 40 | firstByte2 << 32
-						| fourthByte << 24 | thirdByte << 16 | secondByte << 8 | firstByte)) & 0xFFFFFFFFL;
-			} else {
-				result = ((long) (firstByte << 56 | secondByte << 48 | thirdByte << 40 | fourthByte << 32
-						| firstByte2 << 24 | secondByte2 << 16 | thirdByte2 << 8 | fourthByte2)) & 0xFFFFFFFFL;
-
+			byteCount = 8;
+			break;
+		default:
+			throw new IllegalArgumentException("Unsupported uint mode: " + this.uintmode);
+		}
+		long result = 0L;
+		int[] bytes = new int[byteCount];
+		for (int i = 0; i < byteCount; i++) {
+			bytes[i] = readByte() & 0xFF;
+		}
+		if (littleEndian) {
+			for (int i = byteCount - 1; i >= 0; i--) {
+				result = (result << 8) | bytes[i];
 			}
-			return result;
+		} else {
+			for (int i = 0; i < byteCount; i++) {
+				result = (result << 8) | bytes[i];
+			}
 		}
 		return result;
 	}

@@ -73,137 +73,133 @@ public class TMXStaggeredMapRenderer extends TMXMapRenderer {
 
 	@Override
 	protected void renderTileLayer(GLEx g, TMXTileLayer tileLayer) {
-		synchronized (this) {
-			if (!tileLayer.isVisible()) {
-				return;
+		if (!tileLayer.isVisible()) {
+			return;
+		}
+		final float viewWidth = MathUtils.min(getViewWidth(), getWidth());
+		final float viewHeight = MathUtils.min(getViewHeight(), getHeight());
+		final int screenWidth = MathUtils.iceil(viewWidth - _objectLocation.x);
+		final int screenHeight = MathUtils.iceil(viewHeight - _objectLocation.y);
+		final int tx = MathUtils.iceil((getRenderX() + _objectLocation.x) / map.getTileWidth());
+		final int ty = MathUtils.iceil((getRenderY() + _objectLocation.y) / map.getTileHeight());
+		final int windowWidth = MathUtils.iceil(screenWidth / map.getTileWidth() / scaleX * 2f) + 1;
+		final int windowHeight = MathUtils.iceil(screenHeight / map.getTileHeight() / scaleY * 2f) + 1;
+
+		final int layerWidth = tileLayer.getWidth();
+		final int layerHeight = tileLayer.getHeight();
+
+		final float layerTileWidth = tileLayer.getTileWidth();
+		final float layerTileHeight = tileLayer.getTileHeight();
+
+		final float layerOffsetX = tileLayer.getRenderOffsetX() - (tileLayer.getParallaxX() - 1f);
+		final float layerOffsetY = tileLayer.getRenderOffsetY() - (tileLayer.getParallaxY() - 1f);
+
+		final float scaleWidth = windowWidth * scaleX;
+		final float scaleHeight = windowHeight * scaleY;
+
+		final boolean saveCache = textureMap.size == 1 && allowCache;
+
+		LTexture current = textureMap.get(map.getTileset(tileIndex).getSource());
+		LTextureBatch texBatch = current.getTextureBatch();
+
+		boolean isCached = false;
+
+		final LColor drawColor = tileLayer.getTileLayerColor(baseColor);
+
+		try {
+
+			if (saveCache) {
+				int hashCode = 1;
+				hashCode = LSystem.unite(hashCode, tx);
+				hashCode = LSystem.unite(hashCode, ty);
+				hashCode = LSystem.unite(hashCode, windowWidth);
+				hashCode = LSystem.unite(hashCode, windowHeight);
+				hashCode = LSystem.unite(hashCode, layerWidth);
+				hashCode = LSystem.unite(hashCode, layerHeight);
+				hashCode = LSystem.unite(hashCode, layerTileWidth);
+				hashCode = LSystem.unite(hashCode, layerTileHeight);
+				hashCode = LSystem.unite(hashCode, layerOffsetX);
+				hashCode = LSystem.unite(hashCode, layerOffsetY);
+				hashCode = LSystem.unite(hashCode, scaleX);
+				hashCode = LSystem.unite(hashCode, scaleY);
+				hashCode = LSystem.unite(hashCode, tileLayer.isDirty());
+				hashCode = LSystem.unite(hashCode, _objectRotation);
+
+				if (isCached = postCache(texBatch, hashCode)) {
+					return;
+				}
+
+			} else {
+				texBatch.begin();
 			}
-			final float viewWidth = MathUtils.min(getViewWidth(), getWidth());
-			final float viewHeight = MathUtils.min(getViewHeight(), getHeight());
-			final int screenWidth = MathUtils.iceil(viewWidth - _objectLocation.x);
-			final int screenHeight = MathUtils.iceil(viewHeight - _objectLocation.y);
-			final int tx = MathUtils.iceil((getRenderX() + _objectLocation.x) / map.getTileWidth());
-			final int ty = MathUtils.iceil((getRenderY() + _objectLocation.y) / map.getTileHeight());
-			final int windowWidth = MathUtils.iceil(screenWidth / map.getTileWidth() / scaleX * 2f) + 1;
-			final int windowHeight = MathUtils.iceil(screenHeight / map.getTileHeight() / scaleY * 2f) + 1;
 
-			final int layerWidth = tileLayer.getWidth();
-			final int layerHeight = tileLayer.getHeight();
+			texBatch.setColor(drawColor);
 
-			final float layerTileWidth = tileLayer.getTileWidth();
-			final float layerTileHeight = tileLayer.getTileHeight();
+			for (int x = 0; x < tileLayer.getWidth(); x++) {
+				for (int y = 0; y < tileLayer.getHeight(); y++) {
+					if ((tx + x < -scaleWidth) || (ty + y < -scaleHeight)) {
+						continue;
+					}
+					if ((x - tx > scaleWidth) || (y - ty > scaleHeight)) {
+						continue;
+					}
 
-			final float layerOffsetX = tileLayer.getRenderOffsetX() - (tileLayer.getParallaxX() - 1f);
-			final float layerOffsetY = tileLayer.getRenderOffsetY() - (tileLayer.getParallaxY() - 1f);
+					TMXMapTile mapTile = tileLayer.getTile(x, y);
 
-			final float scaleWidth = windowWidth * scaleX;
-			final float scaleHeight = windowHeight * scaleY;
+					if (mapTile == null || mapTile.getTileSetID() == -1) {
+						continue;
+					}
 
-			final boolean saveCache = textureMap.size == 1 && allowCache;
+					TMXTileSet tileSet = map.getTileset(mapTile.getTileSetID());
+					TMXTile tile = tileSet.getTile(mapTile.getGID() - tileSet.getFirstGID());
 
-			LTexture current = textureMap.get(map.getTileset(tileIndex).getSource());
-			LTextureBatch texBatch = current.getTextureBatch();
+					LTexture texture = textureMap.get(tileSet.getSource());
 
-			boolean isCached = false;
+					if (texture.getID() != current.getID()) {
+						texBatch.end();
+						current = texture;
+						texBatch = current.getTextureBatch();
+						texBatch.begin();
+						texBatch.checkTexture(current);
+					}
 
-			final LColor drawColor = tileLayer.getTileLayerColor(baseColor);
+					int tileID = mapTile.getGID() - tileSet.getFirstGID();
+					if (tile != null && tile.isAnimated()) {
+						tileID = tileAnimators.get(tile).getCurrentFrame().getTileID();
+					}
 
-			try {
+					int numColsPerRow = tileSet.getImage().getWidth() / tileSet.getTileWidth();
 
+					int tileSetCol = tileID % numColsPerRow;
+					int tileSetRow = tileID / numColsPerRow;
+
+					float tileWidth = tileSet.getTileWidth();
+					float tileHeight = tileSet.getTileHeight();
+
+					float srcX = (tileSet.getMargin() + (tileSet.getTileWidth() + tileSet.getSpacing()) * tileSetCol);
+					float srcY = (tileSet.getMargin() + (tileSet.getTileHeight() + tileSet.getSpacing()) * tileSetRow);
+					float srcWidth = srcX + tileWidth;
+					float srcHeight = srcY + tileHeight;
+
+					boolean flipX = mapTile.isFlippedHorizontally();
+					boolean flipY = mapTile.isFlippedVertically();
+					boolean flipZ = mapTile.isFlippedDiagonally();
+
+					if (flipZ) {
+						flipX = !flipX;
+						flipY = !flipY;
+					}
+					Vector2f pos = orthoToIso(x, y);
+					texBatch.draw(pos.x * scaleX, pos.y * scaleY, -1f, -1f, 0f, 0f, tileWidth, tileHeight, scaleX,
+							scaleY, this._objectRotation, srcX, srcY, srcWidth, srcHeight, flipX, flipY);
+
+				}
+			}
+		} finally {
+			if (!isCached) {
+				texBatch.end();
 				if (saveCache) {
-					int hashCode = 1;
-					hashCode = LSystem.unite(hashCode, tx);
-					hashCode = LSystem.unite(hashCode, ty);
-					hashCode = LSystem.unite(hashCode, windowWidth);
-					hashCode = LSystem.unite(hashCode, windowHeight);
-					hashCode = LSystem.unite(hashCode, layerWidth);
-					hashCode = LSystem.unite(hashCode, layerHeight);
-					hashCode = LSystem.unite(hashCode, layerTileWidth);
-					hashCode = LSystem.unite(hashCode, layerTileHeight);
-					hashCode = LSystem.unite(hashCode, layerOffsetX);
-					hashCode = LSystem.unite(hashCode, layerOffsetY);
-					hashCode = LSystem.unite(hashCode, scaleX);
-					hashCode = LSystem.unite(hashCode, scaleY);
-					hashCode = LSystem.unite(hashCode, tileLayer.isDirty());
-					hashCode = LSystem.unite(hashCode, _objectRotation);
-
-					if (isCached = postCache(texBatch, hashCode)) {
-						return;
-					}
-
-				} else {
-					texBatch.begin();
-				}
-
-				texBatch.setColor(drawColor);
-
-				for (int x = 0; x < tileLayer.getWidth(); x++) {
-					for (int y = 0; y < tileLayer.getHeight(); y++) {
-						if ((tx + x < -scaleWidth) || (ty + y < -scaleHeight)) {
-							continue;
-						}
-						if ((x - tx > scaleWidth) || (y - ty > scaleHeight)) {
-							continue;
-						}
-
-						TMXMapTile mapTile = tileLayer.getTile(x, y);
-
-						if (mapTile == null || mapTile.getTileSetID() == -1) {
-							continue;
-						}
-
-						TMXTileSet tileSet = map.getTileset(mapTile.getTileSetID());
-						TMXTile tile = tileSet.getTile(mapTile.getGID() - tileSet.getFirstGID());
-
-						LTexture texture = textureMap.get(tileSet.getSource());
-
-						if (texture.getID() != current.getID()) {
-							texBatch.end();
-							current = texture;
-							texBatch = current.getTextureBatch();
-							texBatch.begin();
-							texBatch.checkTexture(current);
-						}
-
-						int tileID = mapTile.getGID() - tileSet.getFirstGID();
-						if (tile != null && tile.isAnimated()) {
-							tileID = tileAnimators.get(tile).getCurrentFrame().getTileID();
-						}
-
-						int numColsPerRow = tileSet.getImage().getWidth() / tileSet.getTileWidth();
-
-						int tileSetCol = tileID % numColsPerRow;
-						int tileSetRow = tileID / numColsPerRow;
-
-						float tileWidth = tileSet.getTileWidth();
-						float tileHeight = tileSet.getTileHeight();
-
-						float srcX = (tileSet.getMargin()
-								+ (tileSet.getTileWidth() + tileSet.getSpacing()) * tileSetCol);
-						float srcY = (tileSet.getMargin()
-								+ (tileSet.getTileHeight() + tileSet.getSpacing()) * tileSetRow);
-						float srcWidth = srcX + tileWidth;
-						float srcHeight = srcY + tileHeight;
-
-						boolean flipX = mapTile.isFlippedHorizontally();
-						boolean flipY = mapTile.isFlippedVertically();
-						boolean flipZ = mapTile.isFlippedDiagonally();
-
-						if (flipZ) {
-							flipX = !flipX;
-							flipY = !flipY;
-						}
-						Vector2f pos = orthoToIso(x, y);
-						texBatch.draw(pos.x * scaleX, pos.y * scaleY, -1f, -1f, 0f, 0f, tileWidth, tileHeight, scaleX,
-								scaleY, this._objectRotation, srcX, srcY, srcWidth, srcHeight, flipX, flipY);
-
-					}
-				}
-			} finally {
-				if (!isCached) {
-					texBatch.end();
-					if (saveCache) {
-						saveCache(texBatch);
-					}
+					saveCache(texBatch);
 				}
 			}
 		}

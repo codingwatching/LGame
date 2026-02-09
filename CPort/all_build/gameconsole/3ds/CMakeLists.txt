@@ -97,6 +97,16 @@ else()
     add_library(SDL2_3DS::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer-static)
 endif()
 
+# 3DS 额外依赖库 (来自 devkitPro portlibs)
+# SDL2_image 需要 libpng、libjpeg、zlib
+# SDL2_mixer 需要 libogg、libvorbis、libmpg123
+find_library(PNG_LIB png REQUIRED PATHS "${DEVKITPRO}/portlibs/3ds/lib")
+find_library(JPEG_LIB jpeg REQUIRED PATHS "${DEVKITPRO}/portlibs/3ds/lib")
+find_library(ZLIB_LIB z REQUIRED PATHS "${DEVKITPRO}/portlibs/3ds/lib")
+find_library(OGG_LIB ogg REQUIRED PATHS "${DEVKITPRO}/portlibs/3ds/lib")
+find_library(VORBIS_LIB vorbis REQUIRED PATHS "${DEVKITPRO}/portlibs/3ds/lib")
+find_library(MPG123_LIB mpg123 REQUIRED PATHS "${DEVKITPRO}/portlibs/3ds/lib")
+
 # 构建 3DS 可执行文件 (.3dsx 格式)，只编译 all.c
 add_executable(MySDLApp ${MAIN_FILE})
 
@@ -105,6 +115,12 @@ target_link_libraries(MySDLApp
     SDL2_3DS::SDL2
     SDL2_3DS::SDL2_image
     SDL2_3DS::SDL2_mixer
+    ${PNG_LIB}
+    ${JPEG_LIB}
+    ${ZLIB_LIB}
+    ${OGG_LIB}
+    ${VORBIS_LIB}
+    ${MPG123_LIB}
     citro2d
     citro3d
     ctru

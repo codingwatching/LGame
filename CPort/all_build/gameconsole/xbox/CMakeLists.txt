@@ -61,7 +61,6 @@ find_package(SDL2 QUIET)
 if(SDL2_FOUND AND SDL2_INCLUDE_DIRS MATCHES "${XBOXSDK_PATH}")
     message(STATUS "使用 Xbox SDK 中的 SDL2 库")
     add_library(SDL2_Xbox::SDL2 ALIAS SDL2::SDL2-static)
-
 elseif(DEFINED ENV{NXDK})
     message(STATUS "未找到 Xbox SDK SDL2，开始下载 nxdk-sdl (原始 Xbox)")
     FetchContent_Declare(
@@ -80,7 +79,6 @@ elseif(DEFINED ENV{NXDK})
             ${SDL2_Xbox_SOURCE_DIR}/include
         )
     endif()
-
 else()
     message(STATUS "未找到 Xbox SDK SDL2，开始下载官方 SDL2 源码")
     FetchContent_Declare(
@@ -135,6 +133,16 @@ else()
     add_library(SDL2_Xbox::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer-static)
 endif()
 
+# 查找第三方依赖库 (仅在 XDK/NXDK 环境下需要)
+if(DEFINED ENV{XDKSDK} OR DEFINED ENV{NXDK})
+    find_library(PNG_LIB png REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
+    find_library(JPEG_LIB jpeg REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
+    find_library(ZLIB_LIB z REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
+    find_library(OGG_LIB ogg REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
+    find_library(VORBIS_LIB vorbis REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
+    find_library(MPG123_LIB mpg123 REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
+endif()
+
 add_executable(MySDLApp ${SOURCES} ${MAIN_FILE})
 
 # 链接依赖库
@@ -148,12 +156,29 @@ if(WIN32)
     target_link_libraries(MySDLApp SDL2::SDL2main)
 endif()
 
+# 根据不同 SDK 链接系统库
 if(DEFINED ENV{GDKXSDK})
-  target_link_libraries(MySDLApp d3d11 xinput xaudio2)
+    target_link_libraries(MySDLApp d3d11 xinput xaudio2)
 elseif(DEFINED ENV{XDKSDK})
-  target_link_libraries(MySDLApp xboxkrnl)
+    target_link_libraries(MySDLApp
+        ${PNG_LIB}
+        ${JPEG_LIB}
+        ${ZLIB_LIB}
+        ${OGG_LIB}
+        ${VORBIS_LIB}
+        ${MPG123_LIB}
+        xboxkrnl
+    )
 elseif(DEFINED ENV{NXDK})
-  target_link_libraries(MySDLApp nxdk)
+    target_link_libraries(MySDLApp
+        ${PNG_LIB}
+        ${JPEG_LIB}
+        ${ZLIB_LIB}
+        ${OGG_LIB}
+        ${VORBIS_LIB}
+        ${MPG123_LIB}
+        nxdk
+    )
 endif()
 
 # 可选 ANGLE 支持

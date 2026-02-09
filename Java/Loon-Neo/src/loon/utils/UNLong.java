@@ -43,29 +43,29 @@ public class UNLong {
 	}
 
 	public void read(int i) {
-		ArrayByte bb = new ArrayByte(8);
-		bb.writeLong(i);
-		unLong = (((long) (bb.get(0) << 56) + ((long) (bb.get(1) & 255) << 48) + ((long) (bb.get(2) & 255) << 40)
-				+ ((long) (bb.get(3) & 255) << 32) + ((long) (bb.get(4) & 255) << 24) + ((bb.get(5) & 255) << 16)
-				+ ((bb.get(6) & 255) << 8) + ((bb.get(7) & 255) << 0)));
+		byte[] bytes = new byte[8];
+		for (int j = 0; j < 8; j++) {
+			bytes[7 - j] = (byte) (i >>> (j * 8));
+		}
+		read(bytes, 0);
 	}
 
 	public void read(ArrayByte bb, int offset) {
-		int initial_pos = bb.position();
+		int initialPos = bb.position();
 		bb.setPosition(offset);
-
-		unLong = (((long) (bb.get() << 56) + ((long) (bb.get() & 255) << 48) + ((long) (bb.get() & 255) << 40)
-				+ ((long) (bb.get() & 255) << 32) + ((long) (bb.get() & 255) << 24) + ((bb.get() & 255) << 16)
-				+ ((bb.get() & 255) << 8) + ((bb.get() & 255) << 0)));
-
-		bb.setPosition(initial_pos);
+		byte[] bytes = new byte[8];
+		for (int i = 0; i < 8; i++) {
+			bytes[i] = bb.get();
+		}
+		read(bytes, 0);
+		bb.setPosition(initialPos);
 	}
 
 	public void read(byte[] bytes, int offset) {
-		unLong = (((long) bytes[offset + 0] << 56) + ((long) (bytes[offset + 1] & 255) << 48)
-				+ ((long) (bytes[offset + 2] & 255) << 40) + ((long) (bytes[offset + 3] & 255) << 32)
-				+ ((long) (bytes[offset + 4] & 255) << 24) + ((bytes[offset + 5] & 255) << 16)
-				+ ((bytes[offset + 6] & 255) << 8) + ((bytes[offset + 7] & 255) << 0));
+		unLong = 0L;
+		for (int i = 0; i < 8; i++) {
+			unLong = (unLong << 8) | (bytes[offset + i] & 0xFFL);
+		}
 	}
 
 	public byte[] write() {

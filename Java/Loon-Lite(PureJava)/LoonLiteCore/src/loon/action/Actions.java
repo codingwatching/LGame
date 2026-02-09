@@ -269,36 +269,34 @@ public final class Actions {
 		return null;
 	}
 
-	public void update(long elapsedTime) {
+	public synchronized void update(long elapsedTime) {
 		final int size = actions.size();
 		for (int i = size - 1; i > -1; --i) {
 			final ActionElement currentTarget = (ActionElement) actions.get(i);
 			if (currentTarget == null) {
 				continue;
 			}
-			synchronized (currentTarget) {
-				if (!currentTarget.paused) {
-					for (currentTarget.actionIndex = 0; currentTarget.actionIndex < currentTarget.actions.size; currentTarget.actionIndex++) {
-						currentTarget.currentAction = currentTarget.actions.get(currentTarget.actionIndex);
-						if (currentTarget.currentAction == null) {
-							continue;
-						}
-						if (!currentTarget.currentAction.isInit) {
-							currentTarget.currentAction.isInit = true;
-							currentTarget.currentAction.initAction();
-							currentTarget.currentAction.onLoad();
-						}
-						currentTarget.currentAction.step(elapsedTime);
-						if (currentTarget.currentAction.isComplete()) {
-							currentTarget.currentAction.stop();
-							removeAction(currentTarget.currentAction);
-						}
-						currentTarget.currentAction = null;
+			if (!currentTarget.paused) {
+				for (currentTarget.actionIndex = 0; currentTarget.actionIndex < currentTarget.actions.size; currentTarget.actionIndex++) {
+					currentTarget.currentAction = currentTarget.actions.get(currentTarget.actionIndex);
+					if (currentTarget.currentAction == null) {
+						continue;
 					}
+					if (!currentTarget.currentAction.isInit) {
+						currentTarget.currentAction.isInit = true;
+						currentTarget.currentAction.initAction();
+						currentTarget.currentAction.onLoad();
+					}
+					currentTarget.currentAction.step(elapsedTime);
+					if (currentTarget.currentAction.isComplete()) {
+						currentTarget.currentAction.stop();
+						removeAction(currentTarget.currentAction);
+					}
+					currentTarget.currentAction = null;
 				}
-				if (currentTarget.actions.isEmpty()) {
-					deleteElement(currentTarget);
-				}
+			}
+			if (currentTarget.actions.isEmpty()) {
+				deleteElement(currentTarget);
 			}
 		}
 	}

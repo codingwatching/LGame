@@ -41,42 +41,41 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
-   
+
 #if defined(_WIN32) || defined(_WIN64)
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-#include <tchar.h>
-#include <tlhelp32.h>
-#include <shellapi.h>
-#include <shlobj.h>
-#include <winbase.h>
-#include <VersionHelpers.h>
-#pragma comment(lib, "shell32.lib")
-static void run_sleep_ms(int ms) {
-    Sleep(ms);
-}
+    #define WIN32_LEAN_AND_MEAN
+    #include <windows.h>
+    #include <tchar.h>
+    #include <tlhelp32.h>
+    #include <shellapi.h>
+    #include <shlobj.h>
+    #include <VersionHelpers.h>
+    #pragma comment(lib, "shell32.lib")
+    static void run_sleep_ms(int ms) {
+        Sleep(ms);
+    }
 #elif defined(__linux__) || defined(__APPLE__) || defined(__MACH__) || defined(__unix__)
-#include <dlfcn.h>
-#include <time.h>
-#include <unistd.h>
-#include <pwd.h>
-#include <pthread.h>
-#include <sys/utsname.h>
-#include <sys/mman.h>
-    #ifdef __linux__
+    #include <dlfcn.h>
+    #include <time.h>
+    #include <unistd.h>
+    #include <pwd.h>
+    #include <pthread.h>
+    #include <sys/utsname.h>
+    #include <sys/mman.h>
+    #include <execinfo.h>
+#ifdef __linux__
     #include <fontconfig/fontconfig.h>
-    #endif
-    #if !defined(__APPLE__)
     #include <sys/sysinfo.h>
-    #endif
-#include <time.h>
-#include <execinfo.h>
-static void run_sleep_ms(int ms) {
-    struct timespec ts;
-    ts.tv_sec = ms / 1000;
-    ts.tv_nsec = (ms % 1000) * 1000000L;
-    nanosleep(&ts, NULL);
-}
+#endif
+#ifdef __APPLE__
+   #include <sys/sysctl.h>
+#endif
+    static void run_sleep_ms(int ms) {
+        struct timespec ts;
+        ts.tv_sec = ms / 1000;
+        ts.tv_nsec = (ms % 1000) * 1000000L;
+        nanosleep(&ts, NULL);
+    }
 #endif
 
 #ifdef IN_IDE_PARSER
@@ -92,42 +91,57 @@ static void run_sleep_ms(int ms) {
 
 #if defined(__SWITCH__)
     #include <switch.h>
-    #include <EGL/egl.h>
-    #include <EGL/eglext.h>
     #include <sys/errno.h>
 #elif defined(XBOX) || defined(_XBOX_ONE) || defined(_XBOX_SERIES_X)
     #include <xdk.h>
-	#include <xmem.h>
+    #include <xmem.h>
+    #include <xtl.h>
 #elif defined(__ANDROID__)
     #include <jni.h>
     #include <android/log.h>
+    #include <sys/types.h>
+    #include <sys/stat.h>
 #elif defined(__APPLE__)
     #include "TargetConditionals.h"
-    #if TARGET_OS_IPHONE
-        #include <UIKit/UIKit.h>
-        #include <AVFoundation/AVFoundation.h>
-    #endif
+#if TARGET_OS_IPHONE
+    #include <UIKit/UIKit.h>
+    #include <AVFoundation/AVFoundation.h>
+    #include <Foundation/Foundation.h>
+    #include <CoreGraphics/CoreGraphics.h>
+#else
+    #include <Cocoa/Cocoa.h>
+    #include <CoreFoundation/CoreFoundation.h>
+#endif
 #elif defined(STEAM_DECK) || defined(__STEAMOS__)
     #include "steam/steam_api.h"
+    #include <sys/types.h>
+    #include <sys/stat.h>
 #elif defined(__3DS__)
     #include <3ds.h>
 #elif defined(__PSV__)
     #include <psp2/kernel/processmgr.h>
-	#include <psp2/kernel/sysmem.h>
+    #include <psp2/kernel/sysmem.h>
     #include <psp2/kernel/threadmgr.h>
     #include <psp2/io/fcntl.h>
 #elif defined(__ORBIS__) || defined(__PROSPERO__) 
     #include <orbis/SystemService.h>
     #include <orbis/UserService.h>
+    #include <orbis/libkernel.h>
+    #include <orbis/Pad.h>
 #elif defined(__PSP__)
     #include <pspkernel.h>
-	#include <pspmemory.h>
+    #include <pspmemory.h>
     #include <pspdebug.h>
     #include <pspctrl.h>
+    #include <pspiofilemgr.h>
 #elif defined(__EMSCRIPTEN__)
     #include <emscripten/emscripten.h>
+    #include <emscripten/html5.h>
+    #include <emscripten/threading.h>
 #endif
 
+/**
+ * 使用CMake管理或其他方式自行引入并加载SDL2库时，不需要这段, 默认路径即可，否则还是要打开
 #if defined(_WIN32) || defined(_WIN64) || \
     defined(__ANDROID__) || \
     defined(__XBOX_ONE__) || defined(_DURANGO) || defined(_GAMING_XBOX) || \
@@ -135,13 +149,25 @@ static void run_sleep_ms(int ms) {
     defined(__PSP__) || defined(__vita__) || defined(__3DS__) || \
     defined(__WII__) || defined(__WIIU__) || \
     defined(__EMSCRIPTEN__) || \
-    defined(__QNX__) || defined(__OS2__) || \
-    (defined(__APPLE__) && TARGET_OS_IPHONE)
+    defined(__QNX__) || defined(__OS2__)
     #include <SDL.h>
     #include <SDL_main.h>
     #include <SDL_mixer.h>
     #include <SDL_gamecontroller.h>
-#elif defined(__APPLE__) || defined(__linux__) || defined(__SWITCH__) || \
+#elif defined(__APPLE__)
+    #include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+    #include <SDL.h>
+    #include <SDL_main.h>
+    #include <SDL_mixer.h>
+    #include <SDL_gamecontroller.h>
+#else
+    #include <SDL2/SDL.h>
+    #include <SDL2/SDL_main.h>
+    #include <SDL2/SDL_mixer.h>
+    #include <SDL2/SDL_gamecontroller.h>
+#endif
+#elif defined(__linux__) || defined(__SWITCH__) || \
       defined(__FreeBSD__) || defined(__OpenBSD__) || defined(__NetBSD__) || \
       defined(__DragonFly__) || defined(__STEAMOS__) || defined(__STEAM_DECK__) || \
       defined(__HAIKU__) || \
@@ -158,6 +184,12 @@ static void run_sleep_ms(int ms) {
     #include <SDL_mixer.h>
     #include <SDL_gamecontroller.h>
 #endif
+*/
+
+#include <SDL.h>
+#include <SDL_main.h>
+#include <SDL_mixer.h>
+#include <SDL_gamecontroller.h>
 
 #ifdef __WINRT__
 #include "winrt/base.h"

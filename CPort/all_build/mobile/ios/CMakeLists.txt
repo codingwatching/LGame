@@ -76,6 +76,13 @@ target_link_libraries(MySDLApp
     SDL2::SDL2-static
     SDL2_image::SDL2_image-static
     SDL2_mixer::SDL2_mixer-static
+    "-framework UIKit"
+    "-framework Foundation"
+    "-framework CoreGraphics"
+    "-framework QuartzCore"
+    "-framework OpenGLES"
+    "-framework AudioToolbox"
+    "-framework AVFoundation"
 )
 
 # 可选 ANGLE 支持

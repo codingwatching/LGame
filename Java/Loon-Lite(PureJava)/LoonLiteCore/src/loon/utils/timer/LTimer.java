@@ -176,17 +176,17 @@ public class LTimer implements LTimerListener, LRelease {
 	 * @return
 	 */
 	public static Task postTask(String name, Runnable e, float seconds, int loopCount) {
-			synchronized (LTimer.class) {
-				if (e != null) {
-					synchronized (e) {
-						final Task task = new Task(name, seconds, loopCount, e);
-						task.start();
-						return task;
-					}
-				} else {
-					return new Task(name, seconds, loopCount);
+		synchronized (LTimer.class) {
+			if (e != null) {
+				synchronized (e) {
+					final Task task = new Task(name, seconds, loopCount, e);
+					task.start();
+					return task;
 				}
+			} else {
+				return new Task(name, seconds, loopCount);
 			}
+		}
 	}
 
 	public static Scheduler schedulerTask(float seconds, boolean sequence, Interval... tasks) {
@@ -213,16 +213,16 @@ public class LTimer implements LTimerListener, LRelease {
 	 */
 	public static Scheduler schedulerTask(String name, float seconds, boolean removeTask, boolean sequence,
 			Interval... tasks) {
-			synchronized (LTimer.class) {
-				final Scheduler scheduler = new Scheduler(name, Duration.ofS(seconds), removeTask, sequence);
-				if (tasks != null && tasks.length > 0) {
-					synchronized (tasks) {
-						scheduler.addAll(tasks);
-					}
-					scheduler.start();
+		synchronized (LTimer.class) {
+			final Scheduler scheduler = new Scheduler(name, Duration.ofS(seconds), removeTask, sequence);
+			if (tasks != null && tasks.length > 0) {
+				synchronized (tasks) {
+					scheduler.addAll(tasks);
 				}
-				return scheduler;
+				scheduler.start();
 			}
+			return scheduler;
+		}
 	}
 
 	public static LTimer ZERO() {
@@ -629,23 +629,23 @@ public class LTimer implements LTimerListener, LRelease {
 		return new TimerEvent(this._currentTick);
 	}
 
-	public LTimer submit() {
-			if (_process != null) {
-				RealtimeProcessManager.get().delete(_process);
-			}
-			if (_process == null || _process.isDead()) {
-				_process = new TimerProcess(this);
-			}
-			_process.setDelay(0);
-			RealtimeProcessManager.get().addProcess(_process);
+	public synchronized LTimer submit() {
+		if (_process != null) {
+			RealtimeProcessManager.get().delete(_process);
+		}
+		if (_process == null || _process.isDead()) {
+			_process = new TimerProcess(this);
+		}
+		_process.setDelay(0);
+		RealtimeProcessManager.get().addProcess(_process);
 		return this;
 	}
 
-	public LTimer cancel() {
+	public synchronized LTimer cancel() {
 		this.pause();
-			if (_process != null) {
-				_process.cancel();
-			}
+		if (_process != null) {
+			_process.cancel();
+		}
 		return this;
 	}
 

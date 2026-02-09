@@ -549,9 +549,7 @@ public abstract class ActorLayer extends LContainer {
 			return;
 		}
 		if (objects != null) {
-			if (objects != null) {
-				objects.sendToFront(actor);
-			}
+			objects.sendToFront(actor);
 		}
 	}
 
@@ -565,9 +563,7 @@ public abstract class ActorLayer extends LContainer {
 			return;
 		}
 		if (objects != null) {
-			if (objects != null) {
-				objects.sendToBack(actor);
-			}
+			objects.sendToBack(actor);
 		}
 	}
 

@@ -58,24 +58,24 @@ final public class CollectionUtils {
 	}
 
 	/**
-	 * 获得指定2维数组的HashCode
-	 * 
-	 * @param arrays
-	 * @return
+	 * 获得指定二维数组的哈希值
+	 *
+	 * @param arrays 二维整型数组
+	 * @return 哈希值
 	 */
 	public static int hashCode(int[][] arrays) {
 		if (arrays == null) {
 			return 0;
 		}
 		int result = 1;
-		int h = arrays.length;
-		int w = arrays[0].length;
-		int value = 0;
-		for (int i = 0; i < h; i++) {
-			for (int j = 0; j < w; j++) {
-				value = arrays[i][j];
-				int elementHash = (value ^ (value >>> 32));
-				result = 31 * result + elementHash;
+		for (int i = 0; i < arrays.length; i++) {
+			int[] row = arrays[i];
+			if (row != null) {
+				for (int value : row) {
+					result = 31 * result + Integer.hashCode(value);
+				}
+			} else {
+				result = 31 * result;
 			}
 		}
 		return result;

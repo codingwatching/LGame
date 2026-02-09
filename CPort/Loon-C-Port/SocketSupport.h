@@ -1,12 +1,13 @@
-#pragma once
+﻿#pragma once
 #ifndef LOON_SOCKET
 #define LOON_SOCKET
 #include "SDLSupport.h"
+
 #if defined(_WIN32) || defined(_WIN64) || defined(_XBOX)
     #define WIN32_LEAN_AND_MEAN
-    #include <winhttp.h>
     #include <winsock2.h>
     #include <ws2tcpip.h>
+    #include <winhttp.h>
     #include <iphlpapi.h>
     #pragma comment(lib, "winhttp.lib")
     #pragma comment(lib, "ws2_32.lib")
@@ -15,13 +16,15 @@
 #else
     #include <unistd.h>
     #if defined(__ORBIS__) || defined(__PROSPERO__)
-#       include <net.h>
+        #include <net.h>
     #else
         #include <arpa/inet.h>
     #endif
-    #if defined(__SWITCH__) 
+    #if defined(__SWITCH__)
         #include <types.h>
-        #include <socket.h> 
+        #include <socket.h>
+        #include <sys/types.h>
+        #include <sys/socket.h>
     #else
         #include <sys/types.h>
         #include <sys/socket.h>
@@ -31,10 +34,10 @@
     #include <fcntl.h>
     #include <netdb.h>
     #include <ifaddrs.h>
-    #include <unistd.h>
     #include <errno.h>
     typedef int socket_t;
 #endif
+
 
 #define BUFFER_SIZE 1024
 

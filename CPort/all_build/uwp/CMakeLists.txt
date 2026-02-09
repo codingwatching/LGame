@@ -64,6 +64,14 @@ if(NOT SDL2_MIXER_FOUND)
     FetchContent_MakeAvailable(SDL2_mixer)
 endif()
 
+# 第三方依赖库 (UWP 下也需要静态链接)
+find_library(PNG_LIB png REQUIRED)
+find_library(JPEG_LIB jpeg REQUIRED)
+find_library(ZLIB_LIB z REQUIRED)
+find_library(OGG_LIB ogg REQUIRED)
+find_library(VORBIS_LIB vorbis REQUIRED)
+find_library(MPG123_LIB mpg123 REQUIRED)
+
 add_executable(MySDLApp ${MAIN_FILE})
 
 target_link_libraries(MySDLApp
@@ -104,6 +112,12 @@ if(WIN32)
             SDL2::SDL2-static
             SDL2_image::SDL2_image-static
             SDL2_mixer::SDL2_mixer-static
+            ${PNG_LIB}
+            ${JPEG_LIB}
+            ${ZLIB_LIB}
+            ${OGG_LIB}
+            ${VORBIS_LIB}
+            ${MPG123_LIB}
         )
     endif()
 endif()

@@ -71,5 +71,5 @@ target_link_libraries(MySDLApp
 
 # Emscripten 编译选项
 set_target_properties(MySDLApp PROPERTIES
-    LINK_FLAGS "-s USE_SDL=2 -s USE_SDL_IMAGE=2 -s USE_SDL_MIXER=2 -s FULL_ES3=1 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1"
+    LINK_FLAGS "-s USE_SDL=2 -s USE_SDL_IMAGE=2 -s USE_SDL_MIXER=2 -s FULL_ES3=1 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s FORCE_FILESYSTEM=1"
 )

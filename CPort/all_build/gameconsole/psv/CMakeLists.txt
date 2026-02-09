@@ -97,6 +97,14 @@ else()
     add_library(SDL2_Vita::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer-static)
 endif()
 
+# 第三方依赖库 (Vita portlibs)
+find_library(PNG_LIB png REQUIRED PATHS "${VITASDK}/arm-vita-eabi/lib")
+find_library(JPEG_LIB jpeg REQUIRED PATHS "${VITASDK}/arm-vita-eabi/lib")
+find_library(ZLIB_LIB z REQUIRED PATHS "${VITASDK}/arm-vita-eabi/lib")
+find_library(OGG_LIB ogg REQUIRED PATHS "${VITASDK}/arm-vita-eabi/lib")
+find_library(VORBIS_LIB vorbis REQUIRED PATHS "${VITASDK}/arm-vita-eabi/lib")
+find_library(MPG123_LIB mpg123 REQUIRED PATHS "${VITASDK}/arm-vita-eabi/lib")
+
 # 构建 PS Vita 可执行文件，只编译 all.c
 add_executable(MySDLApp ${MAIN_FILE})
 
@@ -105,6 +113,12 @@ target_link_libraries(MySDLApp
     SDL2_Vita::SDL2
     SDL2_Vita::SDL2_image
     SDL2_Vita::SDL2_mixer
+    ${PNG_LIB}
+    ${JPEG_LIB}
+    ${ZLIB_LIB}
+    ${OGG_LIB}
+    ${VORBIS_LIB}
+    ${MPG123_LIB}
     SceDisplay_stub
     SceCtrl_stub
     SceAudio_stub

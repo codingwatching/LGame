@@ -27,10 +27,16 @@ endif()
 
 include(FetchContent)
 
+set(FETCHCONTENT_QUIET OFF)
+set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
+
 # 禁止SDL2编译test文件夹 
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 
 # SDL2
+set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL_STATIC ON CACHE BOOL "" FORCE)
+
 find_package(SDL2 QUIET)
 if(NOT SDL2_FOUND)
     FetchContent_Declare(
@@ -41,12 +47,14 @@ if(NOT SDL2_FOUND)
     FetchContent_MakeAvailable(SDL2)
 endif()
 
+# SDL2_image
+set(SDL2IMAGE_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_STATIC ON CACHE BOOL "" FORCE)
 set(SDL2IMAGE_AVIF OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_WEBP OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_TIF OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_VENDORED OFF CACHE BOOL "" FORCE)
 
-# SDL2_image
 find_package(SDL2_image QUIET)
 if(NOT SDL2_image_FOUND)
     FetchContent_Declare(
@@ -58,7 +66,10 @@ if(NOT SDL2_image_FOUND)
 endif()
 
 # SDL2_mixer
+set(SDL2MIXER_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL2MIXER_STATIC ON CACHE BOOL "" FORCE)
 set(SDL2MIXER_WAVPACK OFF CACHE BOOL "" FORCE)
+
 find_package(SDL2_mixer QUIET)
 if(NOT SDL2_mixer_FOUND)
     FetchContent_Declare(
@@ -70,12 +81,30 @@ if(NOT SDL2_mixer_FOUND)
 endif()
 
 # Steamworks SDK
+set(STEAMWORKS_SDK_VERSION "sdk_1.60")
+
 if(NOT DEFINED STEAMWORKS_SDK_PATH)
-    message(FATAL_ERROR "请通过 -DSTEAMWORKS_SDK_PATH 指定 Steamworks SDK 路径")
+    message(STATUS "未指定 STEAMWORKS_SDK_PATH，尝试自动下载 Steamworks SDK ${STEAMWORKS_SDK_VERSION}")
+
+    # 注意：此URL仅为示例，需要替换成你有权限访问的真实下载地址
+    FetchContent_Declare(
+        steamworks
+        URL https://partner.steamgames.com/downloads/steamworks_sdk_${STEAMWORKS_SDK_VERSION}.zip
+    )
+    FetchContent_MakeAvailable(steamworks)
+
+    set(STEAMWORKS_SDK_PATH ${steamworks_SOURCE_DIR})
 endif()
 
 include_directories(${STEAMWORKS_SDK_PATH}/public)
-link_directories(${STEAMWORKS_SDK_PATH}/redistributable_bin)
+
+if(WIN32)
+    link_directories(${STEAMWORKS_SDK_PATH}/redistributable_bin/win64)
+elseif(APPLE)
+    link_directories(${STEAMWORKS_SDK_PATH}/redistributable_bin/osx)
+elseif(UNIX)
+    link_directories(${STEAMWORKS_SDK_PATH}/redistributable_bin/linux64)
+endif()
 
 # 构建可执行文件，只编译 all.c
 add_executable(MySDLApp ${MAIN_FILE})
@@ -102,7 +131,6 @@ if(USE_ANGLE)
     else()
         find_package(angle QUIET)
         if(angle_FOUND)
-            # 静态链接 ANGLE 库
             target_link_libraries(MySDLApp angle::libEGL-static angle::libGLESv2-static)
         endif()
     endif()

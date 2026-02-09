@@ -72,87 +72,85 @@ public class TMXIsometricMapRenderer extends TMXMapRenderer {
 
 	@Override
 	protected void renderTileLayer(GLEx g, TMXTileLayer tileLayer) {
-		synchronized (this) {
-			if (!tileLayer.isVisible()) {
-				return;
+		if (!tileLayer.isVisible()) {
+			return;
+		}
+		final float viewWidth = MathUtils.min(getViewWidth(), getWidth());
+		final float viewHeight = MathUtils.min(getViewHeight(), getHeight());
+		final int screenWidth = MathUtils.iceil(viewWidth - _objectLocation.x);
+		final int screenHeight = MathUtils.iceil(viewHeight - _objectLocation.y);
+		final int tx = MathUtils.iceil((getRenderX() + _objectLocation.x) / map.getTileWidth());
+		final int ty = MathUtils.iceil((getRenderY() + _objectLocation.y) / map.getTileHeight());
+		final int windowWidth = MathUtils.iceil(screenWidth / map.getTileWidth() / scaleX * 2f) + 1;
+		final int windowHeight = MathUtils.iceil(screenHeight / map.getTileHeight() / scaleY * 2f) + 1;
+
+		final int layerWidth = tileLayer.getWidth();
+		final int layerHeight = tileLayer.getHeight();
+
+		final float layerTileWidth = tileLayer.getTileWidth();
+		final float layerTileHeight = tileLayer.getTileHeight();
+
+		final float layerOffsetX = tileLayer.getRenderOffsetX() - (tileLayer.getParallaxX() - 1f);
+		final float layerOffsetY = tileLayer.getRenderOffsetY() - (tileLayer.getParallaxY() - 1f);
+
+		final float scaleWidth = windowWidth * scaleX;
+		final float scaleHeight = windowHeight * scaleY;
+
+		final boolean saveCache = textureMap.size == 1 && allowCache;
+
+		_texCurrent = textureMap.get(map.getTileset(tileIndex).getSource());
+		_texBatch = _texCurrent.getTextureBatch();
+
+		boolean isCached = false;
+
+		final LColor drawColor = tileLayer.getTileLayerColor(baseColor);
+
+		try {
+
+			if (saveCache) {
+				int hashCode = 1;
+				hashCode = LSystem.unite(hashCode, tx);
+				hashCode = LSystem.unite(hashCode, ty);
+				hashCode = LSystem.unite(hashCode, windowWidth);
+				hashCode = LSystem.unite(hashCode, windowHeight);
+				hashCode = LSystem.unite(hashCode, layerWidth);
+				hashCode = LSystem.unite(hashCode, layerHeight);
+				hashCode = LSystem.unite(hashCode, layerTileWidth);
+				hashCode = LSystem.unite(hashCode, layerTileHeight);
+				hashCode = LSystem.unite(hashCode, layerOffsetX);
+				hashCode = LSystem.unite(hashCode, layerOffsetY);
+				hashCode = LSystem.unite(hashCode, scaleX);
+				hashCode = LSystem.unite(hashCode, scaleY);
+				hashCode = LSystem.unite(hashCode, tileLayer.isDirty());
+				hashCode = LSystem.unite(hashCode, _objectRotation);
+
+				if (isCached = postCache(_texBatch, hashCode)) {
+					return;
+				}
+
+			} else {
+				_texBatch.begin();
 			}
-			final float viewWidth = MathUtils.min(getViewWidth(), getWidth());
-			final float viewHeight = MathUtils.min(getViewHeight(), getHeight());
-			final int screenWidth = MathUtils.iceil(viewWidth - _objectLocation.x);
-			final int screenHeight = MathUtils.iceil(viewHeight - _objectLocation.y);
-			final int tx = MathUtils.iceil((getRenderX() + _objectLocation.x) / map.getTileWidth());
-			final int ty = MathUtils.iceil((getRenderY() + _objectLocation.y) / map.getTileHeight());
-			final int windowWidth = MathUtils.iceil(screenWidth / map.getTileWidth() / scaleX * 2f) + 1;
-			final int windowHeight = MathUtils.iceil(screenHeight / map.getTileHeight() / scaleY * 2f) + 1;
 
-			final int layerWidth = tileLayer.getWidth();
-			final int layerHeight = tileLayer.getHeight();
+			_texBatch.setColor(drawColor);
 
-			final float layerTileWidth = tileLayer.getTileWidth();
-			final float layerTileHeight = tileLayer.getTileHeight();
+			for (int x = 0; x < tileLayer.getWidth(); x++) {
+				for (int y = 0; y < tileLayer.getHeight(); y++) {
+					if ((tx + x < -scaleWidth) || (ty + y < -scaleHeight)) {
+						continue;
+					}
+					if ((x - tx > scaleWidth) || (y - ty > scaleHeight)) {
+						continue;
+					}
+					drawTile(tileLayer, x, y);
+				}
+			}
 
-			final float layerOffsetX = tileLayer.getRenderOffsetX() - (tileLayer.getParallaxX() - 1f);
-			final float layerOffsetY = tileLayer.getRenderOffsetY() - (tileLayer.getParallaxY() - 1f);
-
-			final float scaleWidth = windowWidth * scaleX;
-			final float scaleHeight = windowHeight * scaleY;
-
-			final boolean saveCache = textureMap.size == 1 && allowCache;
-
-			_texCurrent = textureMap.get(map.getTileset(tileIndex).getSource());
-			_texBatch = _texCurrent.getTextureBatch();
-
-			boolean isCached = false;
-
-			final LColor drawColor = tileLayer.getTileLayerColor(baseColor);
-
-			try {
-
+		} finally {
+			if (!isCached) {
+				_texBatch.end();
 				if (saveCache) {
-					int hashCode = 1;
-					hashCode = LSystem.unite(hashCode, tx);
-					hashCode = LSystem.unite(hashCode, ty);
-					hashCode = LSystem.unite(hashCode, windowWidth);
-					hashCode = LSystem.unite(hashCode, windowHeight);
-					hashCode = LSystem.unite(hashCode, layerWidth);
-					hashCode = LSystem.unite(hashCode, layerHeight);
-					hashCode = LSystem.unite(hashCode, layerTileWidth);
-					hashCode = LSystem.unite(hashCode, layerTileHeight);
-					hashCode = LSystem.unite(hashCode, layerOffsetX);
-					hashCode = LSystem.unite(hashCode, layerOffsetY);
-					hashCode = LSystem.unite(hashCode, scaleX);
-					hashCode = LSystem.unite(hashCode, scaleY);
-					hashCode = LSystem.unite(hashCode, tileLayer.isDirty());
-					hashCode = LSystem.unite(hashCode, _objectRotation);
-
-					if (isCached = postCache(_texBatch, hashCode)) {
-						return;
-					}
-
-				} else {
-					_texBatch.begin();
-				}
-
-				_texBatch.setColor(drawColor);
-
-				for (int x = 0; x < tileLayer.getWidth(); x++) {
-					for (int y = 0; y < tileLayer.getHeight(); y++) {
-						if ((tx + x < -scaleWidth) || (ty + y < -scaleHeight)) {
-							continue;
-						}
-						if ((x - tx > scaleWidth) || (y - ty > scaleHeight)) {
-							continue;
-						}
-						drawTile(tileLayer, x, y);
-					}
-				}
-
-			} finally {
-				if (!isCached) {
-					_texBatch.end();
-					if (saveCache) {
-						saveCache(_texBatch);
-					}
+					saveCache(_texBatch);
 				}
 			}
 		}
@@ -206,8 +204,8 @@ public class TMXIsometricMapRenderer extends TMXMapRenderer {
 			flipY = !flipY;
 		}
 		Vector2f pos = orthoToIso(x, y);
-		_texBatch.draw(pos.x * scaleX, pos.y * scaleY, -1f, -1f, 0f, 0f, tileWidth, tileHeight, 1f, 1f, this._objectRotation, srcX, srcY,
-				srcWidth, srcHeight, flipX, flipY);
+		_texBatch.draw(pos.x * scaleX, pos.y * scaleY, -1f, -1f, 0f, 0f, tileWidth, tileHeight, 1f, 1f,
+				this._objectRotation, srcX, srcY, srcWidth, srcHeight, flipX, flipY);
 
 	}
 

@@ -31,11 +31,9 @@ public class QRECI extends QRData {
 	@Override
 	public void write(QRBitBuffer buffer) {
 		char[] chs = getData().toCharArray();
-		for (int i = 0; i < chs.length; i++) {
-			final int assignVal = chs[i];
-			if (assignVal < 0) {
-				continue;
-			} else if (assignVal < (1 << 7)) {
+		for (char ch : chs) {
+			int assignVal = ch;
+			if (assignVal < (1 << 7)) {
 				buffer.put(assignVal, 8);
 			} else if (assignVal < (1 << 14)) {
 				buffer.put(2, 2);

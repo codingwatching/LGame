@@ -67,14 +67,14 @@ final public class CollectionUtils {
 			return 0;
 		}
 		int result = 1;
-		int h = arrays.length;
-		int w = arrays[0].length;
-		int value = 0;
-		for (int i = 0; i < h; i++) {
-			for (int j = 0; j < w; j++) {
-				value = arrays[i][j];
-				int elementHash = (value ^ (value >>> 32));
-				result = 31 * result + elementHash;
+		for (int i = 0; i < arrays.length; i++) {
+			int[] row = arrays[i];
+			if (row != null) {
+				for (int value : row) {
+					result = 31 * result + Integer.hashCode(value);
+				}
+			} else {
+				result = 31 * result;
 			}
 		}
 		return result;
