@@ -76,7 +76,7 @@ if [ "$ANGLE_BUILT" -eq 1 ]; then
   echo "[INFO] Configuring CMake project with local ANGLE build..."
   cmake -B build -S . -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DSRC_DIR="$SRC_DIR" -DSTEAMWORKS_SDK_PATH="$STEAMWORKS_SDK_PATH" -DFETCHCONTENT_FULLY_DISCONNECTED=ON -DANGLE_DIR="$ANGLE_DIR/out/Release"
   cmake --build build
-  echo "[SUCCESS] Build completed with GN/Ninja ANGLE! Executable located at build/MySDLApp"
+  echo "[SUCCESS] Build completed with GN/Ninja ANGLE! Executable located at build/MyStreamApp"
   exit 0
 fi
 
@@ -85,7 +85,7 @@ if command -v gcc >/dev/null 2>&1; then
   echo "[INFO] GCC compiler detected."
   cmake -B build -S . -G "Unix Makefiles" -DCMAKE_BUILD_TYPE=Release -DSRC_DIR="$SRC_DIR" -DSTEAMWORKS_SDK_PATH="$STEAMWORKS_SDK_PATH" -DFETCHCONTENT_FULLY_DISCONNECTED=ON
   cmake --build build
-  echo "[SUCCESS] Build completed with GCC! Executable located at build/MySDLApp"
+  echo "[SUCCESS] Build completed with GCC! Executable located at build/MyStreamApp"
   exit 0
 fi
 
@@ -93,7 +93,7 @@ if command -v ninja >/dev/null 2>&1; then
   echo "[INFO] Ninja detected, using Ninja generator."
   cmake -B build -S . -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DSRC_DIR="$SRC_DIR" -DSTEAMWORKS_SDK_PATH="$STEAMWORKS_SDK_PATH" -DFETCHCONTENT_FULLY_DISCONNECTED=ON
   cmake --build build
-  echo "[SUCCESS] Build completed with Ninja! Executable located at build/MySDLApp"
+  echo "[SUCCESS] Build completed with Ninja! Executable located at build/MyStreamApp"
   exit 0
 fi
 

@@ -118,5 +118,5 @@ if errorlevel 1 (
 )
 
 echo [SUCCESS] Build completed! UWP app packages are located at:
-echo   build_x64\%ACTION%\MySDLApp.appx   (x64)
-echo   build_arm64\%ACTION%\MySDLApp.appx (ARM64)
+echo   build_x64\%ACTION%\MyUWPApp.appx   (x64)
+echo   build_arm64\%ACTION%\MyUWPApp.appx (ARM64)

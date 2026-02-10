@@ -1,6 +1,14 @@
 @echo off
 setlocal enabledelayedexpansion
 
+:: ---------------- 环境初始化 ----------------
+echo [INFO] Initializing environment...
+chcp 65001 >nul
+cd /d "%~dp0"
+
+if not exist "%~dp0logs" mkdir "%~dp0logs"
+if not exist "%~dp0deploy" mkdir "%~dp0deploy"
+
 :: ---------------- 参数处理 ----------------
 set "ACTION="
 if "%~1"=="" (
@@ -43,6 +51,12 @@ if errorlevel 1 (
     exit /b 1
 )
 
+where msbuild >nul 2>nul
+if errorlevel 1 (
+    echo [ERROR] MSBuild not detected. Please install Visual Studio Build Tools.
+    exit /b 1
+)
+
 :: ---------------- Visual Studio 环境检测 ----------------
 set "GENERATOR="
 cmake --help | findstr /C:"Visual Studio 18 2026" >nul && set "GENERATOR=Visual Studio 18 2026"
@@ -56,6 +70,9 @@ if "!GENERATOR!"=="" (
 
 echo [INFO] Using generator: !GENERATOR!
 
+:: ---------------- 输出目录准备 ----------------
+if not exist "%~dp0build" mkdir "%~dp0build"
+
 :: ---------------- GDKX 构建 ----------------
 if not "%GDKXSDK%"=="" (
     echo [INFO] GDKX SDK detected, using GDKX toolchain.
@@ -67,15 +84,10 @@ if not "%GDKXSDK%"=="" (
         -DCMAKE_BUILD_TYPE=%ACTION% ^
         -DSRC_DIR="!SRC_DIR!" ^
         -DGDKXSDK="%GDKXSDK%"
-    if errorlevel 1 (
-        echo [ERROR] CMake configuration failed (GDKX).
-        exit /b 1
-    )
+    if errorlevel 1 exit /b 1
+
     cmake --build build --config %ACTION%
-    if errorlevel 1 (
-        echo [ERROR] Build failed (GDKX).
-        exit /b 1
-    )
+    if errorlevel 1 exit /b 1
     goto :done
 )
 
@@ -90,20 +102,42 @@ if not "%XDKSDK%"=="" (
         -DCMAKE_BUILD_TYPE=%ACTION% ^
         -DSRC_DIR="!SRC_DIR!" ^
         -DXDKSDK="%XDKSDK%"
-    if errorlevel 1 (
-        echo [ERROR] CMake configuration failed (XDK).
-        exit /b 1
-    )
+    if errorlevel 1 exit /b 1
+
     cmake --build build --config %ACTION%
-    if errorlevel 1 (
-        echo [ERROR] Build failed (XDK).
-        exit /b 1
-    )
+    if errorlevel 1 exit /b 1
     goto :done
 )
 
-echo [ERROR] Neither GDKXSDK nor XDKSDK environment variable detected. Please set one of them.
+:: ---------------- NXDK 构建 ----------------
+if not "%NXDK%"=="" (
+    echo [INFO] NXDK SDK detected, using NXDK toolchain.
+
+    cmake -B build -S . -G "!GENERATOR!" -A x64 ^
+        -DCMAKE_SYSTEM_NAME=Generic ^
+        -DCMAKE_BUILD_TYPE=%ACTION% ^
+        -DSRC_DIR="!SRC_DIR!" ^
+        -DNXDK="%NXDK%"
+    if errorlevel 1 exit /b 1
+
+    cmake --build build --config %ACTION%
+    if errorlevel 1 exit /b 1
+    goto :done
+)
+
+echo [ERROR] Neither GDKXSDK, XDKSDK nor NXDK environment variable detected. Please set one of them.
 exit /b 1
 
 :done
-echo [SUCCESS] Build completed! Executable file is located at build\%ACTION%\MySDLApp.exe
+echo [SUCCESS] Build completed! Executable file is located at build\%ACTION%\MyXBoxApp.exe
+
+:: ---------------- 自动部署 ----------------
+set "OUTPUT_EXE=build\%ACTION%\MyXBoxApp.exe"
+if exist "%OUTPUT_EXE%" (
+    copy /y "%OUTPUT_EXE%" "%~dp0deploy\" >nul
+    echo [SUCCESS] Deployment completed. Executable copied to deploy\MyXBoxApp.exe
+) else (
+    echo [WARNING] Executable not found: %OUTPUT_EXE%
+)
+
+exit /b 0

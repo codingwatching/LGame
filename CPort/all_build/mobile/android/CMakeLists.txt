@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(MySDLApp C)
+project(MyAndroidApp C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -60,11 +60,14 @@ if(NOT SDL2_MIXER_FOUND)
     FetchContent_MakeAvailable(SDL2_mixer)
 endif()
 
+# 全局定义 pure_sdl 宏
+add_compile_definitions(PURE_SDL=1)
+
 # 构建 Android 共享库（供 APK 使用），只编译 all.c
-add_library(MySDLApp SHARED ${MAIN_FILE})
+add_library(MyAndroidApp SHARED ${MAIN_FILE})
 
 # 在 Android 下使用静态链接，避免运行时依赖外部 .so
-target_link_libraries(MySDLApp
+target_link_libraries(MyAndroidApp
     SDL2::SDL2-static
     SDL2_image::SDL2_image-static
     SDL2_mixer::SDL2_mixer-static

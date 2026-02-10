@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(MySDLApp C)
+project(MyPSPApp C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -105,11 +105,14 @@ find_library(OGG_LIB ogg REQUIRED PATHS "${PSPDEV}/psp/lib")
 find_library(VORBIS_LIB vorbis REQUIRED PATHS "${PSPDEV}/psp/lib")
 find_library(MPG123_LIB mpg123 REQUIRED PATHS "${PSPDEV}/psp/lib")
 
+# 全局定义 pure_sdl 宏
+add_compile_definitions(PURE_SDL=1)
+
 # 构建 PSP 可执行文件，只编译 all.c
-add_executable(MySDLApp ${MAIN_FILE})
+add_executable(MyPSPApp ${MAIN_FILE})
 
 # 在 PSP 下使用静态链接，避免运行时依赖动态库
-target_link_libraries(MySDLApp
+target_link_libraries(MyPSPApp
     SDL2_PSP::SDL2
     SDL2_PSP::SDL2_image
     SDL2_PSP::SDL2_mixer

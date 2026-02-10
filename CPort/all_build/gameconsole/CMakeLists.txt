@@ -99,6 +99,9 @@ if(NOT SDL2_MIXER_FOUND)
   FetchContent_MakeAvailable(SDL2_mixer)
 endif()
 
+# 全局定义 pure_sdl 宏
+add_compile_definitions(PURE_SDL=1)
+
 # 构建可执行文件，只编译 all.c
 add_executable(MySDLApp ${MAIN_FILE})
 

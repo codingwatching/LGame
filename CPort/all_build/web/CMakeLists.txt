@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(MySDLApp C)
+project(MyWebApp C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -60,16 +60,19 @@ if(NOT SDL2_MIXER_FOUND)
     FetchContent_MakeAvailable(SDL2_mixer)
 endif()
 
-# 构建 Emscripten 可执行文件，只编译 all.c
-add_executable(MySDLApp ${MAIN_FILE})
+# 全局定义 pure_sdl 宏
+add_compile_definitions(PURE_SDL=1)
 
-target_link_libraries(MySDLApp
+# 构建 Emscripten 可执行文件，只编译 all.c
+add_executable(MyWebApp ${MAIN_FILE})
+
+target_link_libraries(MyWebApp
     SDL2::SDL2-static
     SDL2_image::SDL2_image-static
     SDL2_mixer::SDL2_mixer-static
 )
 
 # Emscripten 编译选项
-set_target_properties(MySDLApp PROPERTIES
+set_target_properties(MyWebApp PROPERTIES
     LINK_FLAGS "-s USE_SDL=2 -s USE_SDL_IMAGE=2 -s USE_SDL_MIXER=2 -s FULL_ES3=1 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s FORCE_FILESYSTEM=1"
 )

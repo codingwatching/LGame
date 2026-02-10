@@ -1,9 +1,10 @@
 cmake_minimum_required(VERSION 3.15)
-project(MySDLApp C)
+project(MyStreamApp C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
+# 编译优化选项
 if(MSVC)
     add_compile_options(/Ox /W4 /MP)
 elseif(CMAKE_C_COMPILER_ID STREQUAL "GNU" OR CMAKE_C_COMPILER_ID STREQUAL "Clang")
@@ -30,7 +31,7 @@ include(FetchContent)
 set(FETCHCONTENT_QUIET OFF)
 set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 
-# 禁止SDL2编译test文件夹 
+# 禁止 SDL2 编译 test 文件夹 
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 
 # SDL2
@@ -106,11 +107,14 @@ elseif(UNIX)
     link_directories(${STEAMWORKS_SDK_PATH}/redistributable_bin/linux64)
 endif()
 
+# 全局定义 pure_sdl 宏
+add_compile_definitions(PURE_SDL=1)
+
 # 构建可执行文件，只编译 all.c
-add_executable(MySDLApp ${MAIN_FILE})
+add_executable(MyStreamApp ${MAIN_FILE})
 
 # 优先使用静态链接，避免运行时依赖动态库
-target_link_libraries(MySDLApp
+target_link_libraries(MyStreamApp
     SDL2::SDL2-static
     SDL2_image::SDL2_image-static
     SDL2_mixer::SDL2_mixer-static
@@ -118,7 +122,7 @@ target_link_libraries(MySDLApp
 )
 
 if(WIN32)
-    target_link_libraries(MySDLApp SDL2::SDL2main)
+    target_link_libraries(MyStreamApp SDL2::SDL2main)
 endif()
 
 # 可选 ANGLE 支持
@@ -126,12 +130,21 @@ option(USE_ANGLE "Enable ANGLE support" OFF)
 
 if(USE_ANGLE)
     if(DEFINED ANGLE_DIR AND EXISTS "${ANGLE_DIR}/libEGL.a" AND EXISTS "${ANGLE_DIR}/libGLESv2.a")
-        target_link_directories(MySDLApp PRIVATE ${ANGLE_DIR})
-        target_link_libraries(MySDLApp EGL GLESv2)
+        target_link_directories(MyStreamApp PRIVATE ${ANGLE_DIR})
+        target_link_libraries(MyStreamApp EGL GLESv2)
     else()
         find_package(angle QUIET)
         if(angle_FOUND)
-            target_link_libraries(MySDLApp angle::libEGL-static angle::libGLESv2-static)
+            target_link_libraries(MyStreamApp angle::libEGL-static angle::libGLESv2-static)
         endif()
     endif()
 endif()
+
+# 安装规则（可选）
+install(TARGETS MyStreamApp
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
+
+message(STATUS "CMake 配置完成，目标程序为 MyStreamApp")

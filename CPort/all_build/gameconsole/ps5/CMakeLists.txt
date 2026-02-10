@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(MySDLApp C)
+project(MyPS5App C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -105,11 +105,14 @@ find_library(OGG_LIB ogg REQUIRED PATHS "${PS5SDK}/arm-ps5-eabi/lib")
 find_library(VORBIS_LIB vorbis REQUIRED PATHS "${PS5SDK}/arm-ps5-eabi/lib")
 find_library(MPG123_LIB mpg123 REQUIRED PATHS "${PS5SDK}/arm-ps5-eabi/lib")
 
+# 全局定义 pure_sdl 宏
+add_compile_definitions(PURE_SDL=1)
+
 # 构建 PS5 可执行文件，只编译 all.c
-add_executable(MySDLApp ${MAIN_FILE})
+add_executable(MyPS5App ${MAIN_FILE})
 
 # 在 PS5 下使用静态链接，避免运行时依赖动态库
-target_link_libraries(MySDLApp
+target_link_libraries(MyPS5App
     SDL2_PS5::SDL2
     SDL2_PS5::SDL2_image
     SDL2_PS5::SDL2_mixer

@@ -66,8 +66,8 @@ else
 fi
 
 # ---------------- 输出检查 ----------------
-OUTPUT_JS="build/MySDLApp.js"
-OUTPUT_WASM="build/MySDLApp.wasm"
+OUTPUT_JS="build/MyWebApp.js"
+OUTPUT_WASM="build/MyWebApp.wasm"
 
 if [[ -f "$OUTPUT_JS" && -f "$OUTPUT_WASM" ]]; then
     echo "[SUCCESS] Build completed! Files located at:"

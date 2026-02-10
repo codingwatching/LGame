@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(MySDLApp C)
+project(MyPS4App C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -119,11 +119,14 @@ find_library(OGG_LIB ogg REQUIRED PATHS "${PS4SDK}/arm-orbis-eabi/lib")
 find_library(VORBIS_LIB vorbis REQUIRED PATHS "${PS4SDK}/arm-orbis-eabi/lib")
 find_library(MPG123_LIB mpg123 REQUIRED PATHS "${PS4SDK}/arm-orbis-eabi/lib")
 
+# 全局定义 pure_sdl 宏
+add_compile_definitions(PURE_SDL=1)
+
 # 构建 PS4 可执行文件，只编译 all.c
-add_executable(MySDLApp ${MAIN_FILE})
+add_executable(MyPS4App ${MAIN_FILE})
 
 # 在 PS4 下使用静态链接，避免运行时依赖动态库
-target_link_libraries(MySDLApp
+target_link_libraries(MyPS4App
     SDL2_PS4::SDL2
     SDL2_PS4::SDL2_image
     SDL2_PS4::SDL2_mixer

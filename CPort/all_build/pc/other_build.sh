@@ -108,4 +108,4 @@ cmake -B build -S . -G Ninja -Wno-dev \
 echo "[INFO] Building project..."
 cmake --build build -- -j"$(nproc)" --quiet
 
-echo "[SUCCESS] Build completed! Executable located at build/MySDLApp"
+echo "[SUCCESS] Build completed! Executable located at build/MyDesktopApp"

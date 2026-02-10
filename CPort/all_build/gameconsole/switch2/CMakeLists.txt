@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(MySDLApp C)
+project(MySwitch2App C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -117,11 +117,14 @@ else()
     FetchContent_MakeAvailable(SDL3_mixer)
 endif()
 
+# 全局定义 pure_sdl 宏
+add_compile_definitions(PURE_SDL=1)
+
 # 构建 Switch2 可执行文件，只编译 all.c
-add_executable(MySDLApp ${MAIN_FILE})
+add_executable(MySwitch2App ${MAIN_FILE})
 
 # 在 Switch2 下使用静态链接，避免运行时依赖动态库
-target_link_libraries(MySDLApp
+target_link_libraries(MySwitch2App
     ${SDL_LIB}
     ${SDL_IMAGE}
     ${SDL_MIXER}

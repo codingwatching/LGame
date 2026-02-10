@@ -3,12 +3,12 @@
          xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
          IgnorableNamespaces="uap">
 
-  <Identity Name="MyCompany.MySDLApp"
+  <Identity Name="MyCompany.MyUWPApp"
             Publisher="CN=MyCompany"
             Version="1.0.0.0" />
 
   <Properties>
-    <DisplayName>MySDLApp</DisplayName>
+    <DisplayName>MyUWPApp</DisplayName>
     <PublisherDisplayName>MyCompany</PublisherDisplayName>
     <Logo>Assets\Logo.png</Logo>
   </Properties>
@@ -25,7 +25,7 @@
     <Application Id="App"
                  Executable="$targetnametoken$.exe"
                  EntryPoint="Windows.FullTrustApplication">
-      <uap:VisualElements DisplayName="MySDLApp"
+      <uap:VisualElements DisplayName="MyUWPApp"
                           Description="SDL2 UWP Demo"
                           Square150x150Logo="Assets\Logo.png"
                           Square44x44Logo="Assets\SmallLogo.png"

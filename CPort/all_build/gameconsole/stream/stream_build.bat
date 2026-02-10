@@ -1,7 +1,7 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: 检查参数
+:: ---------------- 参数检查 ----------------
 if "%~1"=="" (
     echo [ERROR] Please specify the source path when running the script.
     echo Usage: steam_build.bat <source_path>
@@ -17,14 +17,14 @@ if not exist "%SRC_DIR%" (
     exit /b 1
 )
 
-:: 检查 Steamworks SDK 环境变量
+:: ---------------- Steamworks SDK 检测 ----------------
 if "%STEAMWORKS_SDK_PATH%"=="" (
     echo [ERROR] STEAMWORKS_SDK_PATH environment variable not detected. Please set it to the Steamworks SDK path.
     pause
     exit /b 1
 )
 
-:: 检查 CMake
+:: ---------------- 工具检测 ----------------
 where cmake >nul 2>nul
 if errorlevel 1 (
     echo [ERROR] CMake not detected. Please install and add it to PATH.
@@ -56,7 +56,7 @@ if errorlevel 1 (
     echo [SUCCESS] Ninja installed to %TOOLS_DIR%
 )
 
-:: 优先 GN+Ninja 构建 ANGLE
+:: ---------------- ANGLE 构建 ----------------
 where gn >nul 2>nul
 set HAS_GN=!errorlevel!
 where ninja >nul 2>nul
@@ -93,30 +93,29 @@ if %HAS_GN%==0 if %HAS_NINJA%==0 (
     set ANGLE_BUILT=0
 )
 
-:: 如果 ANGLE 已构建，使用 Ninja 构建主项目
+:: ---------------- 主项目构建 ----------------
 if %ANGLE_BUILT%==1 (
     echo [INFO] Configuring CMake project with local ANGLE build...
-    cmake -B build -S . -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DSRC_DIR="%SRC_DIR%" -DSTEAMWORKS_SDK_PATH="%STEAMWORKS_SDK_PATH%" -DFETCHCONTENT_FULLY_DISCONNECTED=ON -DANGLE_DIR="%~dp0external/angle/out/Release"
+    cmake -B build -S . -G "Ninja" -DCMAKE_BUILD_TYPE=Release ^
+        -DSRC_DIR="%SRC_DIR%" ^
+        -DSTEAMWORKS_SDK_PATH="%STEAMWORKS_SDK_PATH%" ^
+        -DFETCHCONTENT_FULLY_DISCONNECTED=ON ^
+        -DANGLE_DIR="%~dp0external/angle/out/Release"
     cmake --build build
     if errorlevel 1 (
         echo [ERROR] Build failed.
         pause
         exit /b 1
     )
-    echo [SUCCESS] Build completed with GN/Ninja ANGLE! Executable located at build\MySDLApp.exe
-    pause
-    exit /b 0
+    echo [SUCCESS] Build completed with GN/Ninja ANGLE! Executable located at build\MyStreamApp.exe
+    goto :deploy
 )
 
-:: 回退到 Visual Studio 检测
+:: ---------------- Visual Studio / Ninja 回退 ----------------
 set GENERATOR=
 cmake --help | findstr /C:"Visual Studio 18 2026" >nul && set GENERATOR=Visual Studio 18 2026
-if "%GENERATOR%"=="" (
-    cmake --help | findstr /C:"Visual Studio 17 2022" >nul && set GENERATOR=Visual Studio 17 2022
-)
-if "%GENERATOR%"=="" (
-    cmake --help | findstr /C:"Visual Studio 16 2019" >nul && set GENERATOR=Visual Studio 16 2019
-)
+if "%GENERATOR%"=="" cmake --help | findstr /C:"Visual Studio 17 2022" >nul && set GENERATOR=Visual Studio 17 2022
+if "%GENERATOR%"=="" cmake --help | findstr /C:"Visual Studio 16 2019" >nul && set GENERATOR=Visual Studio 16 2019
 
 if "%GENERATOR%"=="" (
     where ninja >nul 2>nul
@@ -138,8 +137,10 @@ if "%GENERATOR%"=="" (
 
 echo [INFO] Using generator: %GENERATOR%
 
-:: 配置并构建
-cmake -B build -S . -G "%GENERATOR%" -A x64 -DCMAKE_BUILD_TYPE=Release -DSRC_DIR="%SRC_DIR%" -DSTEAMWORKS_SDK_PATH="%STEAMWORKS_SDK_PATH%" -DFETCHCONTENT_FULLY_DISCONNECTED=ON
+cmake -B build -S . -G "%GENERATOR%" -A x64 -DCMAKE_BUILD_TYPE=Release ^
+    -DSRC_DIR="%SRC_DIR%" ^
+    -DSTEAMWORKS_SDK_PATH="%STEAMWORKS_SDK_PATH%" ^
+    -DFETCHCONTENT_FULLY_DISCONNECTED=ON
 if errorlevel 1 (
     echo [ERROR] CMake configuration failed.
     pause
@@ -158,5 +159,17 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo [SUCCESS] Build completed! Executable file is located at build\Release\MySDLApp.exe and can be run through Steam.
+echo [SUCCESS] Build completed! Executable file is located at build\Release\MyStreamApp.exe
+
+:deploy
+:: ---------------- 自动部署 ----------------
+set "OUTPUT_EXE=build\Release\MyStreamApp.exe"
+if exist "%OUTPUT_EXE%" (
+    copy /y "%OUTPUT_EXE%" "%~dp0deploy\" >nul
+    echo [SUCCESS] Deployment completed. Executable copied to deploy\MyStreamApp.exe
+) else (
+    echo [WARNING] Executable not found: %OUTPUT_EXE%
+)
+
 pause
+exit /b 0

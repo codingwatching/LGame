@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(MySDLApp C)
+project(MySwitchApp C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -105,11 +105,14 @@ find_library(OGG_LIB ogg REQUIRED PATHS "${DEVKITPRO}/portlibs/switch/lib")
 find_library(VORBIS_LIB vorbis REQUIRED PATHS "${DEVKITPRO}/portlibs/switch/lib")
 find_library(MPG123_LIB mpg123 REQUIRED PATHS "${DEVKITPRO}/portlibs/switch/lib")
 
+# 全局定义 pure_sdl 宏
+add_compile_definitions(PURE_SDL=1)
+
 # 构建 Switch 可执行文件（.nro 格式），只编译 all.c
-add_executable(MySDLApp ${MAIN_FILE})
+add_executable(MySwitchApp ${MAIN_FILE})
 
 # 在 Switch 下使用静态链接，避免运行时依赖动态库
-target_link_libraries(MySDLApp
+target_link_libraries(MySwitchApp
     SDL2_Switch::SDL2
     SDL2_Switch::SDL2_image
     SDL2_Switch::SDL2_mixer
@@ -127,12 +130,12 @@ option(USE_ANGLE "Enable ANGLE support" OFF)
 
 if(USE_ANGLE)
     if(DEFINED ANGLE_DIR AND EXISTS "${ANGLE_DIR}/libEGL.a" AND EXISTS "${ANGLE_DIR}/libGLESv2.a")
-        target_link_directories(MySDLApp PRIVATE ${ANGLE_DIR})
-        target_link_libraries(MySDLApp EGL GLESv2)
+        target_link_directories(MySwitchApp PRIVATE ${ANGLE_DIR})
+        target_link_libraries(MySwitchApp EGL GLESv2)
     else()
         find_package(angle QUIET)
         if(angle_FOUND)
-            target_link_libraries(MySDLApp angle::libEGL-static angle::libGLESv2-static)
+            target_link_libraries(MySwitchApp angle::libEGL-static angle::libGLESv2-static)
         endif()
     endif()
 endif()

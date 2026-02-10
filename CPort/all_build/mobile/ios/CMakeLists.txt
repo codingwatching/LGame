@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(MySDLApp C)
+project(MyIOSApp C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -68,11 +68,14 @@ if(NOT SDL2_MIXER_FOUND)
     FetchContent_MakeAvailable(SDL2_mixer)
 endif()
 
+# 全局定义 pure_sdl 宏
+add_compile_definitions(PURE_SDL=1)
+
 # 构建 iOS 静态库，只编译 all.c
-add_library(MySDLApp STATIC ${MAIN_FILE})
+add_library(MyIOSApp STATIC ${MAIN_FILE})
 
 # 在 iOS 下使用静态链接，避免运行时依赖动态库
-target_link_libraries(MySDLApp
+target_link_libraries(MyIOSApp
     SDL2::SDL2-static
     SDL2_image::SDL2_image-static
     SDL2_mixer::SDL2_mixer-static
@@ -91,12 +94,12 @@ option(USE_ANGLE "Enable ANGLE support" OFF)
 if(USE_ANGLE)
     message(STATUS "启用 ANGLE 支持 (静态链接)")
     if(DEFINED ANGLE_DIR AND EXISTS "${ANGLE_DIR}/libEGL.a" AND EXISTS "${ANGLE_DIR}/libGLESv2.a")
-        target_link_directories(MySDLApp PRIVATE ${ANGLE_DIR})
-        target_link_libraries(MySDLApp EGL GLESv2)
+        target_link_directories(MyIOSApp PRIVATE ${ANGLE_DIR})
+        target_link_libraries(MyIOSApp EGL GLESv2)
     else()
         find_package(angle QUIET)
         if(angle_FOUND)
-            target_link_libraries(MySDLApp angle::libEGL-static angle::libGLESv2-static)
+            target_link_libraries(MyIOSApp angle::libEGL-static angle::libGLESv2-static)
         endif()
     endif()
 endif()

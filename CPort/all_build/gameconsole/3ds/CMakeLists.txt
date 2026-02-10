@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(MySDLApp C)
+project(My3DSApp C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -107,11 +107,14 @@ find_library(OGG_LIB ogg REQUIRED PATHS "${DEVKITPRO}/portlibs/3ds/lib")
 find_library(VORBIS_LIB vorbis REQUIRED PATHS "${DEVKITPRO}/portlibs/3ds/lib")
 find_library(MPG123_LIB mpg123 REQUIRED PATHS "${DEVKITPRO}/portlibs/3ds/lib")
 
+# 全局定义 pure_sdl 宏
+add_compile_definitions(PURE_SDL=1)
+
 # 构建 3DS 可执行文件 (.3dsx 格式)，只编译 all.c
-add_executable(MySDLApp ${MAIN_FILE})
+add_executable(My3DSApp ${MAIN_FILE})
 
 # 在 3DS 下使用静态链接，避免运行时依赖动态库
-target_link_libraries(MySDLApp
+target_link_libraries(My3DSApp
     SDL2_3DS::SDL2
     SDL2_3DS::SDL2_image
     SDL2_3DS::SDL2_mixer

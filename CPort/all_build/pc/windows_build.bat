@@ -156,7 +156,7 @@ if !errorlevel!==0 (
             -DCMAKE_ASM_MASM_FLAGS="" -DCMAKE_ASM_MASM_FLAGS_RELEASE="" -DCMAKE_ASM_MASM_FLAGS_DEBUG="" ^
             -DCMAKE_POLICY_DEFAULT_CMP0091=NEW -DCMAKE_MSVC_RUNTIME_LIBRARY="MultiThreaded$<$<CONFIG:Debug>:Debug>DLL"
         cmake --build build -- -j%NUMBER_OF_PROCESSORS% --quiet || exit /b 1
-        echo [SUCCESS] Build completed with MSVC+Ninja! Executable located at build\MySDLApp.exe
+        echo [SUCCESS] Build completed with MSVC+Ninja! Executable located at build\MyDesktopApp.exe
         exit /b 0
     ) else (
         cmake -B build -S . -G "!VSGENERATOR!" -A x64 -Wno-dev ^

@@ -1,84 +1,97 @@
 #!/bin/bash
+set -euo pipefail
 
-# Check if source path parameter is provided
-if [ -z "$1" ]; then
-    echo "[INFO] No source path specified, defaulting to 'src' under the script directory."
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-    SRC_DIR="$SCRIPT_DIR/src"
-else
-    SRC_DIR="$1"
+trap 'echo "[ERROR] Script failed at line $LINENO"; exit 1' ERR
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+SRC_DIR="${1:-$SCRIPT_DIR/src}"
+BUILD_DIR="${2:-$SCRIPT_DIR/build}"
+BUILD_TYPE="${3:-Release}"
+
+echo "[INFO] Source directory: $SRC_DIR"
+echo "[INFO] Build directory: $BUILD_DIR"
+echo "[INFO] Build type: $BUILD_TYPE"
+
+# 检查源码目录
+if [ ! -d "$SRC_DIR" ]; then
+    echo "[ERROR] Source path does not exist: $SRC_DIR"
+    exit 1
 fi
 
-# Check if source path exists
-if [ ! -d "$SRC_DIR" ]; then
-    echo "[WARNING] The specified source path does not exist: $SRC_DIR"
-    echo "Trying to use the script directory as base..."
+# 检查 DEVKITPRO
+if [ -z "${DEVKITPRO:-}" ]; then
+    echo "[WARNING] DEVKITPRO not set. Attempting to install devkitPro toolchain..."
 
-    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-    SRC_DIR="$SCRIPT_DIR/$1"
+    if [[ "$OSTYPE" == "linux-gnu"* || "$OSTYPE" == "darwin"* ]]; then
+        # Linux/macOS 使用 pacman
+        if ! command -v pacman &> /dev/null; then
+            echo "[ERROR] pacman not found. Please install pacman first (on macOS via brew, on Linux via package manager)."
+            exit 1
+        fi
 
-    if [ ! -d "$SRC_DIR" ]; then
-        echo "[ERROR] Path still does not exist: $SRC_DIR"
+        echo "[INFO] Adding devkitPro pacman repository..."
+        sudo tee -a /etc/pacman.conf <<EOF
+[dkp-libs]
+Server = https://downloads.devkitpro.org/packages
+SigLevel = Never
+EOF
+
+        echo "[INFO] Installing devkitPro toolchain..."
+        sudo pacman -Sy --noconfirm devkitARM 3ds-dev
+
+        export DEVKITPRO=/opt/devkitpro
+        echo "export DEVKITPRO=/opt/devkitpro" >> ~/.bashrc
+        echo "[INFO] devkitPro installed at $DEVKITPRO"
+
+    elif [[ "$OSTYPE" == "msys"* || "$OSTYPE" == "cygwin"* || "$OSTYPE" == "win32"* ]]; then
+        echo "[INFO] Windows detected. Please download and run the devkitPro installer manually:"
+        echo "https://github.com/devkitPro/installer/releases"
         exit 1
     else
-        echo "[INFO] Using corrected path: $SRC_DIR"
+        echo "[ERROR] Unsupported OS type: $OSTYPE"
+        exit 1
     fi
-else
-    echo "[INFO] Using path: $SRC_DIR"
-fi
-
-# Check if DEVKITPRO is set
-if [ -z "$DEVKITPRO" ]; then
-    echo "[ERROR] DEVKITPRO environment variable not detected. Please install devkitPro and set the environment variable."
-    echo "Download: https://devkitpro.org"
-    exit 1
 fi
 
 TOOLCHAIN_FILE="$DEVKITPRO/cmake/3DS.cmake"
 if [ ! -f "$TOOLCHAIN_FILE" ]; then
-    echo "[ERROR] 3DS Toolchain file not found: $TOOLCHAIN_FILE"
+    echo "[ERROR] Toolchain file not found: $TOOLCHAIN_FILE"
     exit 1
 fi
+echo "[INFO] Using toolchain: $TOOLCHAIN_FILE"
 
-echo "[INFO] Using 3DS toolchain: $TOOLCHAIN_FILE"
-
-# Check if CMake is installed
+# 检查 CMake
 if ! command -v cmake &> /dev/null; then
-    echo "[ERROR] CMake not detected. Please install CMake and add it to PATH."
+    echo "[ERROR] CMake not detected. Please install CMake."
     exit 1
 fi
 
-# Check if Ninja is available
+# 检查 Ninja
 if command -v ninja &> /dev/null; then
     GENERATOR="Ninja"
-    echo "[INFO] Ninja build system detected, using Ninja generator."
+    echo "[INFO] Ninja detected, using Ninja generator."
 else
     GENERATOR="Unix Makefiles"
-    echo "[INFO] Ninja not detected, falling back to Unix Makefiles."
+    echo "[INFO] Falling back to Unix Makefiles."
 fi
 
-# Configure project
-cmake -B build -S . \
+# 清理旧构建目录
+rm -rf "$BUILD_DIR"
+mkdir -p "$BUILD_DIR"
+
+# 配置项目
+cmake -B "$BUILD_DIR" -S "$SCRIPT_DIR" \
     -G "$GENERATOR" \
     -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" \
-    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_BUILD_TYPE="$BUILD_TYPE" \
     -DSRC_DIR="$SRC_DIR"
 
-if [ $? -ne 0 ]; then
-    echo "[ERROR] CMake configuration failed."
-    exit 1
-fi
+# 构建项目
+cmake --build "$BUILD_DIR" -- -j"$(nproc)"
 
-# Build project with parallel jobs
-cmake --build build -- -j"$(nproc)"
-if [ $? -ne 0 ]; then
-    echo "[ERROR] Build failed."
-    exit 1
-fi
-
-OUTPUT_ELF="build/MySDLApp.elf"
-OUTPUT_3DSX="build/MySDLApp.3dsx"
-OUTPUT_CIA="build/MySDLApp.cia"
+OUTPUT_ELF="$BUILD_DIR/My3DSApp.elf"
+OUTPUT_3DSX="$BUILD_DIR/My3DSApp.3dsx"
+OUTPUT_CIA="$BUILD_DIR/My3DSApp.cia"
 
 if [ ! -f "$OUTPUT_ELF" ]; then
     echo "[ERROR] ELF file not generated: $OUTPUT_ELF"
@@ -87,32 +100,31 @@ fi
 
 echo "[INFO] Converting ELF to 3DSX..."
 3dsxtool "$OUTPUT_ELF" "$OUTPUT_3DSX"
-if [ $? -ne 0 ]; then
-    echo "[ERROR] Conversion to 3DSX failed."
+
+if [ ! -f "$OUTPUT_3DSX" ]; then
+    echo "[ERROR] 3DSX file not generated."
     exit 1
 fi
 
 echo "[INFO] Generating CIA package..."
 if command -v makerom &> /dev/null; then
-    # Paths to banner/icon assets (replace with your own files)
     BANNER="assets/banner.bin"
     ICON="assets/icon.png"
     RSF="$DEVKITPRO/3ds_rules/template.rsf"
 
-    if [ ! -f "$BANNER" ] || [ ! -f "$ICON" ]; then
-        echo "[WARNING] Banner or icon not found in assets/. CIA will be generated without custom graphics."
-        makerom -f cia -o "$OUTPUT_CIA" -elf "$OUTPUT_ELF" -rsf "$RSF"
-    else
-        echo "[INFO] Injecting banner and icon into CIA..."
+    if [ -f "$BANNER" ] && [ -f "$ICON" ]; then
         makerom -f cia -o "$OUTPUT_CIA" -elf "$OUTPUT_ELF" -rsf "$RSF" -banner "$BANNER" -icon "$ICON"
+    else
+        echo "[WARNING] Banner or icon not found, generating CIA without custom graphics."
+        makerom -f cia -o "$OUTPUT_CIA" -elf "$OUTPUT_ELF" -rsf "$RSF"
     fi
 
-    if [ $? -ne 0 ]; then
+    if [ ! -f "$OUTPUT_CIA" ]; then
         echo "[ERROR] CIA packaging failed."
         exit 1
     fi
-    echo "[SUCCESS] Build completed! .3DSX and .CIA files are located in the build/ directory."
+    echo "[SUCCESS] Build completed! Files are in $BUILD_DIR"
 else
     echo "[WARNING] makerom not detected. Skipping CIA packaging."
-    echo "[SUCCESS] Build completed! .3DSX file is located in the build/ directory."
+    echo "[SUCCESS] Build completed! ELF and 3DSX files are in $BUILD_DIR"
 fi

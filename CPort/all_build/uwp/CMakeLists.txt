@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(MySDLApp C)
+project(MyUWPApp C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -72,19 +72,22 @@ find_library(OGG_LIB ogg REQUIRED)
 find_library(VORBIS_LIB vorbis REQUIRED)
 find_library(MPG123_LIB mpg123 REQUIRED)
 
-add_executable(MySDLApp ${MAIN_FILE})
+# 全局定义 pure_sdl 宏
+add_compile_definitions(PURE_SDL=1)
 
-target_link_libraries(MySDLApp
+add_executable(MyUWPApp ${MAIN_FILE})
+
+target_link_libraries(MyUWPApp
     SDL2::SDL2
     SDL2_image::SDL2_image
     SDL2_mixer::SDL2_mixer
 )
 
 if(WIN32)
-    target_link_libraries(MySDLApp SDL2::SDL2main)
+    target_link_libraries(MyUWPApp SDL2::SDL2main)
 
     set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin)
-    set_target_properties(MySDLApp PROPERTIES
+    set_target_properties(MyUWPApp PROPERTIES
         RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
         LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}
         ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_DIR}
@@ -101,14 +104,14 @@ if(WIN32)
     endforeach()
 
     if(NOT CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
-        add_custom_command(TARGET MySDLApp POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:MySDLApp>
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2_image::SDL2_image> $<TARGET_FILE_DIR:MySDLApp>
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2_mixer::SDL2_mixer> $<TARGET_FILE_DIR:MySDLApp>
+        add_custom_command(TARGET MyUWPApp POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:MyUWPApp>
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2_image::SDL2_image> $<TARGET_FILE_DIR:MyUWPApp>
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2_mixer::SDL2_mixer> $<TARGET_FILE_DIR:MyUWPApp>
         )
     else()
         message(STATUS "UWP 模式下使用 SDL 静态库链接，避免 DLL 依赖。")
-        target_link_libraries(MySDLApp
+        target_link_libraries(MyUWPApp
             SDL2::SDL2-static
             SDL2_image::SDL2_image-static
             SDL2_mixer::SDL2_mixer-static
@@ -122,7 +125,7 @@ if(WIN32)
     endif()
 endif()
 
-set_target_properties(MySDLApp PROPERTIES
+set_target_properties(MyUWPApp PROPERTIES
     VS_WINDOWS_TARGET_PLATFORM_MIN_VERSION 10.0.17763.0
     VS_WINDOWS_TARGET_PLATFORM_VERSION 10.0
 )

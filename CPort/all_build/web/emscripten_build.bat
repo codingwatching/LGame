@@ -104,8 +104,8 @@ if errorlevel 1 (
 )
 
 :: ---------------- 输出检查 ----------------
-set "OUTPUT_JS=build\MySDLApp.js"
-set "OUTPUT_WASM=build\MySDLApp.wasm"
+set "OUTPUT_JS=build\MyWebApp.js"
+set "OUTPUT_WASM=build\MyWebApp.wasm"
 
 if exist "!OUTPUT_JS!" if exist "!OUTPUT_WASM!" (
     echo [SUCCESS] Build completed! Files located at:

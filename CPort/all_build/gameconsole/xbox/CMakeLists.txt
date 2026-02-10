@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.15)
-project(MySDLApp C)
+project(MyXBoxApp C)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
@@ -48,7 +48,7 @@ endif()
 
 include(FetchContent)
 
-# 禁止SDL2编译test文件夹 
+# 禁止 SDL2 编译 test 文件夹
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 
 set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/third_party)
@@ -143,24 +143,27 @@ if(DEFINED ENV{XDKSDK} OR DEFINED ENV{NXDK})
     find_library(MPG123_LIB mpg123 REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
 endif()
 
-add_executable(MySDLApp ${SOURCES} ${MAIN_FILE})
+# 全局定义 pure_sdl 宏
+add_compile_definitions(PURE_SDL=1)
+
+add_executable(MyXBoxApp ${SOURCES} ${MAIN_FILE})
 
 # 链接依赖库
-target_link_libraries(MySDLApp
+target_link_libraries(MyXBoxApp
     SDL2_Xbox::SDL2
     SDL2_Xbox::SDL2_image
     SDL2_Xbox::SDL2_mixer
 )
 
 if(WIN32)
-    target_link_libraries(MySDLApp SDL2::SDL2main)
+    target_link_libraries(MyXBoxApp SDL2::SDL2main)
 endif()
 
 # 根据不同 SDK 链接系统库
 if(DEFINED ENV{GDKXSDK})
-    target_link_libraries(MySDLApp d3d11 xinput xaudio2)
+    target_link_libraries(MyXBoxApp d3d11 xinput xaudio2)
 elseif(DEFINED ENV{XDKSDK})
-    target_link_libraries(MySDLApp
+    target_link_libraries(MyXBoxApp
         ${PNG_LIB}
         ${JPEG_LIB}
         ${ZLIB_LIB}
@@ -170,7 +173,7 @@ elseif(DEFINED ENV{XDKSDK})
         xboxkrnl
     )
 elseif(DEFINED ENV{NXDK})
-    target_link_libraries(MySDLApp
+    target_link_libraries(MyXBoxApp
         ${PNG_LIB}
         ${JPEG_LIB}
         ${ZLIB_LIB}
@@ -187,12 +190,21 @@ option(USE_ANGLE "Enable ANGLE support" OFF)
 if(USE_ANGLE)
     message(STATUS "启用 ANGLE 支持")
     if(DEFINED ANGLE_DIR AND EXISTS "${ANGLE_DIR}/libEGL.a" AND EXISTS "${ANGLE_DIR}/libGLESv2.a")
-        target_link_directories(MySDLApp PRIVATE ${ANGLE_DIR})
-        target_link_libraries(MySDLApp EGL GLESv2)
+        target_link_directories(MyXBoxApp PRIVATE ${ANGLE_DIR})
+        target_link_libraries(MyXBoxApp EGL GLESv2)
     else()
         find_package(angle QUIET)
         if(angle_FOUND)
-            target_link_libraries(MySDLApp angle::libEGL-static angle::libGLESv2-static)
+            target_link_libraries(MyXBoxApp angle::libEGL-static angle::libGLESv2-static)
         endif()
     endif()
 endif()
+
+# 安装规则（可选）
+install(TARGETS MyXBoxApp
+    RUNTIME DESTINATION bin
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+)
+
+message(STATUS "CMake 配置完成，目标程序为 MyXBoxApp")
