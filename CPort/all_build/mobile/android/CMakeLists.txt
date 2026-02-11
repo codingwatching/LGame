@@ -6,13 +6,23 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 add_compile_options(-O3)
 
-# 指定交叉编译目标为 Android
+# ---------------- Android 交叉编译配置 ----------------
 set(CMAKE_SYSTEM_NAME Android)
-set(CMAKE_SYSTEM_VERSION 21)
-set(CMAKE_ANDROID_ARCH_ABI arm64-v8a)
+# 平台版本由外部传入，默认 23
+if(NOT DEFINED ANDROID_PLATFORM)
+    set(ANDROID_PLATFORM 23)
+endif()
+set(CMAKE_SYSTEM_VERSION ${ANDROID_PLATFORM})
+
+if(NOT DEFINED ANDROID_ABI)
+    set(ANDROID_ABI arm64-v8a)
+endif()
+set(CMAKE_ANDROID_ARCH_ABI ${ANDROID_ABI})
+
+# STL 类型
 set(CMAKE_ANDROID_STL_TYPE c++_shared)
 
-# 源码目录
+# ---------------- 源码目录 ----------------
 if(NOT DEFINED SRC_DIR)
     set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 endif()
@@ -25,7 +35,8 @@ endif()
 
 include(FetchContent)
 
-# 禁止SDL2编译test文件夹 
+# ---------------- SDL2 相关依赖 ----------------
+# 禁止 SDL2 编译 test 文件夹
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 
 # SDL2
@@ -60,17 +71,24 @@ if(NOT SDL2_MIXER_FOUND)
     FetchContent_MakeAvailable(SDL2_mixer)
 endif()
 
-# 全局定义 pure_sdl 宏
+# ---------------- 编译选项与宏定义 ----------------
 add_compile_definitions(PURE_SDL=1)
 
-# 构建 Android 共享库（供 APK 使用），只编译 all.c
+# ---------------- 构建共享库 ----------------
 add_library(MyAndroidApp SHARED ${MAIN_FILE})
 
-# 在 Android 下使用静态链接，避免运行时依赖外部 .so
+# 链接静态 SDL 库和 Android 系统库
 target_link_libraries(MyAndroidApp
     SDL2::SDL2-static
     SDL2_image::SDL2_image-static
     SDL2_mixer::SDL2_mixer-static
     log
     android
+)
+
+# ---------------- 输出路径 ----------------
+# 保证生成的 .so 在 build_xxx 目录下，方便 bat 脚本检查
+set_target_properties(MyAndroidApp PROPERTIES
+    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
+    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}
 )

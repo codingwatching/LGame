@@ -4,7 +4,7 @@ setlocal enabledelayedexpansion
 :: ---------------- 参数处理 ----------------
 set "ACTION="
 if "%~1"=="" (
-    set "ACTION=release"
+    set "ACTION=Release"
     echo [INFO] No parameter specified, defaulting to Release build
 ) else (
     set "ACTION=%~1"
@@ -23,15 +23,15 @@ if /i "%ACTION%"=="clean" (
 
 :: ---------------- 源码路径处理 ----------------
 if "%~2"=="" (
-    echo [INFO] No source path specified, defaulting to "src" under the script directory.
+    echo [INFO] No source path specified, defaulting to script directory.
     set "SCRIPT_DIR=%~dp0"
-    set "SRC_DIR=%SCRIPT_DIR%src"
+    set "SRC_DIR=%SCRIPT_DIR%"
 ) else (
     set "SRC_DIR=%~2"
 )
 
-if not exist "%SRC_DIR%" (
-    echo [ERROR] The specified source path does not exist: %SRC_DIR%
+if not exist "%SRC_DIR%\CMakeLists.txt" (
+    echo [ERROR] The specified source path does not contain CMakeLists.txt: %SRC_DIR%
     exit /b 1
 ) else (
     echo [INFO] Using path: %SRC_DIR%
@@ -68,6 +68,26 @@ if not errorlevel 1 (
     echo [INFO] Ninja not detected, falling back to Unix Makefiles.
 )
 
+:: ---------------- Gradle 检测 ----------------
+where gradle >nul 2>nul
+if errorlevel 1 (
+    if exist "%SRC_DIR%\gradlew" (
+        echo [INFO] Using project-local Gradle wrapper.
+        set "GRADLEW=%SRC_DIR%\gradlew"
+    ) else (
+        echo [ERROR] Gradle not detected. Please install Gradle or include gradlew in your project.
+        exit /b 1
+    )
+) else (
+    set "GRADLEW=gradle"
+    echo [INFO] Global Gradle detected.
+)
+
+:: ---------------- 平台版本参数 ----------------
+if "%ANDROID_PLATFORM%"=="" (
+    set "ANDROID_PLATFORM=android-23"
+)
+
 :: ---------------- 多 ABI 构建 ----------------
 set ABIS=arm64-v8a armeabi-v7a x86_64
 
@@ -83,9 +103,9 @@ for %%A in (%ABIS%) do (
         -G "!GENERATOR!" ^
         -DCMAKE_TOOLCHAIN_FILE="%ANDROID_NDK%\build\cmake\android.toolchain.cmake" ^
         -DANDROID_ABI=%%A ^
-        -DANDROID_PLATFORM=android-21 ^
+        -DANDROID_PLATFORM=%ANDROID_PLATFORM% ^
         -DCMAKE_BUILD_TYPE=%ACTION% ^
-        -DSRC_DIR="!SRC_DIR!"
+        -DSRC_DIR="%SRC_DIR%/src"
 
     if errorlevel 1 (
         echo [ERROR] CMake configuration failed for ABI: %%A
@@ -98,12 +118,20 @@ for %%A in (%ABIS%) do (
         exit /b 1
     )
 
-    set "OUTPUT_APK=!BUILD_DIR!\MyAndroidApp-%%A.apk"
-    if exist "!OUTPUT_APK!" (
-        echo [SUCCESS] Build completed for ABI: %%A. APK located at: !OUTPUT_APK!
+    set "OUTPUT_SO=!BUILD_DIR!\libMyAndroidApp.so"
+    if exist "!OUTPUT_SO!" (
+        echo [SUCCESS] Build completed for ABI: %%A. SO located at: !OUTPUT_SO!
     ) else (
-        echo [WARNING] APK file not found for ABI: %%A. Please check your CMake configuration.
+        echo [WARNING] SO file not found for ABI: %%A. Please check your CMake configuration.
     )
 )
 
-echo [SUCCESS] Multi-ABI build completed! APK files are located in their respective build directories.
+:: ---------------- APK 打包 ----------------
+echo [INFO] Building APK with Gradle...
+call "%GRADLEW%" assemble%ACTION%
+if errorlevel 1 (
+    echo [ERROR] APK build failed.
+    exit /b 1
+)
+
+echo [SUCCESS] Multi-ABI build completed! APK files are located in app/build/outputs/apk/%ACTION%/
