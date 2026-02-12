@@ -636,6 +636,7 @@ typedef struct game_prefnode{
 
 typedef struct {
     game_prefnode* head;
+    bool dirty;
 } game_preferences;
 
 typedef struct {
@@ -1273,12 +1274,12 @@ void SDL_AllowExit(bool a);
 
 void LOG_Println(const char* mes);
 
+// CRUD Tool
 int64_t CreatePrefs();
 
 bool LoadPrefs(int64_t handle, const char* filename);
 
-void SetPrefs(int64_t handle, const char* section, const char* key,
-    const uint8_t* value, size_t value_len);
+void SetPrefs(int64_t handle, const char* section, const char* key, const uint8_t* value, size_t value_len);
 
 int64_t GetPrefs(int64_t handle, const char* section, const char* key, uint8_t* outBytes);
 
@@ -1287,6 +1288,16 @@ const char* GetPrefsKeys(int64_t handle, const char* section, const char* delimi
 bool SavePrefs(int64_t handle, const char* filename);
 
 void RemovePrefs(int64_t handle, const char* section, const char* key);
+
+bool HasPrefsChanged(int64_t handle);
+
+void ResetPrefsChanged(int64_t handle);
+
+void ClearPrefs(int64_t handle);
+
+int32_t CountPrefs(int64_t handle);
+
+const char* ListSections(int64_t handle, const char* delimiter);
 
 void FreePrefs(int64_t handle);
 

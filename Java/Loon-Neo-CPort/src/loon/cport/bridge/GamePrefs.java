@@ -106,6 +106,30 @@ public final class GamePrefs implements LRelease {
 		return SDLCall.saveGamePrefs(_prefsHandle, fileName);
 	}
 
+	public boolean hasChanged() {
+		return SDLCall.hasGamePrefs(_prefsHandle);
+	}
+
+	public void reset() {
+		SDLCall.resetGamePrefs(_prefsHandle);
+	}
+
+	public void clear() {
+		SDLCall.resetGamePrefs(_prefsHandle);
+	}
+
+	public int count() {
+		return SDLCall.countGamePrefs(_prefsHandle);
+	}
+
+	public String[] ListSections(String delimiter) {
+		String result = SDLCall.listSectionsGamePrefs(_prefsHandle, delimiter);
+		if (result == null || result.length() == 0) {
+			return new String[] { "" };
+		}
+		return StringUtils.split(result, delimiter);
+	}
+
 	public long getHandle() {
 		return _prefsHandle;
 	}

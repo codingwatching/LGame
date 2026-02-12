@@ -25,6 +25,7 @@ import loon.Log;
 import loon.Save;
 import loon.SaveBatchImpl;
 import loon.cport.bridge.GamePrefs;
+import loon.cport.bridge.SDLCall;
 import loon.utils.PathUtils;
 import loon.utils.StringUtils;
 import loon.utils.TArray;
@@ -38,13 +39,23 @@ public class CSave implements Save {
 	private boolean isPersisted;
 
 	CSave(Log log, String storage) {
+		this(log,
+				PathUtils.normalizeCombinePaths(
+						SDLCall.getPrefPath("loonsave",
+								(StringUtils.isEmpty(storage) ? LSystem.getSystemAppName() : storage)),
+						"gamedata.saved"),
+				storage);
+	}
+
+	CSave(Log log, String fileSavedPath, String storage) {
 		this.log = log;
-		this.storageFileName = StringUtils.isEmpty(storage) ? LSystem.getSystemAppName() : storage;
-		this.appName = StringUtils.isEmpty(LSystem.getSystemAppName()) ? PathUtils.getBaseFileName(storageFileName)
+		final String storageName = StringUtils.isEmpty(storage) ? LSystem.getSystemAppName() : storage;
+		this.storageFileName = fileSavedPath;
+		this.appName = StringUtils.isEmpty(LSystem.getSystemAppName()) ? PathUtils.getBaseFileName(storageName)
 				: LSystem.getSystemAppName();
 	}
 
-	private void init() {
+	private synchronized void init() {
 		if (preferences == null) {
 			GamePrefs prefs = null;
 			try {
@@ -117,7 +128,7 @@ public class CSave implements Save {
 		return isPersisted;
 	}
 
-	private void maybePersistPreferences() {
+	private synchronized void maybePersistPreferences() {
 		init();
 		try {
 			isPersisted = preferences.save(storageFileName);

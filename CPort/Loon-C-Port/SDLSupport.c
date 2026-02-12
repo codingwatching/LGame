@@ -1299,25 +1299,44 @@ static char* joinLocales(const SDL_Locale* locales) {
 	return result;
 }
 
+// CRUD工具用类实现
+// -------------------- Create --------------------
 int64_t CreatePrefs() {
 	game_preferences* prefs = (game_preferences*)malloc(sizeof(game_preferences));
 	if (!prefs) return 0;
 	prefs->head = NULL;
+	prefs->dirty = false;
 	return (intptr_t)prefs;
 }
 
+// -------------------- Load (Read) --------------------
 bool LoadPrefs(int64_t handle, const char* filename) {
+	if (!filename) return false;
 	game_preferences* prefs = (game_preferences*)handle;
 	if (!prefs) return false;
-	FILE* f = fopen(filename, "r");
-	if (!f) return false;
+
+	SDL_RWops* rw = SDL_RWFromFile(filename, "rb");
+	if (!rw) {
+		SDL_Log("LoadPrefs Error: %s", SDL_GetError());
+		return false;
+	}
 
 	char line[512];
 	char current_section[128] = "";
 
-	while (fgets(line, sizeof(line), f)) {
-		char* newline = strchr(line, '\n');
-		if (newline) *newline = '\0';
+	while (true) {
+		char* p = line;
+		size_t read_count = 0;
+		while (read_count < sizeof(line) - 1) {
+			char c;
+			if (SDL_RWread(rw, &c, 1, 1) != 1) break;
+			if (c == '\n') break;
+			*p++ = c;
+			read_count++;
+		}
+		if (read_count == 0) break;
+		*p = '\0';
+
 		if (line[0] == '\0') continue;
 		if (line[0] == '[') {
 			char* end = strchr(line, ']');
@@ -1333,86 +1352,95 @@ bool LoadPrefs(int64_t handle, const char* filename) {
 			*eq = '\0';
 			char* key = line;
 			char* val_str = eq + 1;
+			if (!key || !val_str) continue;
+
 			char* b64_marker = strstr(key, "|b64");
 			if (b64_marker) {
 				*b64_marker = '\0';
-				size_t val_len;
+				size_t val_len = 0;
 				unsigned char* decoded = base64_decode(val_str, &val_len);
-				if (decoded) {
+				if (decoded && val_len > 0) {
 					SetPrefs(handle, current_section, key, decoded, val_len);
 					free(decoded);
 				}
 			}
 			else {
-				SetPrefs(handle, current_section, key,
-					(const unsigned char*)val_str, strlen(val_str));
+				if (strlen(val_str) > 0) {
+					SetPrefs(handle, current_section, key,
+						(const unsigned char*)val_str, strlen(val_str));
+				}
 			}
 		}
 	}
-	fclose(f);
+
+	SDL_RWclose(rw);
+	prefs->dirty = false;
 	return true;
 }
 
+// -------------------- Update --------------------
 void SetPrefs(int64_t handle, const char* section, const char* key,
 	const uint8_t* value, size_t value_len) {
+	if (!section || !key || !value || value_len == 0) return;
 	game_preferences* prefs = (game_preferences*)handle;
 	if (!prefs) return;
+
 	game_prefnode* prev = NULL, * cur = prefs->head;
 	while (cur && (strcmp(cur->section, section) < 0 ||
 		(strcmp(cur->section, section) == 0 && strcmp(cur->key, key) < 0))) {
 		prev = cur;
 		cur = cur->next;
 	}
+
 	if (cur && strcmp(cur->section, section) == 0 && strcmp(cur->key, key) == 0) {
-		free(cur->value);
-		cur->value = (uint8_t*)malloc(value_len);
-		if (cur->value) {
-			memcpy(cur->value, value, value_len);
+		if (cur->value_len != value_len || memcmp(cur->value, value, value_len) != 0) {
+			uint8_t* newVal = (uint8_t*)malloc(value_len);
+			if (!newVal) return;
+			memcpy(newVal, value, value_len);
+			free(cur->value);
+			cur->value = newVal;
 			cur->value_len = value_len;
+			prefs->dirty = true;
 		}
 		return;
 	}
+
 	game_prefnode* newNode = (game_prefnode*)malloc(sizeof(game_prefnode));
-	if (newNode) {
-		newNode->section = _strdup(section);
-		newNode->key = _strdup(key);
-		newNode->value = (uint8_t*)malloc(value_len);
-		if (newNode->value) {
-			memcpy(newNode->value, value, value_len);
-			newNode->value_len = value_len;
-		}
+	if (!newNode) return;
+
+	newNode->section = _strdup(section);
+	newNode->key = _strdup(key);
+	newNode->value = (uint8_t*)malloc(value_len);
+	if (!newNode->section || !newNode->key || !newNode->value) {
+		free(newNode->section);
+		free(newNode->key);
+		free(newNode->value);
+		free(newNode);
+		return;
 	}
-	if (prev) {
-		if (newNode && newNode->next) {
-			newNode->next = prev->next;
-			prev->next = newNode;
-		}
-	}
-	else if (newNode && newNode->next) {
-		newNode->next = prefs->head;
-		prefs->head = newNode;
-	}
+
+	memcpy(newNode->value, value, value_len);
+	newNode->value_len = value_len;
+	newNode->next = cur;
+
+	if (prev) prev->next = newNode;
+	else prefs->head = newNode;
+
+	prefs->dirty = true;
 }
 
+// -------------------- Read (Get) --------------------
 int64_t GetPrefs(int64_t handle, const char* section, const char* key, uint8_t* outBytes) {
+	if (!section || !key || !outBytes) return 0;
 	game_preferences* prefs = (game_preferences*)handle;
 	if (!prefs) return 0;
+
 	game_prefnode* cur = prefs->head;
 	while (cur) {
 		if (strcmp(cur->section, section) == 0 && strcmp(cur->key, key) == 0) {
-			size_t len = 0;
-			if (cur->value_len) {
-				len = cur->value_len;
-			}
-			unsigned char* copy = (unsigned char*)malloc(cur->value_len);
-			if (copy) {
-				memcpy(copy, cur->value, cur->value_len);
-				if (copy) {
-					copy_uint8_array(outBytes, len, copy, len);
-				}
-				free(copy);
-			}
-			return (int32_t)len;
+			if (cur->value_len == 0 || !cur->value) return 0;
+			copy_uint8_array(outBytes, cur->value_len, cur->value, cur->value_len);
+			return (int64_t)cur->value_len;
 		}
 		cur = cur->next;
 	}
@@ -1420,26 +1448,35 @@ int64_t GetPrefs(int64_t handle, const char* section, const char* key, uint8_t* 
 }
 
 const char* GetPrefsKeys(int64_t handle, const char* section, const char* delimiter) {
+	if (!section || !delimiter) return NULL;
 	game_preferences* prefs = (game_preferences*)handle;
 	if (!prefs) return NULL;
+
 	game_prefnode* cur = prefs->head;
+	size_t delim_len = strlen(delimiter);
+
 	while (cur) {
 		if (strcmp(cur->section, section) == 0) {
 			size_t total_len = 0;
-			size_t delim_len = strlen(delimiter);
 			int count = 0;
-			for (game_prefnode* n = cur->next; n; n = n->next) {
-				total_len += strlen(n->key);
-				if (n->next) total_len += delim_len;
-				count++;
+			for (game_prefnode* n = cur; n; n = n->next) {
+				if (strcmp(n->section, section) == 0) {
+					total_len += strlen(n->key);
+					if (n->next) total_len += delim_len;
+					count++;
+				}
 			}
 			if (count == 0) return _strdup("");
+
 			char* result = (char*)malloc(total_len + 1);
 			if (!result) return NULL;
 			result[0] = '\0';
-			for (game_prefnode* n = cur->next; n; n = n->next) {
-				chars_append(result, total_len + 1, n->key);
-				if (n->next) chars_append(result, total_len + 1, delimiter);
+
+			for (game_prefnode* n = cur; n; n = n->next) {
+				if (strcmp(n->section, section) == 0) {
+					chars_append(result, total_len + 1, n->key);
+					if (n->next) chars_append(result, total_len + 1, delimiter);
+				}
 			}
 			return result;
 		}
@@ -1448,50 +1485,84 @@ const char* GetPrefsKeys(int64_t handle, const char* section, const char* delimi
 	return NULL;
 }
 
-
+// -------------------- Save --------------------
 bool SavePrefs(int64_t handle, const char* filename) {
+	if (!filename) return false;
 	game_preferences* prefs = (game_preferences*)handle;
 	if (!prefs) return false;
-	FILE* f = fopen(filename, "w");
-	if (!f) return false;
+	if (!prefs->dirty || !prefs->head) return false;
+
+	SDL_RWops* rw = SDL_RWFromFile(filename, "wb");
+	if (!rw) {
+		SDL_Log("SavePrefs Error: %s", SDL_GetError());
+		return false;
+	}
+
 	char current_section[128] = "";
 	game_prefnode* cur = prefs->head;
+
 	while (cur) {
 		if (strcmp(current_section, cur->section) != 0) {
-			fprintf(f, "[%s]\n", cur->section);
+			char buffer[256];
+			int len = snprintf(buffer, sizeof(buffer), "[%s]\n", cur->section);
+			if (len > 0 && len < (int)sizeof(buffer)) {
+				SDL_RWwrite(rw, buffer, 1, len);
+			}
 			chars_append(current_section, sizeof(current_section) - 1, cur->section);
 			current_section[sizeof(current_section) - 1] = '\0';
 		}
-		if (is_printable_text(cur->value, cur->value_len)) {
-			fprintf(f, "%s=%.*s\n", cur->key, (int)cur->value_len, cur->value);
-		}
-		else {
-			char* encoded = base64_encode(cur->value, cur->value_len);
-			if (!encoded) {
-				fclose(f);
-				return 0;
+
+		if (cur->value && cur->value_len > 0) {
+			if (is_printable_text(cur->value, cur->value_len)) {
+				char buffer[512];
+				int len = snprintf(buffer, sizeof(buffer), "%s=%.*s\n",
+					cur->key, (int)cur->value_len, cur->value);
+				if (len > 0 && len < (int)sizeof(buffer)) {
+					SDL_RWwrite(rw, buffer, 1, len);
+				}
 			}
-			fprintf(f, "%s|b64=%s\n", cur->key, encoded);
-			free(encoded);
+			else {
+				char* encoded = base64_encode(cur->value, cur->value_len);
+				if (!encoded) {
+					SDL_RWclose(rw);
+					return false;
+				}
+				char buffer[512];
+				int len = snprintf(buffer, sizeof(buffer), "%s|b64=%s\n", cur->key, encoded);
+				if (len > 0 && len < (int)sizeof(buffer)) {
+					SDL_RWwrite(rw, buffer, 1, len);
+				}
+				free(encoded);
+			}
 		}
 		cur = cur->next;
 	}
-	fclose(f);
+
+	SDL_RWclose(rw);
+	prefs->dirty = false;
 	return true;
 }
 
+// -------------------- Delete --------------------
 void RemovePrefs(int64_t handle, const char* section, const char* key) {
+	if (!section || !key) return;
 	game_preferences* prefs = (game_preferences*)handle;
 	if (!prefs) return;
-	game_prefnode* cur = prefs->head, * prev = NULL;
+
+	game_prefnode* cur = prefs->head;
+	game_prefnode* prev = NULL;
+
 	while (cur) {
 		if (strcmp(cur->section, section) == 0 && strcmp(cur->key, key) == 0) {
 			if (prev) prev->next = cur->next;
 			else prefs->head = cur->next;
+
 			free(cur->section);
 			free(cur->key);
 			free(cur->value);
 			free(cur);
+
+			prefs->dirty = true;
 			return;
 		}
 		prev = cur;
@@ -1499,7 +1570,37 @@ void RemovePrefs(int64_t handle, const char* section, const char* key) {
 	}
 }
 
+// -------------------- Free --------------------
 void FreePrefs(int64_t handle) {
+	game_preferences* prefs = (game_preferences*)handle;
+	if (!prefs) return;
+
+	game_prefnode* cur = prefs->head;
+	while (cur) {
+		game_prefnode* tmp = cur;
+		cur = cur->next;
+		free(tmp->section);
+		free(tmp->key);
+		free(tmp->value);
+		free(tmp);
+	}
+	prefs->head = NULL;
+	free(prefs);
+}
+
+bool HasPrefsChanged(int64_t handle) {
+	game_preferences* prefs = (game_preferences*)handle;
+	if (!prefs) return false;
+	return prefs->dirty && (prefs->head != NULL);
+}
+
+void ResetPrefsChanged(int64_t handle) {
+	game_preferences* prefs = (game_preferences*)handle;
+	if (!prefs) return;
+	prefs->dirty = false;
+}
+
+void ClearPrefs(int64_t handle) {
 	game_preferences* prefs = (game_preferences*)handle;
 	if (!prefs) return;
 	game_prefnode* cur = prefs->head;
@@ -1511,7 +1612,51 @@ void FreePrefs(int64_t handle) {
 		free(tmp->value);
 		free(tmp);
 	}
-	free(prefs);
+	prefs->head = NULL;
+	prefs->dirty = true;
+}
+
+int32_t CountPrefs(int64_t handle) {
+	game_preferences* prefs = (game_preferences*)handle;
+	if (!prefs) return 0;
+	size_t count = 0;
+	game_prefnode* cur = prefs->head;
+	while (cur) {
+		count++;
+		cur = cur->next;
+	}
+	return (int32_t)count;
+}
+
+const char* ListSections(int64_t handle, const char* delimiter) {
+	game_preferences* prefs = (game_preferences*)handle;
+	if (!prefs || !delimiter) return NULL;
+
+	size_t total_len = 0;
+	size_t delim_len = strlen(delimiter);
+	int count = 0;
+
+	game_prefnode* cur = prefs->head;
+	while (cur) {
+		total_len += strlen(cur->section);
+		if (cur->next) total_len += delim_len;
+		count++;
+		cur = cur->next;
+	}
+
+	if (count == 0) return _strdup("");
+
+	char* result = (char*)malloc(total_len + 1);
+	if (!result) return NULL;
+	result[0] = '\0';
+
+	cur = prefs->head;
+	while (cur) {
+		chars_append(result, total_len + 1, cur->section);
+		if (cur->next) chars_append(result, total_len + 1, delimiter);
+		cur = cur->next;
+	}
+	return result;
 }
 
 const char* Load_SDL_RW_FileToChars(const char* filename) {

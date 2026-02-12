@@ -112,6 +112,21 @@ public final class SDLCall {
 	@Import(name = "RemovePrefs")
 	public final static native void removeGamePrefs(long handle, String section, String key);
 
+	@Import(name = "HasPrefsChanged")
+	public final static native boolean hasGamePrefs(long handle);
+
+	@Import(name = "ResetPrefsChanged")
+	public final static native void resetGamePrefs(long handle);
+
+	@Import(name = "ClearPrefs")
+	public final static native void clearGamePrefs(long handle);
+
+	@Import(name = "CountPrefs")
+	public final static native int countGamePrefs(long handle);
+
+	@Import(name = "ListSections")
+	public final static native String listSectionsGamePrefs(long handle, String delimiter);
+
 	@Import(name = "FreePrefs")
 	public final static native void freeGamePrefs(long handle);
 
@@ -307,23 +322,23 @@ public final class SDLCall {
 
 	@Import(name = "Load_SDL_PathIsFile")
 	public final static native boolean pathIsFile(String path);
-	
+
 	@Import(name = "Load_SDL_Gamepad_Init")
 	public final static native void gamepadInit(boolean debugMode);
 
 	@Import(name = "Load_SDL_Gamepad_IsSupported")
 	public final static native boolean gamepadIsSupported();
-	
+
 	@Import(name = "Load_SDL_Gamepad_Close")
 	public final static native void gamepadClose();
 
 	@Import(name = "Load_SDL_Gamepad_GetState")
 	public final static native void gamepadGetState(int playerIndex, float[] axesOut, float[] triggersOut,
 			int[] buttonsOut);
-	
+
 	@Import(name = "Load_SDL_Gamepad_PollEvents")
 	public final static native int gamepadPollEvents(int[] outData);
-	
+
 	@Import(name = "Load_SDL_Init")
 	public final static native int init(int flags);
 
