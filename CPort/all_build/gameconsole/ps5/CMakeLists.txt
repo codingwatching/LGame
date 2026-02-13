@@ -5,17 +5,21 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 add_compile_options(-O3)
 
-# 指定交叉编译目标为 PS5
-set(CMAKE_SYSTEM_NAME Generic)
-set(CMAKE_SYSTEM_PROCESSOR x86_64)
-
-# 检查 PS5SDK 环境变量
-if(NOT DEFINED ENV{PS5SDK})
-    message(FATAL_ERROR "未检测到 PS5SDK 环境变量，请设置 PS5SDK 指向 PS5 工具链目录")
+# 检查 PS5_PAYLOAD_SDK 环境变量
+if(NOT DEFINED ENV{PS5_PAYLOAD_SDK})
+    message(FATAL_ERROR "未检测到 PS5_PAYLOAD_SDK 环境变量，请设置 PS5_PAYLOAD_SDK 指向 PS5 工具链目录")
 endif()
 
-set(PS5SDK $ENV{PS5SDK})
-set(CMAKE_TOOLCHAIN_FILE "${PS5SDK}/share/ps5.toolchain.cmake")
+set(PS5_PAYLOAD_SDK $ENV{PS5_PAYLOAD_SDK})
+
+# 工具链文件
+set(PS5_TOOLCHAIN_FILE "${PS5_PAYLOAD_SDK}/toolchain-ps5.cmake")
+if(EXISTS "${PS5_TOOLCHAIN_FILE}")
+    set(CMAKE_TOOLCHAIN_FILE "${PS5_TOOLCHAIN_FILE}" CACHE FILEPATH "PS5 toolchain file")
+    message(STATUS "使用的 PS5 toolchain 路径: ${PS5_TOOLCHAIN_FILE}")
+else()
+    message(FATAL_ERROR "未找到 toolchain-ps5.cmake，请检查 PS5_PAYLOAD_SDK 路径是否正确")
+endif()
 
 # 源码目录
 if(NOT DEFINED SRC_DIR)
@@ -30,21 +34,28 @@ endif()
 
 include(FetchContent)
 
-# 禁止SDL2编译test文件夹 
-set(SDL_TEST OFF CACHE BOOL "" FORCE)
+# 强制 SDL 系列库静态编译
+set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL2IMAGE_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_STATIC ON CACHE BOOL "" FORCE)
+set(SDL2MIXER_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL2MIXER_STATIC ON CACHE BOOL "" FORCE)
 
+set(SDL_TEST OFF CACHE BOOL "" FORCE)
 set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/third_party)
 
-# 限定搜索路径到 PS5SDK，避免误用主机 SDL2
-set(CMAKE_PREFIX_PATH "${PS5SDK}/arm-ps5-eabi" ${CMAKE_PREFIX_PATH})
+# 限定搜索路径到 PS5_PAYLOAD_SDK 根目录和 portlibs
+list(APPEND CMAKE_PREFIX_PATH "${PS5_PAYLOAD_SDK}")
+list(APPEND CMAKE_PREFIX_PATH "${PS5_PAYLOAD_SDK}/portlibs")
 
 # SDL2 for PS5
 find_package(SDL2 QUIET)
-if(SDL2_FOUND AND SDL2_INCLUDE_DIRS MATCHES "${PS5SDK}")
-    message(STATUS "使用 PS5SDK 中的 SDL2 库")
-    add_library(SDL2_PS5::SDL2 ALIAS SDL2::SDL2-static)
+if(SDL2_FOUND AND SDL2_INCLUDE_DIRS MATCHES "${PS5_PAYLOAD_SDK}")
+    message(STATUS "使用 PS5_PAYLOAD_SDK 中的 SDL2 库")
+    add_library(SDL2_PS5::SDL2 ALIAS SDL2::SDL2)
 else()
-    message(STATUS "未找到 PS5SDK SDL2，开始下载 SDL-PS5")
+    message(STATUS "未找到 PS5_PAYLOAD_SDK SDL2，开始下载 SDL-PS5")
     FetchContent_Declare(
       SDL2_PS5
       GIT_REPOSITORY https://github.com/ps5-payload-dev/SDL.git
@@ -53,7 +64,7 @@ else()
       BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_ps5-build
     )
     FetchContent_MakeAvailable(SDL2_PS5)
-    add_library(SDL2_PS5::SDL2 ALIAS SDL2::SDL2-static)
+    add_library(SDL2_PS5::SDL2 ALIAS SDL2::SDL2)
 endif()
 
 # SDL2_image
@@ -62,11 +73,11 @@ set(SDL2IMAGE_WEBP OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_TIF OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_VENDORED OFF CACHE BOOL "" FORCE)
 find_package(SDL2_image QUIET)
-if(SDL2_IMAGE_FOUND AND SDL2_IMAGE_INCLUDE_DIRS MATCHES "${PS5SDK}")
-    message(STATUS "使用 PS5SDK 中的 SDL2_image 库")
-    add_library(SDL2_PS5::SDL2_image ALIAS SDL2_image::SDL2_image-static)
+if(SDL2_IMAGE_FOUND)
+    message(STATUS "使用本地 SDL2_image 库")
+    add_library(SDL2_PS5::SDL2_image ALIAS SDL2_image::SDL2_image)
 else()
-    message(STATUS "未找到 PS5SDK SDL2_image，开始下载")
+    message(STATUS "未找到本地 SDL2_image，开始下载官方 SDL2_image")
     FetchContent_Declare(
       SDL2_image_PS5
       GIT_REPOSITORY https://github.com/libsdl-org/SDL_image.git
@@ -75,17 +86,17 @@ else()
       BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_ps5-build
     )
     FetchContent_MakeAvailable(SDL2_image_PS5)
-    add_library(SDL2_PS5::SDL2_image ALIAS SDL2_image::SDL2_image-static)
+    add_library(SDL2_PS5::SDL2_image ALIAS SDL2_image::SDL2_image)
 endif()
 
 # SDL2_mixer
 set(SDL2MIXER_WAVPACK OFF CACHE BOOL "" FORCE)
 find_package(SDL2_mixer QUIET)
-if(SDL2_MIXER_FOUND AND SDL2_MIXER_INCLUDE_DIRS MATCHES "${PS5SDK}")
-    message(STATUS "使用 PS5SDK 中的 SDL2_mixer 库")
-    add_library(SDL2_PS5::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer-static)
+if(SDL2_MIXER_FOUND)
+    message(STATUS "使用本地 SDL2_mixer 库")
+    add_library(SDL2_PS5::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer)
 else()
-    message(STATUS "未找到 PS5SDK SDL2_mixer，开始下载")
+    message(STATUS "未找到本地 SDL2_mixer，开始下载官方 SDL2_mixer")
     FetchContent_Declare(
       SDL2_mixer_PS5
       GIT_REPOSITORY https://github.com/libsdl-org/SDL_mixer.git
@@ -94,16 +105,16 @@ else()
       BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_ps5-build
     )
     FetchContent_MakeAvailable(SDL2_mixer_PS5)
-    add_library(SDL2_PS5::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer-static)
+    add_library(SDL2_PS5::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer)
 endif()
 
-# 第三方依赖库 (PS5 portlibs)
-find_library(PNG_LIB png REQUIRED PATHS "${PS5SDK}/arm-ps5-eabi/lib")
-find_library(JPEG_LIB jpeg REQUIRED PATHS "${PS5SDK}/arm-ps5-eabi/lib")
-find_library(ZLIB_LIB z REQUIRED PATHS "${PS5SDK}/arm-ps5-eabi/lib")
-find_library(OGG_LIB ogg REQUIRED PATHS "${PS5SDK}/arm-ps5-eabi/lib")
-find_library(VORBIS_LIB vorbis REQUIRED PATHS "${PS5SDK}/arm-ps5-eabi/lib")
-find_library(MPG123_LIB mpg123 REQUIRED PATHS "${PS5SDK}/arm-ps5-eabi/lib")
+# 第三方依赖库 (PS5 portlibs 或 lib)
+find_library(PNG_LIB NAMES png libpng REQUIRED PATHS "${PS5_PAYLOAD_SDK}/lib" "${PS5_PAYLOAD_SDK}/portlibs/lib")
+find_library(JPEG_LIB NAMES jpeg libjpeg REQUIRED PATHS "${PS5_PAYLOAD_SDK}/lib" "${PS5_PAYLOAD_SDK}/portlibs/lib")
+find_library(ZLIB_LIB NAMES z REQUIRED PATHS "${PS5_PAYLOAD_SDK}/lib" "${PS5_PAYLOAD_SDK}/portlibs/lib")
+find_library(OGG_LIB NAMES ogg REQUIRED PATHS "${PS5_PAYLOAD_SDK}/lib" "${PS5_PAYLOAD_SDK}/portlibs/lib")
+find_library(VORBIS_LIB NAMES vorbis REQUIRED PATHS "${PS5_PAYLOAD_SDK}/lib" "${PS5_PAYLOAD_SDK}/portlibs/lib")
+find_library(MPG123_LIB NAMES mpg123 REQUIRED PATHS "${PS5_PAYLOAD_SDK}/lib" "${PS5_PAYLOAD_SDK}/portlibs/lib")
 
 # 全局定义 pure_sdl 宏
 add_compile_definitions(PURE_SDL=1)
@@ -111,7 +122,7 @@ add_compile_definitions(PURE_SDL=1)
 # 构建 PS5 可执行文件，只编译 all.c
 add_executable(MyPS5App ${MAIN_FILE})
 
-# 在 PS5 下使用静态链接，避免运行时依赖动态库
+# 静态链接 SDL 和依赖库
 target_link_libraries(MyPS5App
     SDL2_PS5::SDL2
     SDL2_PS5::SDL2_image

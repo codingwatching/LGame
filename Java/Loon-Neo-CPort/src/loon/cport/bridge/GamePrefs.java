@@ -115,7 +115,7 @@ public final class GamePrefs implements LRelease {
 	}
 
 	public void clear() {
-		SDLCall.resetGamePrefs(_prefsHandle);
+		SDLCall.clearGamePrefs(_prefsHandle);
 	}
 
 	public int count() {

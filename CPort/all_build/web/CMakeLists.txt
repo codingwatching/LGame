@@ -22,7 +22,15 @@ endif()
 
 include(FetchContent)
 
-# 禁止SDL2编译test文件夹 
+# 强制 SDL 系列库静态编译
+set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL2IMAGE_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_STATIC ON CACHE BOOL "" FORCE)
+set(SDL2MIXER_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL2MIXER_STATIC ON CACHE BOOL "" FORCE)
+
+# 禁止 SDL2 编译 test 文件夹 
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 
 # SDL2
@@ -66,10 +74,11 @@ add_compile_definitions(PURE_SDL=1)
 # 构建 Emscripten 可执行文件，只编译 all.c
 add_executable(MyWebApp ${MAIN_FILE})
 
+# 静态链接 SDL 库
 target_link_libraries(MyWebApp
-    SDL2::SDL2-static
-    SDL2_image::SDL2_image-static
-    SDL2_mixer::SDL2_mixer-static
+    SDL2::SDL2
+    SDL2_image::SDL2_image
+    SDL2_mixer::SDL2_mixer
 )
 
 # Emscripten 编译选项

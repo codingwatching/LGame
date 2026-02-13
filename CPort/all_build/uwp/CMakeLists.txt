@@ -26,8 +26,16 @@ endif()
 
 include(FetchContent)
 
-# 禁止SDL2编译test文件夹 
+# 禁止 SDL2 编译 test 文件夹 
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
+
+# 强制 SDL 系列库静态编译
+set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL2IMAGE_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_STATIC ON CACHE BOOL "" FORCE)
+set(SDL2MIXER_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL2MIXER_STATIC ON CACHE BOOL "" FORCE)
 
 # SDL2
 find_package(SDL2 QUIET)
@@ -77,54 +85,28 @@ add_compile_definitions(PURE_SDL=1)
 
 add_executable(MyUWPApp ${MAIN_FILE})
 
+# 静态链接 SDL 和第三方库
 target_link_libraries(MyUWPApp
     SDL2::SDL2
     SDL2_image::SDL2_image
     SDL2_mixer::SDL2_mixer
+    ${PNG_LIB}
+    ${JPEG_LIB}
+    ${ZLIB_LIB}
+    ${OGG_LIB}
+    ${VORBIS_LIB}
+    ${MPG123_LIB}
 )
 
-if(WIN32)
-    target_link_libraries(MyUWPApp SDL2::SDL2main)
+# 输出目录
+set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin)
+set_target_properties(MyUWPApp PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+    LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+    ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+)
 
-    set(OUTPUT_DIR ${CMAKE_BINARY_DIR}/bin)
-    set_target_properties(MyUWPApp PROPERTIES
-        RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
-        LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}
-        ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_DIR}
-    )
-
-    foreach(target SDL2 SDL2_image SDL2_mixer)
-        if(TARGET ${target})
-            set_target_properties(${target} PROPERTIES
-                RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
-                LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}
-                ARCHIVE_OUTPUT_DIRECTORY ${OUTPUT_DIR}
-            )
-        endif()
-    endforeach()
-
-    if(NOT CMAKE_SYSTEM_NAME STREQUAL "WindowsStore")
-        add_custom_command(TARGET MyUWPApp POST_BUILD
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2::SDL2> $<TARGET_FILE_DIR:MyUWPApp>
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2_image::SDL2_image> $<TARGET_FILE_DIR:MyUWPApp>
-            COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:SDL2_mixer::SDL2_mixer> $<TARGET_FILE_DIR:MyUWPApp>
-        )
-    else()
-        message(STATUS "UWP 模式下使用 SDL 静态库链接，避免 DLL 依赖。")
-        target_link_libraries(MyUWPApp
-            SDL2::SDL2-static
-            SDL2_image::SDL2_image-static
-            SDL2_mixer::SDL2_mixer-static
-            ${PNG_LIB}
-            ${JPEG_LIB}
-            ${ZLIB_LIB}
-            ${OGG_LIB}
-            ${VORBIS_LIB}
-            ${MPG123_LIB}
-        )
-    endif()
-endif()
-
+# UWP 平台属性
 set_target_properties(MyUWPApp PROPERTIES
     VS_WINDOWS_TARGET_PLATFORM_MIN_VERSION 10.0.17763.0
     VS_WINDOWS_TARGET_PLATFORM_VERSION 10.0

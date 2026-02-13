@@ -24,7 +24,15 @@ endif()
 
 include(FetchContent)
 
-# 禁止SDL2编译test文件夹 
+# 强制静态编译 SDL2 系列库
+set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL2IMAGE_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_STATIC ON CACHE BOOL "" FORCE)
+set(SDL2MIXER_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL2MIXER_STATIC ON CACHE BOOL "" FORCE)
+
+# 禁止 SDL2 编译 test 文件夹 
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 
 # SDL2
@@ -76,9 +84,9 @@ add_library(MyIOSApp STATIC ${MAIN_FILE})
 
 # 在 iOS 下使用静态链接，避免运行时依赖动态库
 target_link_libraries(MyIOSApp
-    SDL2::SDL2-static
-    SDL2_image::SDL2_image-static
-    SDL2_mixer::SDL2_mixer-static
+    SDL2::SDL2
+    SDL2_image::SDL2_image
+    SDL2_mixer::SDL2_mixer
     "-framework UIKit"
     "-framework Foundation"
     "-framework CoreGraphics"
@@ -95,11 +103,27 @@ if(USE_ANGLE)
     message(STATUS "启用 ANGLE 支持 (静态链接)")
     if(DEFINED ANGLE_DIR AND EXISTS "${ANGLE_DIR}/libEGL.a" AND EXISTS "${ANGLE_DIR}/libGLESv2.a")
         target_link_directories(MyIOSApp PRIVATE ${ANGLE_DIR})
-        target_link_libraries(MyIOSApp EGL GLESv2)
+        target_link_libraries(MyIOSApp
+            EGL
+            GLESv2
+            "-framework Metal"
+            "-framework QuartzCore"
+        )
     else()
         find_package(angle QUIET)
         if(angle_FOUND)
-            target_link_libraries(MyIOSApp angle::libEGL-static angle::libGLESv2-static)
+            target_link_libraries(MyIOSApp
+                angle::libEGL
+                angle::libGLESv2
+                "-framework Metal"
+                "-framework QuartzCore"
+            )
+        else()
+            message(FATAL_ERROR "未找到 ANGLE 库，请设置 ANGLE_DIR 或安装 angle CMake 包")
         endif()
     endif()
+else()
+    target_link_libraries(MyIOSApp
+        "-framework OpenGLES"
+    )
 endif()

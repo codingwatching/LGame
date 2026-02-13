@@ -34,10 +34,11 @@ set(FETCHCONTENT_UPDATES_DISCONNECTED ON)
 # 禁止 SDL2 编译 test 文件夹 
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
 
-# SDL2
+# 强制 SDL 系列库静态编译
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
 
+# SDL2
 find_package(SDL2 QUIET)
 if(NOT SDL2_FOUND)
     FetchContent_Declare(
@@ -115,9 +116,9 @@ add_executable(MyStreamApp ${MAIN_FILE})
 
 # 优先使用静态链接，避免运行时依赖动态库
 target_link_libraries(MyStreamApp
-    SDL2::SDL2-static
-    SDL2_image::SDL2_image-static
-    SDL2_mixer::SDL2_mixer-static
+    SDL2::SDL2
+    SDL2_image::SDL2_image
+    SDL2_mixer::SDL2_mixer
     steam_api
 )
 
@@ -135,7 +136,7 @@ if(USE_ANGLE)
     else()
         find_package(angle QUIET)
         if(angle_FOUND)
-            target_link_libraries(MyStreamApp angle::libEGL-static angle::libGLESv2-static)
+            target_link_libraries(MyStreamApp angle::libEGL angle::libGLESv2)
         endif()
     endif()
 endif()

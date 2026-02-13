@@ -5,6 +5,14 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_SYSTEM_PROCESSOR x86_64)
 
+# 根据不同 SDK 环境选择静态库后缀
+if(DEFINED ENV{NXDK})
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".a")
+else()
+    set(CMAKE_FIND_LIBRARY_SUFFIXES ".lib")
+endif()
+set(BUILD_SHARED_LIBS OFF)
+
 if(MSVC)
     add_compile_options(/Ox)
 endif()
@@ -34,33 +42,37 @@ else()
     message(FATAL_ERROR "未检测到 GDKX、XDK 或 NXDK SDK，请设置环境变量")
 endif()
 
-# 源码目录
+# 源码目录和入口文件
 if(NOT DEFINED SRC_DIR)
     set(SRC_DIR ${CMAKE_SOURCE_DIR}/src)
 endif()
 
-file(GLOB_RECURSE SOURCES ${SRC_DIR}/*.c)
-
 set(MAIN_FILE ${SRC_DIR}/all.c)
 if(NOT EXISTS ${MAIN_FILE})
-    message(FATAL_ERROR "未找到入口文件 all.c")
+    message(FATAL_ERROR "未找到入口文件 all.c，请确认源码目录是否正确: ${SRC_DIR}")
 endif()
 
 include(FetchContent)
 
-# 禁止 SDL2 编译 test 文件夹
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
-
 set(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/third_party)
 
-# 限定搜索路径到 Xbox SDK，避免误用主机 SDL2
+# 限定搜索路径到 Xbox SDK
 set(CMAKE_PREFIX_PATH "${XBOXSDK_PATH}" ${CMAKE_PREFIX_PATH})
+
+# 强制 SDL 系列库静态编译
+set(SDL_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL_STATIC ON CACHE BOOL "" FORCE)
+set(SDL2IMAGE_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL2IMAGE_STATIC ON CACHE BOOL "" FORCE)
+set(SDL2MIXER_SHARED OFF CACHE BOOL "" FORCE)
+set(SDL2MIXER_STATIC ON CACHE BOOL "" FORCE)
 
 # SDL2
 find_package(SDL2 QUIET)
 if(SDL2_FOUND AND SDL2_INCLUDE_DIRS MATCHES "${XBOXSDK_PATH}")
     message(STATUS "使用 Xbox SDK 中的 SDL2 库")
-    add_library(SDL2_Xbox::SDL2 ALIAS SDL2::SDL2-static)
+    add_library(SDL2_Xbox::SDL2 ALIAS SDL2::SDL2)
 elseif(DEFINED ENV{NXDK})
     message(STATUS "未找到 Xbox SDK SDL2，开始下载 nxdk-sdl (原始 Xbox)")
     FetchContent_Declare(
@@ -89,7 +101,7 @@ else()
       BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_xbox-build
     )
     FetchContent_MakeAvailable(SDL2_Xbox)
-    add_library(SDL2_Xbox::SDL2 ALIAS SDL2::SDL2-static)
+    add_library(SDL2_Xbox::SDL2 ALIAS SDL2::SDL2)
 endif()
 
 # SDL2_image
@@ -97,10 +109,11 @@ set(SDL2IMAGE_AVIF OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_WEBP OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_TIF OFF CACHE BOOL "" FORCE)
 set(SDL2IMAGE_VENDORED OFF CACHE BOOL "" FORCE)
+
 find_package(SDL2_image QUIET)
 if(SDL2_IMAGE_FOUND AND SDL2_IMAGE_INCLUDE_DIRS MATCHES "${XBOXSDK_PATH}")
     message(STATUS "使用 Xbox SDK 中的 SDL2_image 库")
-    add_library(SDL2_Xbox::SDL2_image ALIAS SDL2_image::SDL2_image-static)
+    add_library(SDL2_Xbox::SDL2_image ALIAS SDL2_image::SDL2_image)
 else()
     message(STATUS "未找到 Xbox SDK SDL2_image，开始下载")
     FetchContent_Declare(
@@ -111,15 +124,16 @@ else()
       BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_image_xbox-build
     )
     FetchContent_MakeAvailable(SDL2_image_Xbox)
-    add_library(SDL2_Xbox::SDL2_image ALIAS SDL2_image::SDL2_image-static)
+    add_library(SDL2_Xbox::SDL2_image ALIAS SDL2_image::SDL2_image)
 endif()
 
 # SDL2_mixer
 set(SDL2MIXER_WAVPACK OFF CACHE BOOL "" FORCE)
+
 find_package(SDL2_mixer QUIET)
 if(SDL2_MIXER_FOUND AND SDL2_MIXER_INCLUDE_DIRS MATCHES "${XBOXSDK_PATH}")
     message(STATUS "使用 Xbox SDK 中的 SDL2_mixer 库")
-    add_library(SDL2_Xbox::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer-static)
+    add_library(SDL2_Xbox::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer)
 else()
     message(STATUS "未找到 Xbox SDK SDL2_mixer，开始下载")
     FetchContent_Declare(
@@ -130,25 +144,25 @@ else()
       BINARY_DIR ${FETCHCONTENT_BASE_DIR}/sdl2_mixer_xbox-build
     )
     FetchContent_MakeAvailable(SDL2_mixer_Xbox)
-    add_library(SDL2_Xbox::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer-static)
+    add_library(SDL2_Xbox::SDL2_mixer ALIAS SDL2_mixer::SDL2_mixer)
 endif()
 
-# 查找第三方依赖库 (仅在 XDK/NXDK 环境下需要)
+# 第三方依赖库 (XDK/NXDK 静态版本)
 if(DEFINED ENV{XDKSDK} OR DEFINED ENV{NXDK})
-    find_library(PNG_LIB png REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
-    find_library(JPEG_LIB jpeg REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
-    find_library(ZLIB_LIB z REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
-    find_library(OGG_LIB ogg REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
-    find_library(VORBIS_LIB vorbis REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
-    find_library(MPG123_LIB mpg123 REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
+    find_library(PNG_LIB NAMES png REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
+    find_library(JPEG_LIB NAMES jpeg REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
+    find_library(ZLIB_LIB NAMES z REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
+    find_library(OGG_LIB NAMES ogg REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
+    find_library(VORBIS_LIB NAMES vorbis REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
+    find_library(MPG123_LIB NAMES mpg123 REQUIRED PATHS "${XBOXSDK_PATH}/lib" "${XBOXSDK_PATH}/portlibs/lib")
 endif()
 
 # 全局定义 pure_sdl 宏
 add_compile_definitions(PURE_SDL=1)
 
-add_executable(MyXBoxApp ${SOURCES} ${MAIN_FILE})
+add_executable(MyXBoxApp ${MAIN_FILE})
 
-# 链接依赖库
+# 链接 SDL2 系列库
 target_link_libraries(MyXBoxApp
     SDL2_Xbox::SDL2
     SDL2_Xbox::SDL2_image
@@ -195,7 +209,7 @@ if(USE_ANGLE)
     else()
         find_package(angle QUIET)
         if(angle_FOUND)
-            target_link_libraries(MyXBoxApp angle::libEGL-static angle::libGLESv2-static)
+            target_link_libraries(MyXBoxApp angle::libEGL angle::libGLESv2)
         endif()
     endif()
 endif()
