@@ -142,6 +142,12 @@ elseif(APPLE)
     if(CARBON_FRAMEWORK)
         target_link_libraries(MyDesktopApp PRIVATE ${CARBON_FRAMEWORK})
     endif()
+elseif(UNIX)
+    target_link_libraries(MyDesktopApp
+        pthread
+        dl
+        m
+    )
 endif()
 
 # 可选 ANGLE 支持
