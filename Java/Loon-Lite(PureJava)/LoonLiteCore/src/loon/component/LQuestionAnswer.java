@@ -770,7 +770,7 @@ public class LQuestionAnswer extends LContainer {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 
 	}
 

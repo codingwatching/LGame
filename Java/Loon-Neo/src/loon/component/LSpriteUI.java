@@ -140,7 +140,7 @@ public class LSpriteUI extends LContainer {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		if (_sprite != null) {
 			_sprite.close();
 		}

@@ -160,7 +160,7 @@ public abstract class Pool<T> {
 		if (objects == null) {
 			throw new LSysException("Object cannot be null.");
 		}
-		for (; objects.hashNext();) {
+		for (; objects.hasNext();) {
 			T o = objects.next();
 			if (o == null) {
 				continue;

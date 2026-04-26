@@ -273,7 +273,7 @@ public class TArray<T> implements Iterable<T>, IArray, LRelease {
 	}
 
 	public TArray<T> addAll(Array<? extends T> vals) {
-		for (; vals.hashNext();) {
+		for (; vals.hasNext();) {
 			add(vals.next());
 		}
 		vals.stopNext();

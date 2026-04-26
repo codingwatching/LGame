@@ -1142,7 +1142,7 @@ public class LMenu extends LComponent implements FontSet<LMenu> {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		for (MenuItem item : _items) {
 			if (item != null) {
 				item.close();

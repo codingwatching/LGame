@@ -120,7 +120,7 @@ public class BehaviorBuilder<T> implements IBaseAction, LRelease {
 		if (_currentBehaviorAction != null) {
 			_currentBehaviorAction.tick(_context);
 		}
-		for (; _parentNodeStack.hashNext();) {
+		for (; _parentNodeStack.hasNext();) {
 			Behavior<T> node = _parentNodeStack.next();
 			if (node != null) {
 				node.tick(_context);
@@ -272,7 +272,7 @@ public class BehaviorBuilder<T> implements IBaseAction, LRelease {
 		if (_currentBehaviorAction != null) {
 			_currentBehaviorAction.close();
 		}
-		for (; _parentNodeStack.hashNext();) {
+		for (; _parentNodeStack.hasNext();) {
 			Behavior<T> node = _parentNodeStack.next();
 			if (node != null) {
 				node.close();

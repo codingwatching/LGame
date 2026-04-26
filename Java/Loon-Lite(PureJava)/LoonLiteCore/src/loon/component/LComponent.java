@@ -2061,6 +2061,10 @@ public abstract class LComponent extends LObject<LContainer>
 		return checkPointInRect(getUITouchXY(), getRectBox(), rotation);
 	}
 
+	public boolean isClick() {
+		return isPointInUI() && isTouchDownClick();
+	}
+
 	protected boolean checkPointInRect(final Vector2f pos, final RectBox rect, final float rotation) {
 		if (pos == null || rect == null) {
 			return false;
@@ -2847,9 +2851,9 @@ public abstract class LComponent extends LObject<LContainer>
 		this.freeImages();
 		this.clearListener();
 		removeActionEvents(this);
-		destory();
+		destroy();
 	}
 
-	public abstract void destory();
+	public abstract void destroy();
 
 }

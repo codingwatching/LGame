@@ -209,7 +209,7 @@ public class TableLayout extends LContainer {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 
 	}
 }

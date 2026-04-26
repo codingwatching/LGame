@@ -1182,7 +1182,7 @@ public class LMessageBox extends LComponent implements FontSet<LMessageBox> {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		if (_box != null) {
 			_box.close();
 		}

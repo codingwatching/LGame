@@ -2213,7 +2213,7 @@ public class RocScript {
 	public Object getVar(String name) {
 		if (vars != null) {
 			Object result = null;
-			for (; vars.hashNext();) {
+			for (; vars.hasNext();) {
 				ArrayMap map = vars.next();
 				if (map != null) {
 					result = map.get(name);

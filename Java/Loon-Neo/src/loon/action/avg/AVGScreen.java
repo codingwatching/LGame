@@ -125,6 +125,9 @@ public abstract class AVGScreen extends Screen implements FontSet<AVGScreen> {
 				}
 				_screen.messageDesktop.update(updateTime);
 			}
+			if (_screen.selectUI != null) {
+				_screen.selectUI.update(time.timeSinceLastUpdate);
+			}
 			if (_screen.effectSprites != null) {
 				_screen.effectSprites.update(time.timeSinceLastUpdate);
 			}
@@ -265,9 +268,9 @@ public abstract class AVGScreen extends Screen implements FontSet<AVGScreen> {
 			if (_screen == null || _screen.tasking() || _items == null || _screen.selectUI == null) {
 				return;
 			}
-			if (_screen.command == null)
+			if (_screen.command == null) {
 				return;
-
+			}
 			boolean mobileValid = (LSystem.isMobile() || LSystem.isEmulateTouch())
 					? _screen._clickcount++ >= _screen._mobile_select_valid_limit
 					: _screen._clickcount > -1;
@@ -1697,21 +1700,44 @@ public abstract class AVGScreen extends Screen implements FontSet<AVGScreen> {
 			this._screen = screen;
 		}
 
+		boolean _isNext = false;
+
 		@Override
 		public void update() {
 			if (_screen == null || !_screen.isGameRunning) {
 				return;
 			}
-			boolean isNext = false;
+			_isNext = false;
 			if (!_screen.isSelectMessage && _screen.scrCG.sleep <= 0) {
 				if (!_screen.scrFlag) {
 					_screen.scrFlag = true;
 				}
-				isNext = _screen._screenClickd || (_screen.messageUI != null
-						&& _screen.messageUI.intersects(_screen.getTouchX(), _screen.getTouchY()));
-			}
-			if (isNext && !_screen.isSelectMessage && !_screen.tasking()) {
-				_screen.nextScript();
+				if (!_screen._screenClickd && _screen.messageUI.isVisible()) {
+					_isNext = _screen.messageUI.intersects(_screen.getTouchX(), _screen.getTouchY());
+				} else {
+					_isNext = true;
+				}
+				if (_isNext && !_screen.isSelectMessage && !_screen.tasking()) {
+					_screen.nextScript();
+				}
+			} else if ((_screen.scrFlag && _screen.selectUI.getResultIndex() != -1) && _screen.selectUI.isPointInUI()) {
+				if ((LSystem.isMobile() || LSystem.isEmulateTouch())
+						? _screen._clickcount++ >= _screen._mobile_select_valid_limit
+						: _screen._clickcount > -1) {
+					_screen.selectUI.setCallEvent(new EventActionN() {
+
+						@Override
+						public void update() {
+							_isNext = _screen.selectUI.intersects(_screen.getTouchX(), _screen.getTouchY());
+							if (_isNext) {
+								_screen.onSelect(_screen._selectMessage, _screen.selectUI.getResultIndex());
+								_screen.messageUI.setVisible(false);
+								_screen.clearSelectMessage();
+								_screen.nextScript();
+							}
+						}
+					});
+				}
 			}
 		}
 	}
@@ -1915,7 +1941,7 @@ public abstract class AVGScreen extends Screen implements FontSet<AVGScreen> {
 			return;
 		}
 		if (_currentTasks.size() > 0) {
-			for (; _currentTasks.hashNext();) {
+			for (; _currentTasks.hasNext();) {
 				final Task task = _currentTasks.next();
 				if (task.completed()) {
 					_currentTasks.remove(task);

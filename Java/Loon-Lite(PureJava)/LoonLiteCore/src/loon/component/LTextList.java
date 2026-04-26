@@ -707,7 +707,7 @@ public class LTextList extends LComponent implements FontSet<LTextList> {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 
 	}
 

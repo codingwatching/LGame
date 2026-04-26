@@ -691,7 +691,7 @@ public class LCardGroup extends LContainer {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		resetAllCards();
 		setCardUpdate(false);
 	}

@@ -707,7 +707,7 @@ public class GLEx extends BatchEx<GLEx> implements LRelease {
 			return this;
 		}
 		if (frameBuffers != null) {
-			for (; frameBuffers.hashNext();) {
+			for (; frameBuffers.hasNext();) {
 				LTextureImage buffer = frameBuffers.next();
 				if (buffer != null) {
 					buffer.close();

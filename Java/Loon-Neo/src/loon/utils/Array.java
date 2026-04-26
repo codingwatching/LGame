@@ -48,8 +48,7 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 	}
 
 	private static class ListItr<T> implements LIterator<T> {
-
-		private Array<T> list;
+		private final Array<T> list;
 
 		ListItr(Array<T> l) {
 			this.list = l;
@@ -57,7 +56,7 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 
 		@Override
 		public boolean hasNext() {
-			return list.hashNext();
+			return list.hasNext();
 		}
 
 		@Override
@@ -69,7 +68,6 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 		public void remove() {
 			list.remove();
 		}
-
 	}
 
 	public static final <T> Array<T> at() {
@@ -81,7 +79,6 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 	}
 
 	public static class ArrayNode<T> {
-
 		public ArrayNode<T> next;
 		public ArrayNode<T> previous;
 		public T data;
@@ -94,16 +91,11 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 	}
 
 	private LIterator<T> _iterator;
-
-	private ArrayNode<T> _items = null;
-
+	private ArrayNode<T> _items;
 	private int _length;
-
 	private boolean _close;
-
-	private ArrayNode<T> _next_tmp = null, _previous_tmp = null;
-
-	private int _next_count = 0, _previous_count = 0;
+	private ArrayNode<T> _next_tmp, _previous_tmp;
+	private int _next_count, _previous_count;
 
 	public Array() {
 		clear();
@@ -122,10 +114,10 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 		if (_close) {
 			return this;
 		}
-		if (previous == this._items && next != this._items) {
-			this.addFront(newNode.data);
-		} else if (previous != this._items && next == this._items) {
-			this.addBack(newNode.data);
+		if (previous == _items) {
+			addFront(newNode.data);
+		} else if (next == _items) {
+			addBack(newNode.data);
 		} else {
 			newNode.next = next;
 			newNode.previous = previous;
@@ -137,14 +129,14 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 
 	public Array<T> reverse() {
 		Array<T> tmp = new Array<T>();
-		for (int i = size() - 1; i > -1; --i) {
+		for (int i = size() - 1; i > -1; i--) {
 			tmp.add(get(i));
 		}
 		return tmp;
 	}
 
 	public Array<T> addAll(Array<T> data) {
-		for (; data.hashNext();) {
+		while (data.hasNext()) {
 			add(data.next());
 		}
 		return data.stopNext();
@@ -158,7 +150,7 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 	}
 
 	public Array<T> slice(int start) {
-		return slice(start, this.size());
+		return slice(start, size());
 	}
 
 	public Array<T> slice(int start, int end) {
@@ -174,19 +166,7 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 	}
 
 	public Array<T> add(T data) {
-		ArrayNode<T> newNode = new ArrayNode<T>();
-		ArrayNode<T> o = this._items.next;
-		newNode.data = data;
-		if (o == this._items) {
-			this.addFront(data);
-		} else {
-			for (; o != this._items;) {
-				o = o.next;
-			}
-			if (o == this._items) {
-				this.addBack(newNode.data);
-			}
-		}
+		addBack(data);
 		return this;
 	}
 
@@ -196,10 +176,10 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 		}
 		ArrayNode<T> newNode = new ArrayNode<T>();
 		newNode.data = data;
-		newNode.next = this._items.next;
-		this._items.next.previous = newNode;
-		this._items.next = newNode;
-		newNode.previous = this._items;
+		newNode.next = _items.next;
+		_items.next.previous = newNode;
+		_items.next = newNode;
+		newNode.previous = _items;
 		_length++;
 		return this;
 	}
@@ -210,55 +190,51 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 		}
 		ArrayNode<T> newNode = new ArrayNode<T>();
 		newNode.data = data;
-		newNode.previous = this._items.previous;
-		this._items.previous.next = newNode;
-		this._items.previous = newNode;
-		newNode.next = this._items;
+		newNode.previous = _items.previous;
+		_items.previous.next = newNode;
+		_items.previous = newNode;
+		newNode.next = _items;
 		_length++;
 		return this;
 	}
 
 	public T get(int idx) {
-		if (_close) {
+		if (_close || idx < 0 || idx >= _length) {
 			return null;
 		}
-		int size = _length - 1;
-		if (0 <= idx && idx <= size) {
-			ArrayNode<T> o = this._items.next;
-			int count = 0;
-			for (; count < idx;) {
-				o = o.next;
-				count++;
+		ArrayNode<T> node;
+		if (idx < _length / 2) {
+			node = _items.next;
+			for (int i = 0; i < idx; i++) {
+				node = node.next;
 			}
-			return o.data;
-		} else if (idx == size) {
-			return _items.data;
+		} else {
+			node = _items.previous;
+			for (int i = _length - 1; i > idx; i--) {
+				node = node.previous;
+			}
 		}
-		return null;
+		return node.data;
 	}
 
 	public Array<T> set(int idx, T v) {
-		if (_close) {
+		if (_close || idx < 0) {
 			return this;
 		}
-		int size = _length - 1;
-
-		if (0 <= idx && idx <= size) {
-			ArrayNode<T> o = this._items.next;
-			int count = 0;
-			for (; count < idx;) {
-				o = o.next;
-				count++;
-			}
-			o.data = v;
-		} else if (idx == size) {
-			_items.data = v;
-		} else if (idx > size) {
-			for (int i = size; i < idx; i++) {
-				add(null);
-			}
-			set(idx, v);
+		while (idx >= _length) {
+			add(null);
 		}
+		ArrayNode<T> node = idx < _length / 2 ? _items.next : _items.previous;
+		if (idx < _length / 2) {
+			for (int i = 0; i < idx; i++) {
+				node = node.next;
+			}
+		} else {
+			for (int i = _length - 1; i > idx; i--) {
+				node = node.previous;
+			}
+		}
+		node.data = v;
 		return this;
 	}
 
@@ -274,12 +250,16 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 		if (_close) {
 			return false;
 		}
-		ArrayNode<T> o = this._items.next;
-		for (; o != this._items;) {
-			if ((identity || data == null) && o.data == data) {
-				return true;
-			} else if (data.equals(o.data)) {
-				return true;
+		ArrayNode<T> o = _items.next;
+		while (o != _items) {
+			if (identity || data == null) {
+				if (o.data == data) {
+					return true;
+				}
+			} else {
+				if (data.equals(o.data)) {
+					return true;
+				}
 			}
 			o = o.next;
 		}
@@ -295,12 +275,16 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 			return -1;
 		}
 		int count = 0;
-		ArrayNode<T> o = this._items.next;
-		for (; o != this._items && count < _length;) {
-			if ((identity || data == null) && o.data == data) {
-				return count;
-			} else if (data.equals(o.data)) {
-				return count;
+		ArrayNode<T> o = _items.next;
+		while (o != _items && count < _length) {
+			if (identity || data == null) {
+				if (o.data == data) {
+					return count;
+				}
+			} else {
+				if (data.equals(o.data)) {
+					return count;
+				}
 			}
 			o = o.next;
 			count++;
@@ -317,12 +301,16 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 			return -1;
 		}
 		int count = _length - 1;
-		ArrayNode<T> o = this._items.previous;
-		for (; o != this._items && count > 0;) {
-			if ((identity || data == null) && o.data == data) {
-				return count;
-			} else if (data.equals(o.data)) {
-				return count;
+		ArrayNode<T> o = _items.previous;
+		while (o != _items && count > 0) {
+			if (identity || data == null) {
+				if (o.data == data) {
+					return count;
+				}
+			} else {
+				if (data.equals(o.data)) {
+					return count;
+				}
 			}
 			o = o.previous;
 			count--;
@@ -331,17 +319,14 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 	}
 
 	public ArrayNode<T> find(T data) {
-		if (_close) {
+		if (_close || data == null) {
 			return null;
 		}
-		ArrayNode<T> o = this._items.next;
-		for (; o != this._items && !data.equals(o.data);) {
+		ArrayNode<T> o = _items.next;
+		while (o != _items && !data.equals(o.data)) {
 			o = o.next;
 		}
-		if (o == this._items) {
-			return null;
-		}
-		return o;
+		return o == _items ? null : o;
 	}
 
 	public T removeFirst() {
@@ -363,30 +348,31 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 	}
 
 	public boolean remove(int idx) {
-		if (_close) {
+		if (_close || idx < 0 || idx >= _length) {
 			return false;
 		}
-		int size = _length - 1;
-		if (0 <= idx && idx <= size) {
-			ArrayNode<T> o = this._items.next;
-			int count = 0;
-			for (; count < idx;) {
-				o = o.next;
-				count++;
+		ArrayNode<T> node = idx < _length / 2 ? _items.next : _items.previous;
+		if (idx < _length / 2) {
+			for (int i = 0; i < idx; i++) {
+				node = node.next;
 			}
-			return remove(o.data);
-		} else if (idx == size) {
-			return remove(_items.data);
+		} else {
+			for (int i = _length - 1; i > idx; i--) {
+				node = node.previous;
+			}
 		}
-		return false;
+		node.previous.next = node.next;
+		node.next.previous = node.previous;
+		_length--;
+		return true;
 	}
 
 	public boolean remove(T data) {
-		if (_close) {
+		if (_close || data == null) {
 			return false;
 		}
-		ArrayNode<T> toDelete = this.find(data);
-		if (toDelete != this._items && toDelete != null) {
+		ArrayNode<T> toDelete = find(data);
+		if (toDelete != null && toDelete != _items) {
 			toDelete.previous.next = toDelete.next;
 			toDelete.next.previous = toDelete.previous;
 			_length--;
@@ -401,40 +387,33 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 	}
 
 	public T pop() {
-		T o = null;
-		if (!isEmpty()) {
-			o = this._items.previous.data;
-			remove(o);
+		if (isEmpty()) {
+			return null;
 		}
+		T o = _items.previous.data;
+		remove(o);
 		return o;
 	}
 
 	public T previousPop() {
-		T o = null;
-		o = this._items.previous.data;
+		if (isEmpty()) {
+			return null;
+		}
+		T o = _items.previous.data;
 		remove(o);
-		return this._items.previous.data;
+		return isEmpty() ? null : _items.previous.data;
 	}
 
 	public boolean isFirst(Array<T> o) {
-		if (o._items.previous == this._items) {
-			return true;
-		}
-		return false;
+		return o._items.previous == this._items;
 	}
 
 	public boolean isLast(Array<T> o) {
-		if (o._items.next == this._items) {
-			return true;
-		}
-		return false;
+		return o._items.next == this._items;
 	}
 
 	public T random() {
-		if (_length == 0) {
-			return null;
-		}
-		return get(MathUtils.random(0, _length - 1));
+		return _length == 0 ? null : get(MathUtils.random(0, _length - 1));
 	}
 
 	public Array<T> randomArrays() {
@@ -443,7 +422,7 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 		}
 		T v = null;
 		Array<T> newArrays = new Array<T>();
-		for (; hashNext();) {
+		for (; hasNext();) {
 			newArrays.add(next());
 		}
 		stopNext();
@@ -454,7 +433,6 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 					v = random();
 					j = -1;
 				}
-
 			}
 			newArrays.set(i, v);
 		}
@@ -471,11 +449,11 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 			return null;
 		}
 		if (_next_count == 0) {
-			_next_tmp = this._items.next;
+			_next_tmp = _items.next;
 			_next_count++;
 			return _next_tmp.data;
 		}
-		if (_next_tmp != this._items && _next_count < _length) {
+		if (_next_tmp != _items && _next_count < _length) {
 			_next_tmp = _next_tmp.next;
 			_next_count++;
 			return _next_tmp.data;
@@ -485,7 +463,7 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 		}
 	}
 
-	public boolean hashNext() {
+	public boolean hasNext() {
 		return _next_count < _length;
 	}
 
@@ -504,11 +482,11 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 			return null;
 		}
 		if (_previous_count == 0) {
-			_previous_tmp = this._items.previous;
+			_previous_tmp = _items.previous;
 			_previous_count++;
 			return _previous_tmp.data;
 		}
-		if (_previous_tmp != this._items && _previous_count < _length) {
+		if (_previous_tmp != _items && _previous_count < _length) {
 			_previous_tmp = _previous_tmp.previous;
 			_previous_count++;
 			return _previous_tmp.data;
@@ -532,11 +510,11 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 		if (isEmpty()) {
 			return "[]";
 		}
-		ArrayNode<T> o = this._items.next;
+		ArrayNode<T> o = _items.next;
 		StrBuilder buffer = new StrBuilder(32);
 		buffer.append('[');
 		int count = 0;
-		for (; o != this._items;) {
+		while (o != _items) {
 			buffer.append(o.data);
 			if (count != _length - 1) {
 				buffer.append(split);
@@ -550,7 +528,7 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 
 	@Override
 	public boolean equals(Object o) {
-		if (o == this) {
+		if (this == o) {
 			return true;
 		}
 		if (!(o instanceof Array)) {
@@ -560,40 +538,26 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 		if (_length != array._length) {
 			return false;
 		}
-		ArrayNode<?> items1 = this._items;
-		ArrayNode<?> items2 = array._items;
-		if (items1 == items2) {
-			return true;
-		}
-		if (items1 == null || items2 == null) {
-			return false;
-		}
-		for (int i = 0; i < _length; i++) {
-			Object o1 = items1.next.data;
-			Object o2 = items2.next.data;
-			items1 = items1.next;
-			items2 = items2.next;
+		ArrayNode<?> n1 = _items.next;
+		ArrayNode<?> n2 = array._items.next;
+		while (n1 != _items && n2 != array._items) {
+			Object o1 = n1.data;
+			Object o2 = n2.data;
 			if (!(o1 == null ? o2 == null : o1.equals(o2))) {
 				return false;
 			}
+			n1 = n1.next;
+			n2 = n2.next;
 		}
 		return true;
 	}
 
 	public T first() {
-		if (this.isEmpty()) {
-			return null;
-		} else {
-			return this._items.next.data;
-		}
+		return isEmpty() ? null : _items.next.data;
 	}
 
 	public T last() {
-		if (this.isEmpty()) {
-			return null;
-		} else {
-			return this._items.previous.data;
-		}
+		return isEmpty() ? null : _items.previous.data;
 	}
 
 	public T peek() {
@@ -601,49 +565,37 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 	}
 
 	public void sort(Comparator<T> compar) {
-		if (_length <= 1) {
+		if (_length <= 1 || compar == null) {
 			return;
 		}
-		ArrayNode<T> headData = _items.next, dstData = null;
-		if (headData == null) {
-			return;
-		} else {
-			T temp;
-			for (; headData != null && headData.data != null;) {
-				dstData = headData.next;
-				for (; dstData != null && dstData.data != null;) {
-					if (compar.compare(headData.data, dstData.data) > 0) {
-						temp = headData.data;
-						headData.data = dstData.data;
-						dstData.data = temp;
-					}
-					dstData = dstData.next;
+		ArrayNode<T> headData = _items.next;
+		while (headData != _items) {
+			ArrayNode<T> dstData = headData.next;
+			while (dstData != _items) {
+				if (compar.compare(headData.data, dstData.data) > 0) {
+					T temp = headData.data;
+					headData.data = dstData.data;
+					dstData.data = temp;
 				}
-				headData = headData.next;
+				dstData = dstData.next;
 			}
+			headData = headData.next;
 		}
 	}
 
 	public int getNodeCount() {
-		int count = 0;
-		ArrayNode<T> headData = _items.next;
-		for (; headData != null && headData.data != null;) {
-			count++;
-			headData = headData.next;
-		}
-		return count;
+		return _length;
 	}
 
 	@Override
 	public void clear() {
-		this._close = false;
-		this._length = 0;
-		this.stopNext();
-		this.stopPrevious();
-		this._items = null;
-		this._items = new ArrayNode<T>();
-		this._items.next = this._items;
-		this._items.previous = this._items;
+		_close = false;
+		_length = 0;
+		stopNext();
+		stopPrevious();
+		_items = new ArrayNode<T>();
+		_items.next = _items;
+		_items.previous = _items;
 	}
 
 	@Override
@@ -653,7 +605,7 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 
 	@Override
 	public boolean isEmpty() {
-		return _close || _length == 0 || this._items.next == this._items;
+		return _close || _length == 0;
 	}
 
 	@Override
@@ -672,14 +624,14 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 	}
 
 	public Array<T> subList(final int fromIndex, final int toIndex) {
-		if (fromIndex < 0 || fromIndex > this._length - 1 || toIndex < 0 || toIndex > this._length - 1) {
+		if (fromIndex < 0 || fromIndex >= _length || toIndex < 0 || toIndex >= _length || fromIndex > toIndex) {
 			throw new LSysException(
 					"Index out of bounds on call to subList with from of " + fromIndex + " and to " + toIndex);
 		}
 		Array<T> list = new Array<T>();
 		ArrayNode<T> cur = _items.next;
 		int count = 0;
-		for (; cur != null && cur.data != null;) {
+		while (cur != _items) {
 			if (count >= fromIndex && count <= toIndex) {
 				list.add(cur.data);
 			}
@@ -698,13 +650,13 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 		if (_iterator == null) {
 			_iterator = new ListItr<T>(this);
 		}
-		this.stopNext();
+		stopNext();
 		return _iterator;
 	}
 
 	public Array<T> where(QueryEvent<T> test) {
 		Array<T> list = new Array<T>();
-		for (; hashNext();) {
+		while (hasNext()) {
 			T t = next();
 			if (test.hit(t)) {
 				list.add(t);
@@ -715,7 +667,7 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 	}
 
 	public T find(QueryEvent<T> test) {
-		for (; hashNext();) {
+		while (hasNext()) {
 			T t = next();
 			if (test.hit(t)) {
 				stopNext();
@@ -727,7 +679,7 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 	}
 
 	public boolean remove(QueryEvent<T> test) {
-		for (; hashNext();) {
+		while (hasNext()) {
 			T t = next();
 			if (test.hit(t)) {
 				stopNext();
@@ -738,16 +690,76 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 		return false;
 	}
 
+	public void queryEach(QueryEvent<T> event) {
+		if (event == null || isEmpty()) {
+			return;
+		}
+		ArrayNode<T> node = _items.next;
+		while (node != _items) {
+			event.hit(node.data);
+			node = node.next;
+		}
+	}
+
+	public int replaceAll(T oldVal, T newVal) {
+		if (isEmpty()) {
+			return 0;
+		}
+		int count = 0;
+		ArrayNode<T> node = _items.next;
+		while (node != _items) {
+			boolean match = (oldVal == null ? node.data == null : oldVal.equals(node.data));
+			if (match) {
+				node.data = newVal;
+				count++;
+			}
+			node = node.next;
+		}
+		return count;
+	}
+
+	public boolean removeAll(Array<T> data) {
+		if (data == null || data.isEmpty() || isEmpty()) {
+			return false;
+		}
+		boolean modified = false;
+		ArrayNode<T> node = _items.next;
+		while (node != _items) {
+			ArrayNode<T> next = node.next;
+			if (data.contains(node.data)) {
+				remove(node.data);
+				modified = true;
+			}
+			node = next;
+		}
+		return modified;
+	}
+
+	public Object[] toArray() {
+		if (isEmpty()) {
+			return new Object[0];
+		}
+		Object[] arr = new Object[_length];
+		ArrayNode<T> node = _items.next;
+		for (int i = 0; i < _length; i++) {
+			arr[i] = node.data;
+			node = node.next;
+		}
+		return arr;
+	}
+
 	public void dispose() {
 		_close = true;
 		_length = 0;
 		_items = null;
+		_next_tmp = null;
+		_previous_tmp = null;
 	}
 
 	@Override
 	public int hashCode() {
 		int hashCode = 1;
-		for (; hashNext();) {
+		while (hasNext()) {
 			Object obj = next();
 			hashCode = 31 * hashCode + (obj == null ? 0 : obj.hashCode());
 		}
@@ -759,5 +771,4 @@ public class Array<T> implements Iterable<T>, IArray, LRelease {
 	public void close() {
 		dispose();
 	}
-
 }

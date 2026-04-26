@@ -493,7 +493,7 @@ public class LDecideName extends LComponent implements FontSet<LDecideName> {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 
 	}
 }

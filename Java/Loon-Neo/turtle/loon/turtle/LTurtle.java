@@ -316,7 +316,7 @@ public class LTurtle extends LComponent {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 
 	}
 

@@ -1005,7 +1005,7 @@ public class LTextTree extends LComponent implements FontSet<LTextTree> {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		if (_treeNodes != null) {
 			for (TreeNode node : _treeNodes) {
 				if (node != null) {

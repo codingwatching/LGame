@@ -726,7 +726,7 @@ public class LGesture extends LComponent {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 
 	}
 

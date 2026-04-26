@@ -135,7 +135,7 @@ public final class ActionControl implements LRelease {
 	 */
 	public TArray<ActionBindData> loadActionData(ActionBind bind, boolean resetData) {
 		TArray<ActionBindData> list = new TArray<ActionBindData>();
-		for (; _currentBindDatas.hashNext();) {
+		for (; _currentBindDatas.hasNext();) {
 			ActionBindData data = _currentBindDatas.next();
 			if (data != null && data.getObject().equals(bind)) {
 				if (resetData) {
@@ -167,7 +167,7 @@ public final class ActionControl implements LRelease {
 	 * @return
 	 */
 	public ActionControl loadAllActionData() {
-		for (; _currentBindDatas.hashNext();) {
+		for (; _currentBindDatas.hasNext();) {
 			ActionBindData data = _currentBindDatas.next();
 			data.resetInitData();
 		}

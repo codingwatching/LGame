@@ -27,7 +27,7 @@ import loon.canvas.Image;
 import loon.canvas.LColor;
 import loon.component.skin.SelectSkin;
 import loon.component.skin.SkinManager;
-import loon.events.ActionKey;
+import loon.events.EventActionN;
 import loon.events.SysKey;
 import loon.font.FontSet;
 import loon.font.IFont;
@@ -42,37 +42,47 @@ import loon.utils.timer.LTimer;
  */
 public class LSelect extends LContainer implements FontSet<LSelect> {
 
+	public static interface OnSelectListener {
+		/**
+		 * 选中项改变
+		 */
+		void onSelectionChanged(LSelect select, int index, String item);
+
+		/**
+		 * 确认选择
+		 */
+		void onItemConfirmed(LSelect select, int index, String item);
+	}
+
 	private LTexture _tempTexture = null;
-
 	private IFont _messageFont;
-
 	private LColor _fontColor = LColor.white;
-
 	private LColor _cursorColor = LColor.white;
-
-	private int _left, _top, _type, _nTop;
-
+	private int _left, _top, _nTop;
 	private int _sizeFont, _doubleSizeFont, _tmpOffset;
-
 	private int _messageLeft, _nLeft, _messageTop, _selectSize, _selectFlag;
-
 	private int _space;
-
 	private float _autoAlpha;
-
 	private LTimer _delay;
+	private LTimer _confirmDelay;
 
+	private boolean _pendingConfirm;
 	private String[] _selects;
-
 	private String _message, _result;
-
 	private LTexture _cursor, _buoyage;
-
 	private boolean _isAutoAlpha, _isSelect;
+	// 新增：标记是否刚重置数据（禁止触摸自动修改索引）
+	private boolean _justReset;
 
-	private boolean _clicked;
+	private int _selectedIndex = -1;
+	// 翻页分页
+	private int _visibleStartIndex = 0;
+	private int _visibleEndIndex = 0;
+	private int _maxVisibleCount = 0;
+	// 事件回调
+	private OnSelectListener _onSelectListener;
 
-	private ActionKey _eventClick = new ActionKey();
+	private EventActionN _callEvent;
 
 	public LSelect(int x, int y, int width, int height) {
 		this(SkinManager.get().getMessageSkin().getFont(), x, y, width, height);
@@ -133,11 +143,16 @@ public class LSelect extends LContainer implements FontSet<LSelect> {
 		this._space = 30;
 		this._tmpOffset = -(width / 10);
 		this._delay = new LTimer(150);
+		this._confirmDelay = new LTimer(200);
 		this._autoAlpha = 0.25F;
 		this._isAutoAlpha = true;
 		this.setCursor(LSystem.getSystemImagePath() + "creese.png");
 		this.setElastic(true);
 		this.setLocked(true);
+		this._sizeFont = this._messageFont.getSize();
+		this._doubleSizeFont = (this._sizeFont > 0 ? this._sizeFont * 2 : LSystem.getFontSize());
+		// 初始化标记
+		this._justReset = false;
 	}
 
 	public LSelect setMessage(String message, TArray<String> list) {
@@ -153,12 +168,30 @@ public class LSelect extends LContainer implements FontSet<LSelect> {
 	}
 
 	public LSelect setMessage(String message, String[] selects) {
-		this._message = message;
-		this._selects = selects;
-		this._selectSize = selects.length;
+		_pendingConfirm = false;
+		_confirmDelay.reset();
+		_visibleStartIndex = 0;
+		_visibleEndIndex = 0;
+		_justReset = true;
+		_selectedIndex = -1;
+		_message = message;
+		if (selects == null) {
+			this._selects = new String[0];
+			this._selectSize = 0;
+		} else {
+			this._selects = selects;
+			this._selectSize = selects.length;
+		}
 		if (_doubleSizeFont == 0) {
 			_doubleSizeFont = LSystem.getFontSize();
 		}
+		// 强制设置默认第一个索引
+		if (this._selectSize > 0) {
+			setSelectedIndex(0);
+		} else {
+			clearSelection();
+		}
+		calculateVisibleRange();
 		return this;
 	}
 
@@ -189,7 +222,7 @@ public class LSelect extends LContainer implements FontSet<LSelect> {
 	}
 
 	public int getResultIndex() {
-		return _selectFlag - 1;
+		return _selectedIndex;
 	}
 
 	public LSelect setDelay(long timer) {
@@ -201,8 +234,36 @@ public class LSelect extends LContainer implements FontSet<LSelect> {
 		return _delay.getDelay();
 	}
 
+	public LSelect setConfirmDelay(long delay) {
+		this._confirmDelay.setDelay(delay);
+		return this;
+	}
+
+	public long getConfirmDelay() {
+		return _confirmDelay.getDelay();
+	}
+
 	public String getResult() {
 		return _result;
+	}
+
+	@Override
+	public void setVisible(boolean v) {
+		super.setVisible(v);
+		if (v) {
+			_pendingConfirm = false;
+			_confirmDelay.reset();
+			_visibleStartIndex = 0;
+			_visibleEndIndex = 0;
+			_justReset = true;
+			setEnabled(true);
+			if (_selectSize > 0) {
+				setSelectedIndex(0);
+			} else {
+				clearSelection();
+			}
+			calculateVisibleRange();
+		}
 	}
 
 	@Override
@@ -211,6 +272,17 @@ public class LSelect extends LContainer implements FontSet<LSelect> {
 			return;
 		}
 		super.update(elapsedTime);
+
+		// 延迟确认，避免看不到选中项
+		if (_pendingConfirm && _confirmDelay.action(elapsedTime)) {
+			dispatchConfirm();
+			_pendingConfirm = false;
+			setEnabled(true);
+		}
+		if (_pendingConfirm) {
+			return;
+		}
+
 		if (_isAutoAlpha && _buoyage != null) {
 			if (_delay.action(elapsedTime)) {
 				if (_autoAlpha < 0.95F) {
@@ -220,15 +292,34 @@ public class LSelect extends LContainer implements FontSet<LSelect> {
 				}
 			}
 		}
-		if (!isClickUp()) {
-			if (_selects != null) {
-				final int touchY = _input.getTouchIntY();
-				_selectFlag = _selectSize - (((_nTop + _space) - (touchY == 0 ? 1 : touchY)) / _doubleSizeFont);
-				if (_selectFlag < 1) {
-					_selectFlag = 0;
-				}
-				if (_selectFlag > _selectSize) {
-					_selectFlag = _selectSize;
+
+		// 刚重置时，禁止触摸自动修改索引
+		if (!isClickUp() && !_justReset) {
+			if (_selects != null && _selectSize > 0) {
+				float touchY = _input.getTouchY();
+				int listTop = MathUtils.ifloor(_messageTop + _space - _sizeFont / 2);
+				int effectiveTouchY = MathUtils.ifloor(touchY == 0 ? getTouchY() : touchY);
+				int itemHeight = _space;
+				int idx = (effectiveTouchY - listTop + itemHeight / 2) / itemHeight;
+				idx = MathUtils.max(0, MathUtils.min(idx, _selectSize - 1));
+				setSelectedIndex(idx);
+			}
+		}
+
+		// 第一次update后取消重置标记，恢复正常触摸选择
+		if (_justReset) {
+			_justReset = false;
+		}
+
+		if (isSelected()) {
+			if (isKeyDown(SysKey.UP)) {
+				moveSelectionUp();
+			} else if (isKeyDown(SysKey.DOWN)) {
+				moveSelectionDown();
+			} else if (isKeyDown(SysKey.ENTER)) {
+				if (_selectedIndex >= 0 && _selectedIndex < _selectSize) {
+					_result = _selects[_selectedIndex];
+					startPendingConfirm();
 				}
 			}
 		}
@@ -241,42 +332,39 @@ public class LSelect extends LContainer implements FontSet<LSelect> {
 		}
 		final int oldColor = g.color();
 		_sizeFont = _messageFont.getSize();
-		_doubleSizeFont = _sizeFont * 2;
-		if (_doubleSizeFont == 0) {
-			_doubleSizeFont = LSystem.getFontSize();
-		}
+		_doubleSizeFont = (_sizeFont > 0 ? _sizeFont * 2 : LSystem.getFontSize());
 		_messageLeft = (x + _doubleSizeFont + _sizeFont / 2) + _tmpOffset + _left + _doubleSizeFont;
+		float ascent = _messageFont.getAscent();
 		if (_message != null) {
 			_messageTop = y + _doubleSizeFont + _top - 10;
-			_messageFont.drawString(g, _message, _messageLeft, _messageTop - _messageFont.getAscent(), _fontColor);
+			_messageFont.drawString(g, _message, _messageLeft, _messageTop - ascent, _fontColor);
 		} else {
 			_messageTop = y + _top;
 		}
 		_nTop = _messageTop;
-		if (_selects != null) {
+		if (_selects != null && _selectSize > 0) {
 			_nLeft = _messageLeft - _sizeFont / 4;
-			for (int i = 0; i < _selects.length; i++) {
+			for (int i = _visibleStartIndex; i <= _visibleEndIndex; i++) {
 				_nTop += _space;
-				_type = i + 1;
-				_isSelect = (_type == (_selectFlag > 0 ? _selectFlag : 1));
+				_isSelect = (i == _selectedIndex);
 				if ((_buoyage != null) && _isSelect) {
 					g.setAlpha(_autoAlpha);
-					g.draw(_buoyage, _nLeft, _nTop - MathUtils.iceil(_buoyage.getHeight() / 1.5f),
-							_component_baseColor);
+					int buoyY = _nTop - MathUtils.iceil(_buoyage.getHeight() / 1.5f);
+					g.draw(_buoyage, _nLeft, buoyY, _component_baseColor);
 					g.setAlpha(1F);
 				}
-				_messageFont.drawString(g, _selects[i], _messageLeft, _nTop - _messageFont.getAscent(), _fontColor);
+				_messageFont.drawString(g, _selects[i], _messageLeft, _nTop - ascent, _fontColor);
 				if ((_cursor != null) && _isSelect) {
-					g.draw(_cursor, _nLeft, _nTop - _cursor.getHeight() / 2, _cursorColor);
+					int cursorY = _nTop - _cursor.getHeight() / 2;
+					g.draw(_cursor, _nLeft, cursorY, _cursorColor);
 				}
-
 			}
 		}
 		g.setColor(oldColor);
 	}
 
 	public LSelect setCursorColor(LColor c) {
-		_cursorColor = c;
+		this._cursorColor = c;
 		return this;
 	}
 
@@ -284,36 +372,29 @@ public class LSelect extends LContainer implements FontSet<LSelect> {
 		return _cursorColor;
 	}
 
-	public boolean isClick() {
-		return _clicked;
-	}
-
-	@Override
-	protected void processTouchPressed() {
-		if (!_eventClick.isPressed()) {
-			this._clicked = false;
-			super.processTouchPressed();
-			_eventClick.press();
+	public void callConfirm() {
+		if ((this._selects != null) && (this._selectedIndex >= 0) && (this._selectedIndex < this._selectSize)) {
+			this._result = this._selects[this._selectedIndex];
+			this._selectFlag = this._selectedIndex + 1;
+			startPendingConfirm();
 		}
 	}
 
 	@Override
-	protected void processTouchReleased() {
-		if (_eventClick.isPressed()) {
-			this._clicked = true;
-			if ((this._selects != null) && (this._selectFlag > 0)) {
-				this._result = this._selects[_selectFlag - 1];
-			}
-			super.processTouchReleased();
-			_eventClick.release();
-		}
+	public void upClick() {
+		super.upClick();
+		_justReset = false;
+		callConfirm();
 	}
 
 	@Override
 	protected void processKeyPressed() {
 		super.processKeyPressed();
 		if (this.isSelected() && this.isKeyDown(SysKey.ENTER)) {
-			this._clicked = true;
+			if (_selectedIndex >= 0 && _selectedIndex < _selectSize) {
+				this._result = _selects[_selectedIndex];
+				startPendingConfirm();
+			}
 		}
 	}
 
@@ -333,6 +414,8 @@ public class LSelect extends LContainer implements FontSet<LSelect> {
 
 	public LSelect setMessageFont(IFont m) {
 		this._messageFont = m;
+		this._sizeFont = (m == null ? LSystem.getFontSize() : m.getSize());
+		this._doubleSizeFont = (this._sizeFont > 0 ? this._sizeFont * 2 : LSystem.getFontSize());
 		return this;
 	}
 
@@ -344,6 +427,10 @@ public class LSelect extends LContainer implements FontSet<LSelect> {
 	@Override
 	public IFont getFont() {
 		return getMessageFont();
+	}
+
+	public int getSelectFlag() {
+		return _selectFlag;
 	}
 
 	public LTexture getCursor() {
@@ -370,7 +457,7 @@ public class LSelect extends LContainer implements FontSet<LSelect> {
 	}
 
 	public LSelect setNotBuoyage() {
-		this._cursor = null;
+		this._buoyage = null;
 		return this;
 	}
 
@@ -399,12 +486,155 @@ public class LSelect extends LContainer implements FontSet<LSelect> {
 
 	public LSelect setSpace(int space) {
 		this._space = space;
+		calculateVisibleRange();
 		return this;
+	}
+
+	public LSelect setSelectedIndex(int index) {
+		if (_pendingConfirm) {
+			return this;
+		}
+		int oldIndex = _selectedIndex;
+		if (index < 0 || _selects == null || index >= _selectSize) {
+			this._selectedIndex = -1;
+			this._selectFlag = -1;
+		} else {
+			this._selectedIndex = index;
+			this._selectFlag = index + 1;
+		}
+		if (oldIndex != _selectedIndex) {
+			calculateVisibleRange();
+			dispatchSelectionChange();
+		}
+		return this;
+	}
+
+	/**
+	 * 清除选择
+	 */
+	public LSelect clearSelection() {
+		_pendingConfirm = false;
+		_confirmDelay.reset();
+		_visibleStartIndex = 0;
+		_visibleEndIndex = 0;
+		_justReset = true;
+		this._selectedIndex = -1;
+		this._selectFlag = -1;
+		this._result = null;
+		return this;
+	}
+
+	/**
+	 * 向上移动选择
+	 */
+	public LSelect moveSelectionUp() {
+		if (_selectSize <= 0 || _pendingConfirm) {
+			return this;
+		}
+		_justReset = false;
+		setSelectedIndex(MathUtils.max(0, _selectedIndex - 1));
+		return this;
+	}
+
+	/**
+	 * 向下移动选择
+	 */
+	public LSelect moveSelectionDown() {
+		if (_selectSize <= 0 || _pendingConfirm) {
+			return this;
+		}
+		_justReset = false;
+		setSelectedIndex(MathUtils.min(_selectSize - 1, _selectedIndex + 1));
+		return this;
+	}
+
+	public LSelect setSelects(String[] selects) {
+		return setMessage(this._message, selects);
+	}
+
+	/**
+	 * 获取当前选中项
+	 */
+	public int getSelectedIndex() {
+		return _selectedIndex;
+	}
+
+	/**
+	 * 获取选项总数
+	 */
+	public int getSelectSize() {
+		return _selectSize;
+	}
+
+	public LSelect setOnSelectListener(OnSelectListener listener) {
+		_onSelectListener = listener;
+		return this;
+	}
+
+	public OnSelectListener getOnSelectListener() {
+		return _onSelectListener;
+	}
+
+	public LSelect setCallEvent(EventActionN e) {
+		_callEvent = e;
+		return this;
+	}
+
+	public EventActionN getCallEvent() {
+		return _callEvent;
+	}
+
+	private void calculateVisibleRange() {
+		if (_selectSize == 0 || _space == 0) {
+			_visibleStartIndex = 0;
+			_visibleEndIndex = 0;
+			return;
+		}
+		final int listTop = MathUtils.ifloor(getHeight() - _space - _doubleSizeFont);
+		_maxVisibleCount = MathUtils.max(1, MathUtils.ifloor(listTop / _sizeFont));
+		if (_selectedIndex == 0) {
+			_visibleStartIndex = 0;
+		} else if (_selectedIndex < _visibleStartIndex) {
+			_visibleStartIndex = _selectedIndex;
+		} else if (_selectedIndex > _visibleStartIndex + _maxVisibleCount - 1) {
+			_visibleStartIndex = _selectedIndex - _maxVisibleCount + 1;
+		}
+
+		_visibleEndIndex = MathUtils.min(_visibleStartIndex + _maxVisibleCount - 1, _selectSize - 1);
+		_visibleStartIndex = MathUtils.max(0, _visibleStartIndex);
+	}
+
+	private void dispatchSelectionChange() {
+		if (_onSelectListener != null && _selectedIndex >= 0 && _selectedIndex < _selectSize) {
+			_onSelectListener.onSelectionChanged(this, _selectedIndex, _selects[_selectedIndex]);
+		}
+	}
+
+	private void dispatchConfirm() {
+		if (_selectedIndex >= 0 && _selectedIndex < _selectSize) {
+			if (_onSelectListener != null) {
+				_onSelectListener.onItemConfirmed(this, _selectedIndex, _selects[_selectedIndex]);
+			}
+			if (_callEvent != null) {
+				_callEvent.update();
+			}
+		}
+	}
+
+	/**
+	 * 延迟调用回调事件
+	 */
+	private void startPendingConfirm() {
+		if (_pendingConfirm) {
+			return;
+		}
+		_pendingConfirm = true;
+		_confirmDelay.reset();
+		setEnabled(false);
 	}
 
 	@Override
 	public void createUI(GLEx g, int x, int y) {
-
 	}
 
 	@Override
@@ -413,11 +643,12 @@ public class LSelect extends LContainer implements FontSet<LSelect> {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		if (_tempTexture != null) {
 			_tempTexture.close(true);
 			_tempTexture = null;
 		}
+		_onSelectListener = null;
 	}
 
 }

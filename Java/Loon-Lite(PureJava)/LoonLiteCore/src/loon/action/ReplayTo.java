@@ -52,7 +52,7 @@ public class ReplayTo extends ActionEvent {
 		}
 		this._cacheList = new Array<ActionEvent>(list);
 		this._replays = new Array<ActionEvent>();
-		for (; _cacheList.hashNext();) {
+		for (; _cacheList.hasNext();) {
 			ActionEvent result = _cacheList.next();
 			if (result != null) {
 				_replays.add(result);
@@ -85,7 +85,7 @@ public class ReplayTo extends ActionEvent {
 				if (replay) {
 					if (event instanceof ReplayTo && _repeatList != null && _repeatList.size() > 0) {
 						Array<ActionEvent> tmp = new Array<ActionEvent>();
-						for (; _repeatList.hashNext();) {
+						for (; _repeatList.hasNext();) {
 							tmp.add(_repeatList.next().reverse());
 						}
 						_repeatList.stopNext();
@@ -132,7 +132,7 @@ public class ReplayTo extends ActionEvent {
 	public String toString() {
 		final StringKeyValue builder = new StringKeyValue(getName());
 		if (_replays != null && _replays.size() > 0) {
-			for (; _replays.hashNext();) {
+			for (; _replays.hasNext();) {
 				ActionEvent event = _replays.next();
 				if (event != null) {
 					builder.addValue(event.toString());

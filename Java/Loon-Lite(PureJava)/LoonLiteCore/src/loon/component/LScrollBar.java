@@ -692,7 +692,7 @@ public class LScrollBar extends LComponent {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 	}
 
 }

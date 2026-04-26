@@ -768,7 +768,7 @@ public class LSelectorIcon extends LComponent {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		_colorCaches.clear();
 		for (Iterator<LTexture> it = _imageCaches.iterator(); it.hasNext();) {
 			LTexture tex = it.next();

@@ -291,7 +291,7 @@ public class LLabel extends LComponent implements FontSet<LLabel> {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		_text.close();
 	}
 

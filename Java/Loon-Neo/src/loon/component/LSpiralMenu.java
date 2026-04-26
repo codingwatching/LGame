@@ -594,7 +594,7 @@ public class LSpiralMenu extends LContainer {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		_skillButtons.clear();
 	}
 }

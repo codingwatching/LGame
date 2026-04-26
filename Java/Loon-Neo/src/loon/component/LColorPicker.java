@@ -174,7 +174,7 @@ public class LColorPicker extends LComponent {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		_initPicker = false;
 	}
 

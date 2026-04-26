@@ -283,7 +283,7 @@ public class LControl extends LComponent {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 
 	}
 

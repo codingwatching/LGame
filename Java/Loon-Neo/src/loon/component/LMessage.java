@@ -531,7 +531,7 @@ public class LMessage extends LContainer implements FontSet<LMessage> {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		if (_print != null) {
 			_print.close();
 			_print = null;

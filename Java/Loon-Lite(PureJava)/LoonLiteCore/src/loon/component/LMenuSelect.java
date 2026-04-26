@@ -37,7 +37,6 @@ import loon.geom.RectF;
 import loon.opengl.GLEx;
 import loon.utils.MathUtils;
 import loon.utils.ObjectMap;
-import loon.utils.StrBuilder;
 import loon.utils.StringUtils;
 import loon.utils.TArray;
 import loon.utils.timer.LTimer;
@@ -70,63 +69,43 @@ import loon.utils.timer.LTimer;
 public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 
 	public static interface ClickEvent {
-
 		public void onSelected(int index, String context);
-
 	}
 
 	private final ActionKey _touchEvent = new ActionKey(ActionKey.NORMAL);
-
 	private final ActionKey _keyEvent = new ActionKey(ActionKey.NORMAL);
 
 	private ObjectMap<String, EventActionN> _doClickEvents;
-
 	private ClickEvent _menuSelectedEvent;
-
 	private CallFunction _function;
 
 	private boolean _over, _pressed, _focused;
-
 	private int _pressedTime = 0;
-
+	// 默认选中索引
 	private int _selected = 0;
 
+	private boolean _justReset;
+
 	private IFont _font;
-
 	private String[] _labels;
-
 	private RectF[] _selectRects;
 
 	private int _selectCountMax = -1;
-
 	private String _flag = LSystem.FLAG_SELECT_TAG;
-
 	private LTexture _flag_image = null;
-
-	private PointF _offsetFont = new PointF();
-
+	private final PointF _offsetFont = new PointF();
 	private float _flag_text_space;
-
 	private boolean _showRect;
-
 	private boolean _showBackground;
-
 	private float _flagWidth = 0;
-
 	private float _flagHeight = 0;
-
 	private String _result = null;
 
 	private LColor _selectRectColor;
-
 	private LColor _fontColor;
-
 	private LColor _selectedFillColor;
-
 	private LColor _selectBackgroundColor;
-
 	private LColor _selectFlagColor;
-
 	private LTimer _colorUpdate;
 
 	public static LMenuSelect make(String labels) {
@@ -183,22 +162,57 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 
 	public LMenuSelect(IFont font, LColor fontColor, String[] labels, LTexture bg, float x, float y) {
 		this(MathUtils.ifloor(x), MathUtils.ifloor(y), 1, 1);
+		// 初始化颜色
 		this._selectRectColor = LColor.white;
 		this._selectedFillColor = LColor.blue;
 		this._selectBackgroundColor = LColor.blue.darker();
 		this._selectFlagColor = LColor.orange;
 		this._fontColor = fontColor;
+		// 初始化计时器
 		this._colorUpdate = new LTimer(LSystem.SECOND * 2);
 		this._flag_text_space = 10;
 		this._showRect = false;
 		this._showBackground = true;
-		this.onlyBackground(bg);
-		this.setFont(font);
-		this.setLabels(labels);
+		// 初始化状态
+		this._justReset = false;
+		onlyBackground(bg);
+		setFont(font);
+		setLabels(labels);
 	}
 
 	public LMenuSelect(int x, int y, int width, int height) {
 		super(x, y, width, height);
+	}
+
+	@Override
+	public LMenuSelect reset() {
+		super.reset();
+		resetSelect();
+		return this;
+	}
+
+	/**
+	 * 选择状态重置
+	 */
+	public void resetSelect() {
+		_justReset = true;
+		_selected = 0;
+		_over = false;
+		_pressed = false;
+		_pressedTime = 0;
+		_touchEvent.release();
+		_keyEvent.release();
+		_colorUpdate.refresh();
+		setEnabled(true);
+	}
+
+	@Override
+	public void setVisible(boolean v) {
+		super.setVisible(v);
+		// 显示时强制还原初始状态,方便重用
+		if (v) {
+			resetSelect();
+		}
 	}
 
 	public LMenuSelect setTextFlag(String flag) {
@@ -242,13 +256,16 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 	}
 
 	public LMenuSelect setLabels(String[] labels) {
+		resetSelect();
 		this._labels = labels;
-		if (_labels != null) {
+		if (_labels != null && _labels.length > 0) {
 			_selectCountMax = labels.length;
 			_selectRects = new RectF[_selectCountMax];
-			TArray<CharSequence> chars = new TArray<CharSequence>(_selectCountMax);
+			TArray<CharSequence> chars = new TArray<>(_selectCountMax);
 			float maxWidth = 0;
 			float maxHeight = 0;
+
+			// 计算标记宽高
 			if (_flag_image == null) {
 				_flagWidth = _font.stringWidth(_flag);
 				_flagHeight = _font.stringHeight(_flag);
@@ -256,39 +273,30 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 				_flagWidth = _flag_image.getWidth();
 				_flagHeight = _flag_image.getHeight();
 			}
-			float lastWidth = 0;
-			float lastHeight = 0;
+
 			for (int i = 0; i < _labels.length; i++) {
 				chars.clear();
 				chars = FontUtils.splitLines(_labels[i], chars);
 				float height = 0;
-				lastWidth = maxWidth;
-				lastHeight = maxHeight;
-				for (int j = 0; j < chars.size; j++) {
-					CharSequence ch = chars.get(j);
-					maxWidth = MathUtils.max(maxWidth,
-							FontUtils.measureText(_font, ch) + _font.getHeight() + _flagWidth + _flag_text_space);
-					height += MathUtils.max(_font.stringHeight(new StrBuilder(ch).toString()), _flagHeight);
+
+				for (CharSequence ch : chars) {
+					float textWidth = FontUtils.measureText(_font, ch);
+					maxWidth = MathUtils.max(maxWidth, textWidth + _font.getHeight() + _flagWidth + _flag_text_space);
+					height += MathUtils.max(_font.stringHeight(ch.toString()), _flagHeight);
 				}
-				if (maxWidth > lastWidth) {
-					for (int j = 0; j < _selectRects.length; j++) {
-						if (_selectRects[j] != null) {
-							_selectRects[j].width = maxWidth;
-						}
-					}
-				}
-				if (maxHeight > lastHeight) {
-					for (int j = 0; j < _selectRects.length; j++) {
-						if (_selectRects[j] != null) {
-							_selectRects[j].height = maxHeight;
-						}
-					}
-				}
-				height = height + _font.getHeight() / 2;
+
+				height += _font.getHeight() / 2;
 				_selectRects[i] = new RectF(0, maxHeight, maxWidth, height);
 				maxHeight += height;
 			}
+
 			setSize(maxWidth + _flag_text_space * 2, maxHeight + _flag_text_space * 2);
+
+		} else {
+			// 空数据处理
+			_selectCountMax = 0;
+			_selectRects = null;
+			setSize(1, 1);
 		}
 		return this;
 	}
@@ -318,56 +326,48 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 		if (!isVisible()) {
 			return;
 		}
+		if (_font == null || _labels == null || _selectRects == null) {
+			return;
+		}
 		final IFont tmp = g.getFont();
 		g.setFont(_font);
-		if (_showBackground && _background != null) {
-			if (_selectRects != null && _selectRects.length > 0) {
+		if (_showBackground) {
+			if (_background != null) {
 				RectF rect = _selectRects[0];
 				g.draw(_background, x + rect.x - _flag_text_space, y + rect.y - _flag_text_space, getWidth(),
 						getHeight());
-			}
-		} else if (_showBackground) {
-			if (_selectRects != null && _selectRects.length > 0) {
+			} else {
 				RectF rect = _selectRects[0];
 				g.fillRect(x + rect.x - _flag_text_space, y + rect.y - _flag_text_space, getWidth(), getHeight(),
 						_selectBackgroundColor.setAlpha(0.5f));
 			}
 		}
-		if (_labels != null) {
-			for (int i = 0; i < _labels.length; i++) {
-				if (_selectRects != null && i < _selectRects.length) {
-					RectF rect = _selectRects[i];
-					if (_selected == i) {
-						drawSelectedFill(g, _offsetFont.x + x + rect.x, _offsetFont.y + y + rect.y, rect.width,
-								rect.height);
-					}
-					if (_flagWidth == 0 && _flagHeight == 0) {
-						g.drawString(_labels[i],
-								_offsetFont.x + x + rect.x + (rect.width - _font.stringWidth(_labels[i])) / 2,
-								_offsetFont.y + y + rect.y + (rect.height - _font.stringHeight(_labels[i])) / 4,
-								_fontColor);
+		for (int i = 0; i < _labels.length; i++) {
+			RectF rect = _selectRects[i];
+			if (_selected == i) {
+				drawSelectedFill(g, _offsetFont.x + x + rect.x, _offsetFont.y + y + rect.y, rect.width, rect.height);
+			}
+			float textX = _offsetFont.x + x + rect.x + (rect.width - _font.stringWidth(_labels[i])) / 2;
+			float textY = _offsetFont.y + y + rect.y + (rect.height - _font.stringHeight(_labels[i])) / 4;
+
+			if (_flagWidth > 0 || _flagHeight > 0) {
+				textX += _flagWidth;
+				if (_selected == i) {
+					float flagX = _offsetFont.x + x + rect.x + _flagWidth / 2;
+					float flagY = _offsetFont.y + y + rect.y + _flagHeight / 8;
+					if (_flag_image == null) {
+						g.drawString(_flag, flagX, flagY, _selectFlagColor);
 					} else {
-						g.drawString(_labels[i],
-								_offsetFont.x + x + rect.x + (rect.width - _font.stringWidth(_labels[i])) / 2
-										+ _flagWidth,
-								_offsetFont.y + y + rect.y + (rect.height - _font.stringHeight(_labels[i])) / 4,
-								_fontColor);
-						if (_selected == i) {
-							if (_flag_image == null) {
-								g.drawString(_flag, _offsetFont.x + x + rect.x + _flagWidth / 2,
-										_offsetFont.y + y + rect.y + _flagHeight / 8, _selectFlagColor);
-							} else {
-								g.draw(_flag_image, _offsetFont.x + x + rect.x + _flagWidth / 2,
-										_offsetFont.y + y + rect.y + _flagHeight / 8);
-							}
-						}
-					}
-					if (_showRect) {
-						g.drawRect(x + rect.x, y + rect.y, rect.width, rect.height, _selectRectColor);
+						g.draw(_flag_image, flagX, flagY);
 					}
 				}
 			}
+			g.drawString(_labels[i], textX, textY, _fontColor);
+			if (_showRect) {
+				g.drawRect(x + rect.x, y + rect.y, rect.width, rect.height, _selectRectColor);
+			}
 		}
+
 		g.setFont(tmp);
 	}
 
@@ -378,7 +378,6 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 		g.fillRect(x, y - 2, width, height);
 		g.drawRect(x, y - 2, width - 2, height - 2);
 		g.setColor(color);
-
 	}
 
 	@Override
@@ -387,47 +386,58 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 			return;
 		}
 		super.update(elapsedTime);
-		if ((SysTouch.isDown() || SysTouch.isDrag() || SysTouch.isMove()) || _input.isMoving()) {
-			if (_selectRects != null) {
-				for (int i = 0; i < _selectRects.length; i++) {
-					RectF touched = _selectRects[i];
-					if (touched != null && touched.inside(getUITouchX(), getUITouchY())) {
-						_selected = i;
-					}
-				}
-			}
-		}
 
+		// 计时器更新
 		if (_colorUpdate.action(elapsedTime)) {
 			_colorUpdate.refresh();
 		}
+
+		// 按压状态更新
 		if (_focused) {
 			_pressed = true;
 			return;
 		}
-		if (this._pressedTime > 0 && --this._pressedTime <= 0) {
-			this._pressed = false;
+		if (_pressedTime > 0 && --_pressedTime <= 0) {
+			_pressed = false;
+		}
+
+		if (_justReset) {
+			_justReset = false;
+			return;
+		}
+
+		if ((SysTouch.isDown() || SysTouch.isDrag() || SysTouch.isMove() || _input.isMoving()) && _selectRects != null
+				&& _labels != null) {
+			float touchX = getUITouchX();
+			float touchY = getUITouchY();
+			for (int i = 0; i < _selectRects.length; i++) {
+				RectF rect = _selectRects[i];
+				if (rect != null && rect.inside(touchX, touchY)) {
+					_selected = i;
+					break;
+				}
+			}
 		}
 	}
 
 	public String getResult() {
-		if (_labels != null && _selected > -1 && _selected < _labels.length) {
+		if (_labels != null && _selected >= 0 && _selected < _labels.length) {
 			_result = _labels[_selected];
 		}
 		return _result;
 	}
 
 	public boolean isTouchOver() {
-		return this._over;
+		return _over;
 	}
 
 	public boolean isTouchPressed() {
-		return this._pressed;
+		return _pressed;
 	}
 
 	@Override
 	protected void processTouchDragged() {
-		this._over = this._pressed = this.intersects(getUITouchX(), getUITouchY());
+		_over = _pressed = intersects(getUITouchX(), getUITouchY());
 		super.processTouchDragged();
 	}
 
@@ -437,9 +447,9 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 			return;
 		}
 		if (!_touchEvent.isPressed()) {
-			this._pressed = true;
+			_pressed = true;
 			super.processTouchPressed();
-			this._touchEvent.press();
+			_touchEvent.press();
 		}
 	}
 
@@ -449,19 +459,19 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 			return;
 		}
 		if (_touchEvent.isPressed()) {
-			this._pressed = false;
-			boolean selectedExist = (_labels != null && _labels.length > 0);
-			if (_menuSelectedEvent != null && selectedExist) {
+			_pressed = false;
+			if (_menuSelectedEvent != null && _labels != null && _selected >= 0 && _selected < _labels.length) {
 				try {
 					_menuSelectedEvent.onSelected(_selected, _labels[_selected]);
 				} catch (Throwable thr) {
 					LSystem.error("LMenuSelect onSelected() exception", thr);
 				}
 			}
-			if (_doClickEvents != null && selectedExist && _selected > -1 && _selected < _labels.length) {
-				EventActionN clicked = _doClickEvents.get(_labels[_selected]);
-				if (clicked != null) {
-					clicked.update();
+			// 触发自定义命令
+			if (_doClickEvents != null && _labels != null && _selected >= 0 && _selected < _labels.length) {
+				EventActionN event = _doClickEvents.get(_labels[_selected]);
+				if (event != null) {
+					event.update();
 				}
 			}
 			super.processTouchReleased();
@@ -474,66 +484,57 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 
 	@Override
 	protected void processTouchEntered() {
-		this._over = true;
+		_over = true;
 	}
 
 	@Override
 	protected void processTouchExited() {
-		this._over = this._pressed = false;
+		_over = _pressed = false;
 	}
 
 	@Override
 	protected void processKeyPressed() {
-		if (!isVisible()) {
+		if (!isVisible() || _labels == null || _labels.length == 0) {
 			return;
 		}
-		if (this.isSelected()) {
-			if (!_keyEvent.isPressed()) {
-				this._pressedTime = 5;
-				this._pressed = true;
-				if (_input != null) {
-					int code = _input.getKeyPressed();
-					switch (code) {
-					case SysKey.UP:
-						_selected--;
-						_selected = (_selected > 0 ? _selected : 0);
-						break;
-					case SysKey.DOWN:
-						_selected++;
-						_selected = (_selected < _labels.length ? _selected : _labels.length - 1);
-						break;
-					}
-				}
-				if (_menuSelectedEvent != null && _labels != null && _labels.length > 0) {
-					try {
-						_menuSelectedEvent.onSelected(_selected, _labels[_selected]);
-					} catch (Throwable t) {
-						LSystem.error("LMenuSelect onSelected() exception", t);
-					}
-				}
-				this.doClick();
-				_keyEvent.press();
+		if (isSelected() && !_keyEvent.isPressed()) {
+			_pressedTime = 5;
+			_pressed = true;
+			int code = _input.getKeyPressed();
+			switch (code) {
+			case SysKey.UP:
+				_selected = MathUtils.max(0, _selected - 1);
+				break;
+			case SysKey.DOWN:
+				_selected = MathUtils.min(_labels.length - 1, _selected + 1);
+				break;
 			}
-
+			if (_menuSelectedEvent != null) {
+				try {
+					_menuSelectedEvent.onSelected(_selected, _labels[_selected]);
+				} catch (Throwable t) {
+					LSystem.error("LMenuSelect onSelected() exception", t);
+				}
+			}
+			doClick();
+			_keyEvent.press();
 		}
 	}
 
 	@Override
 	protected void processKeyReleased() {
-		if (!isVisible()) {
+		if (!isVisible() || !isSelected()) {
 			return;
 		}
-		if (this.isSelected()) {
-			if (_keyEvent.isPressed()) {
-				this._pressed = false;
-				_keyEvent.release();
-			}
+		if (_keyEvent.isPressed()) {
+			_pressed = false;
+			_keyEvent.release();
 		}
 	}
 
 	public LMenuSelect setCommand(int idx, EventActionN e) {
 		if (_labels != null && idx > -1 && idx < _labels.length) {
-			return setCommand(_labels[idx], e);
+			setCommand(_labels[idx], e);
 		}
 		return this;
 	}
@@ -560,7 +561,7 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 	}
 
 	public LMenuSelect setOffsetFont(PointF offset) {
-		this._offsetFont = offset;
+		this._offsetFont.set(offset);
 		return this;
 	}
 
@@ -588,7 +589,9 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 	}
 
 	public LMenuSelect setSelected(int s) {
-		this._selected = s;
+		if (_labels != null && s >= 0 && s < _labels.length) {
+			this._selected = s;
+		}
 		return this;
 	}
 
@@ -633,8 +636,8 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 		this._drawBackground = false;
 		this._showBackground = false;
 		if (_background != null) {
-			this._background.close();
-			this._background = null;
+			_background.close();
+			_background = null;
 		}
 		return this;
 	}
@@ -681,8 +684,13 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 	}
 
 	@Override
-	public void destory() {
-
+	public void destroy() {
+		clearCommand();
+		_doClickEvents = null;
+		_menuSelectedEvent = null;
+		_function = null;
+		_labels = null;
+		_selectRects = null;
 	}
 
 }

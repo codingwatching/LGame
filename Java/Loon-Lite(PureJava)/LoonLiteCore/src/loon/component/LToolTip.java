@@ -379,7 +379,7 @@ public class LToolTip extends LComponent {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		_text.close();
 		_running = false;
 	}

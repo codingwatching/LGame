@@ -47,7 +47,7 @@ public class LPanel extends LContainer {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 
 	}
 

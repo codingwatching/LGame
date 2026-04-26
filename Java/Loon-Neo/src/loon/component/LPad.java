@@ -322,7 +322,7 @@ public class LPad extends LComponent {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		if (_pack != null) {
 			_pack.close();
 		}

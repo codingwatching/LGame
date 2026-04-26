@@ -587,7 +587,7 @@ public class LRadar extends LComponent {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		if (_groundTexture != null) {
 			_groundTexture.close();
 			_groundTexture = null;

@@ -592,7 +592,7 @@ public class LSpeechDialog extends LComponent implements FontSet<LSpeechDialog> 
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		_isRunning = false;
 		_initNativeDraw = false;
 		_tailShapes.clear();

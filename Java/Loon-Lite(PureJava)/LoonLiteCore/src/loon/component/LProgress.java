@@ -328,11 +328,11 @@ public class LProgress extends LComponent {
 	}
 
 	public void setAnimationDuration(long duration) {
-		this._animationDuration = Math.max(0, duration);
+		this._animationDuration = MathUtils.max(0, duration);
 	}
 
 	public void setCircleStrokeSize(float size) {
-		this._circleStrokeSize = Math.max(1, size);
+		this._circleStrokeSize = MathUtils.max(1, size);
 	}
 
 	@Override
@@ -352,7 +352,7 @@ public class LProgress extends LComponent {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		safeCloseTexture(_bgTexture);
 		safeCloseTexture(_bgTextureEnd);
 		safeCloseTexture(_bgProgressTexture);

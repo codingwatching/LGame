@@ -971,7 +971,7 @@ public class LTable extends LContainer implements FontSet<LTable> {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		if (_cacheFonts != null) {
 			_cacheFonts.close(true);
 			_cacheFonts = null;

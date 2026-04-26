@@ -1593,7 +1593,7 @@ public class LInventory extends LLayer {
 				}
 				if (target.isSameItem(source) && target.getStackCount() < target._maxStack) {
 					int space = target._maxStack - target.getStackCount();
-					int amount = Math.min(space, source.getStackCount());
+					int amount = MathUtils.min(space, source.getStackCount());
 					target.addStack(amount);
 					source.subStack(amount);
 					if (source.getStackCount() <= 0) {

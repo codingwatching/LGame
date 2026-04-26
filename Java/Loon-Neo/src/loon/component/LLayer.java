@@ -690,7 +690,7 @@ public class LLayer extends ActorLayer {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		if (collisionChecker != null) {
 			collisionChecker.dispose();
 			collisionChecker = null;

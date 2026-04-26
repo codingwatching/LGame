@@ -51,7 +51,7 @@ public class LLineBreak extends LComponent {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 	}
 
 }

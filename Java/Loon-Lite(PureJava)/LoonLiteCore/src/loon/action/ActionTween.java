@@ -1010,7 +1010,7 @@ public final class ActionTween extends ActionTweenBase<ActionTween> {
 			return null;
 		}
 		final TArray<ActionEvent> events = new TArray<ActionEvent>(_actionEvents.size());
-		for (; _actionEvents.hashNext();) {
+		for (; _actionEvents.hasNext();) {
 			ActionEvent e = _actionEvents.next();
 			if (e != null) {
 				events.add(e);
@@ -1176,7 +1176,7 @@ public final class ActionTween extends ActionTweenBase<ActionTween> {
 		if (_actionEvents == null || tag == null) {
 			return this;
 		}
-		for (; _actionEvents.hashNext();) {
+		for (; _actionEvents.hasNext();) {
 			ActionEvent tmp = _actionEvents.next();
 			if (tmp != null) {
 				if (tag.equals(tmp.tag) || tmp.tag == tag) {
@@ -1200,7 +1200,7 @@ public final class ActionTween extends ActionTweenBase<ActionTween> {
 			return this;
 		}
 		String findName = name.trim().toLowerCase();
-		for (; _actionEvents.hashNext();) {
+		for (; _actionEvents.hasNext();) {
 			ActionEvent tmp = _actionEvents.next();
 			if (tmp != null) {
 				if (findName.equals(tmp.getName())) {
@@ -1223,7 +1223,7 @@ public final class ActionTween extends ActionTweenBase<ActionTween> {
 			return this;
 		}
 		String findName = name.trim().toLowerCase();
-		for (; _actionEvents.hashNext();) {
+		for (; _actionEvents.hasNext();) {
 			ActionEvent tmp = _actionEvents.next();
 			if (tmp != null) {
 				if (findName.equals(tmp.getName())) {
@@ -1245,7 +1245,7 @@ public final class ActionTween extends ActionTweenBase<ActionTween> {
 		if (_actionEvents == null || tag == null) {
 			return this;
 		}
-		for (; _actionEvents.hashNext();) {
+		for (; _actionEvents.hasNext();) {
 			ActionEvent tmp = _actionEvents.next();
 			if (tmp != null) {
 				if (tag.equals(tmp.tag) || tmp.tag == tag) {
@@ -1274,7 +1274,7 @@ public final class ActionTween extends ActionTweenBase<ActionTween> {
 		ActionEvent e = null;
 		Array<ActionEvent> tmps = new Array<ActionEvent>();
 		for (int i = 0; i < count - 1; i++) {
-			for (; _actionEvents.hashNext();) {
+			for (; _actionEvents.hasNext();) {
 				ActionEvent tmp = _actionEvents.next();
 				if (tmp != null) {
 					e = tmp;
@@ -1743,7 +1743,7 @@ public final class ActionTween extends ActionTweenBase<ActionTween> {
 			return "ActionTween []";
 		}
 		final StringKeyValue builder = new StringKeyValue("ActionTween");
-		for (; _actionEvents.hashNext();) {
+		for (; _actionEvents.hasNext();) {
 			ActionEvent eve = _actionEvents.next();
 			if (eve != null) {
 				builder.addValue(eve.toString());

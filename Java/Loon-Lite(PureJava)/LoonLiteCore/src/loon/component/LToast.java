@@ -375,7 +375,7 @@ public class LToast extends LComponent implements FontSet<LToast> {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 	}
 
 }

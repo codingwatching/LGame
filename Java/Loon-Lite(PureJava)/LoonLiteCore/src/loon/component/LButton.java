@@ -345,7 +345,7 @@ public class LButton extends LComponent implements FontSet<LButton> {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 
 	}
 

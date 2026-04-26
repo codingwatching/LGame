@@ -425,7 +425,7 @@ public class LDragging extends LComponent {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 
 	}
 

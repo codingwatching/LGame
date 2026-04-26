@@ -509,7 +509,7 @@ public class LWindow extends LContainer implements FontSet<LWindow> {
 	}
 
 	@Override
-	public void destory() {
+	public void destroy() {
 		if (_animation != null) {
 			_animation.close();
 			_animation = null;

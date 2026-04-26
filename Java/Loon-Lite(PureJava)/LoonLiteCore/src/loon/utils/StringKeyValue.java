@@ -262,7 +262,7 @@ public class StringKeyValue {
 	}
 
 	public StringKeyValue popTagAll() {
-		for (; _flags.hashNext();) {
+		for (; _flags.hasNext();) {
 			addValue("</" + _flags.next() + ">");
 		}
 		_flags.clear();
