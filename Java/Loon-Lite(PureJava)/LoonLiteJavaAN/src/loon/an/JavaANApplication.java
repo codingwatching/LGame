@@ -10,9 +10,9 @@ import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.content.res.AssetManager;
-import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
+import android.graphics.Point;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
@@ -25,15 +25,14 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
-import android.view.WindowMetrics;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
 
 import java.io.File;
-import java.lang.reflect.Field;
 
+import loon.Display;
 import loon.LGame;
 import loon.LSysException;
 import loon.LSystem;
@@ -109,7 +108,11 @@ public abstract class JavaANApplication extends Activity implements JavaANPlatfo
 			getWindow().setFlags(windowFlags, windowFlags);
 		}
 
-		this.handler = new Handler();
+		try {
+			this.handler = new Handler();
+		} catch (Throwable e) {
+			this.handler = JavaANHandlerCompat.getMainHandler();
+		}
 
 		int width = setting.width;
 		int height = setting.height;
@@ -155,7 +158,7 @@ public abstract class JavaANApplication extends Activity implements JavaANPlatfo
 		this.gameView = new JavaANAppSurfaceView(getApplicationContext(), game);
 
 		setContentView(mode, gameView, width, height);
-		setRequestedOrientation(configOrientation());
+		applyOrientation();
 		createWakeLock(setting.useWakelock);
 		hideStatusBar(setting.hideStatusBar);
 
@@ -184,8 +187,35 @@ public abstract class JavaANApplication extends Activity implements JavaANPlatfo
 							.show();
 				}
 			} catch (Exception e) {
-				Log.w(setting.appName, "Cannot access game AndroidManifest.xml file !");
+				if (setting != null) {
+					Log.w(setting.appName, "Cannot access game AndroidManifest.xml file !");
+				}
 			}
+		}
+	}
+
+	protected void applyOrientation() {
+		int orientation = configOrientation();
+		try {
+			setRequestedOrientation(orientation);
+		} catch (Throwable ignored) {
+		}
+		try {
+			int currentOrientation = getResources().getConfiguration().orientation;
+			boolean mismatch = false;
+			if (orientation == ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+					&& currentOrientation == android.content.res.Configuration.ORIENTATION_PORTRAIT) {
+				mismatch = true;
+			} else if (orientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+					&& currentOrientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE) {
+				mismatch = true;
+			}
+			if (mismatch) {
+				if (setting != null) {
+					Log.w(setting.appName, "Orientation request ignored by system, fallback to UI adaptation.");
+				}
+			}
+		} catch (Throwable ignored) {
 		}
 	}
 
@@ -201,17 +231,108 @@ public abstract class JavaANApplication extends Activity implements JavaANPlatfo
 
 	@TargetApi(Build.VERSION_CODES.P)
 	private void setLayoutInDisplayCutoutMode(boolean render) {
-		if (render && JavaANGame.getSDKVersion() >= Build.VERSION_CODES.P) {
-			WindowManager.LayoutParams lp = getWindow().getAttributes();
+		if (!render || Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+			return;
+		}
+		WindowManager.LayoutParams lp = getWindow().getAttributes();
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
 			lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+		} else if (Build.VERSION.SDK_INT < 35) {
+			lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
 		}
 	}
 
 	protected void hideStatusBar(boolean hide) {
-		if (!hide || JavaANGame.getSDKVersion() < 11) {
+		Window win = getWindow();
+		if (win == null) {
 			return;
 		}
-		getWindow().getDecorView().setSystemUiVisibility(0x1);
+		try {
+			if (!JavaANGame.isAndroidVersionHigher(11)) {
+				if (hide) {
+					win.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+							WindowManager.LayoutParams.FLAG_FULLSCREEN);
+					win.clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+				} else {
+					win.setFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN,
+							WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+					win.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+				}
+				return;
+			}
+			if (JavaANGame.isAndroidVersionHigher(30)) {
+				if (tryInsetsController(win, hide)) {
+					if (hide) {
+						applyHideFlags(win);
+					} else {
+						applyShowFlags(win);
+					}
+					return;
+				}
+			}
+			if (JavaANGame.isAndroidVersionHigher(19)) {
+				View decor = win.getDecorView();
+				if (decor != null) {
+					if (hide) {
+						int uiOptions = View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+								| View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+						decor.setSystemUiVisibility(uiOptions);
+						applyHideFlags(win);
+					} else {
+						decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+						applyShowFlags(win);
+					}
+				} else {
+					if (hide) {
+						applyHideFlags(win);
+					} else {
+						applyShowFlags(win);
+					}
+				}
+				return;
+			}
+			if (JavaANGame.isAndroidVersionHigher(16)) {
+				View decor = win.getDecorView();
+				if (decor != null) {
+					if (hide) {
+						decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN);
+					} else {
+						decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+					}
+				}
+				if (hide) {
+					applyHideFlags(win);
+				} else {
+					applyShowFlags(win);
+				}
+				return;
+			}
+			if (JavaANGame.isAndroidVersionHigher(11)) {
+				if (hide) {
+					win.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+							WindowManager.LayoutParams.FLAG_FULLSCREEN);
+					win.clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+				} else {
+					win.setFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN,
+							WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+					win.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+				}
+				return;
+			}
+		} catch (Throwable t) {
+			try {
+				if (hide) {
+					win.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+							WindowManager.LayoutParams.FLAG_FULLSCREEN);
+					win.clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+				} else {
+					win.setFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN,
+							WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+					win.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+				}
+			} catch (Throwable ignored) {
+			}
+		}
 	}
 
 	@Override
@@ -526,26 +647,118 @@ public abstract class JavaANApplication extends Activity implements JavaANPlatfo
 
 	public void setFullScreen(boolean fullScreen) {
 		Window win = getWindow();
-		if (JavaANGame.isAndroidVersionHigher(11)) {
-			int flagHardwareAccelerated = 0x1000000;
-			win.setFlags(flagHardwareAccelerated, flagHardwareAccelerated);
+		if (win == null) {
+			return;
 		}
-
+		try {
+			if (JavaANGame.isAndroidVersionHigher(11)) {
+				final int FLAG_HARDWARE_ACCELERATED = 0x01000000;
+				win.setFlags(FLAG_HARDWARE_ACCELERATED, FLAG_HARDWARE_ACCELERATED);
+			}
+		} catch (Throwable ignored) {
+		}
 		if (fullScreen) {
 			try {
 				requestWindowFeature(Window.FEATURE_NO_TITLE);
-			} catch (Exception ex) {
+			} catch (Throwable ignored) {
 			}
-			win.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
-			win.clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
-		} else {
-			win.setFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN,
-					WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+		}
+		try {
+			if (JavaANGame.isAndroidVersionHigher(30)) {
+				boolean ok = tryInsetsController(win, fullScreen);
+				if (ok) {
+					if (fullScreen) {
+						applyHideFlags(win);
+					} else {
+						applyShowFlags(win);
+					}
+					return;
+				}
+			}
+			if (JavaANGame.isAndroidVersionHigher(19)) {
+				View decor = win.getDecorView();
+				if (decor != null) {
+					if (fullScreen) {
+						int uiOptions = View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+								| View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+						decor.setSystemUiVisibility(uiOptions);
+						applyHideFlags(win);
+					} else {
+						decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+						applyShowFlags(win);
+					}
+				} else {
+					if (fullScreen) {
+						applyHideFlags(win);
+					} else {
+						applyShowFlags(win);
+					}
+				}
+				return;
+			}
+			if (JavaANGame.isAndroidVersionHigher(16)) {
+				View decor = win.getDecorView();
+				if (decor != null) {
+					if (fullScreen) {
+						decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN);
+					} else {
+						decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+					}
+				}
+				if (fullScreen) {
+					applyHideFlags(win);
+				} else {
+					applyShowFlags(win);
+				}
+				return;
+			}
+			if (JavaANGame.isAndroidVersionHigher(11)) {
+				if (fullScreen) {
+					win.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+							WindowManager.LayoutParams.FLAG_FULLSCREEN);
+					win.clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+				} else {
+					win.setFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN,
+							WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+					win.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+				}
+				return;
+			}
+			if (fullScreen) {
+				win.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN);
+				win.clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+			} else {
+				win.setFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN,
+						WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+				win.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+			}
+		} catch (Throwable t) {
+			try {
+				if (fullScreen) {
+					win.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+							WindowManager.LayoutParams.FLAG_FULLSCREEN);
+					win.clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+				} else {
+					win.setFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN,
+							WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+					win.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+				}
+			} catch (Throwable ignored) {
+			}
 		}
 	}
 
 	protected int makeWindowFlags() {
-		return (WindowManager.LayoutParams.FLAG_FULLSCREEN | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+		int flags = 0;
+		try {
+			flags |= WindowManager.LayoutParams.FLAG_FULLSCREEN;
+			if (JavaANGame.isAndroidVersionHigher(11)) {
+				final int FLAG_HARDWARE_ACCELERATED = 0x01000000;
+				flags |= FLAG_HARDWARE_ACCELERATED;
+			}
+		} catch (Throwable ignored) {
+		}
+		return flags;
 	}
 
 	protected boolean useOrientation() {
@@ -564,31 +777,28 @@ public abstract class JavaANApplication extends Activity implements JavaANPlatfo
 
 	protected int configOrientation() {
 		if (game == null) {
-			return 0;
+			return ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
 		}
-
 		boolean use = useOrientation(setting);
-
-		int orientation = -1;
-
+		int orientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
 		if (use) {
-			if (!JavaANGame.isAndroidVersionHigher(23)) {
-				orientation = this.getRequestedOrientation();
-			} else {
-				try {
-					orientation = this.getResources().getConfiguration().orientation;
-				} catch (Throwable cause) {
+			try {
+				if (JavaANGame.isAndroidVersionHigher(23)) {
+					orientation = getResources().getConfiguration().orientation;
+					if (orientation == ActivityInfo.SCREEN_ORIENTATION_USER) {
+						orientation = getRequestedOrientation();
+					}
+				} else {
+					orientation = getRequestedOrientation();
 				}
-				if (orientation == ActivityInfo.SCREEN_ORIENTATION_USER) {
-					orientation = this.getRequestedOrientation();
-				}
+			} catch (Throwable ignored) {
+				orientation = getRequestedOrientation();
 			}
 			if (setting.orientation != -1) {
 				orientation = setting.orientation;
 			}
-
 		}
-		if (orientation <= -1 || !use) {
+		if (orientation <= 0 || !use) {
 			if (setting.landscape()) {
 				orientation = ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE;
 			} else {
@@ -754,30 +964,114 @@ public abstract class JavaANApplication extends Activity implements JavaANPlatfo
 
 	@Override
 	public void setImmersiveMode(boolean use) {
-		if (use && JavaANGame.getSDKVersion() > 11 && JavaANGame.getSDKVersion() < 19) {
-			try {
-				View view = getWindow().getDecorView();
-				view.setSystemUiVisibility(View.GONE);
-			} catch (Exception e) {
-			}
+		Window win = getWindow();
+		if (win == null) {
 			return;
 		}
-		if (!use || JavaANGame.getSDKVersion() < 19) {
+		if (!JavaANGame.isAndroidVersionHigher(11)) {
 			return;
 		}
-		final WindowManager.LayoutParams lp = getWindow().getAttributes();
 		try {
-			Field field = lp.getClass().getField("layoutInDisplayCutoutMode");
-			Field constValue = lp.getClass().getDeclaredField("LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES");
-			field.setInt(lp, constValue.getInt(null));
-			int code = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN
-					| View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-					| View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
-			code |= View.class.getDeclaredField("SYSTEM_UI_FLAG_IMMERSIVE_STICKY").getInt(null);
-			View view = getWindow().getDecorView();
-			view.setSystemUiVisibility(code);
-		} catch (Exception e) {
-			e.printStackTrace();
+			if (JavaANGame.isAndroidVersionHigher(30)) {
+				boolean ok = tryInsetsController(win, use);
+				if (ok) {
+					if (use) {
+						trySetLayoutInDisplayCutoutModeShortEdges(win);
+					}
+					if (use) {
+						applyHideFlags(win);
+					} else {
+						applyShowFlags(win);
+					}
+					return;
+				}
+			}
+			if (JavaANGame.isAndroidVersionHigher(19)) {
+				View decor = win.getDecorView();
+				if (decor != null) {
+					if (use) {
+						trySetLayoutInDisplayCutoutModeShortEdges(win);
+
+						int flags = View.SYSTEM_UI_FLAG_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_FULLSCREEN
+								| View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+								| View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+						safeSetSystemUiVisibility(decor, flags);
+						applyHideFlags(win);
+					} else {
+						safeSetSystemUiVisibility(decor, View.SYSTEM_UI_FLAG_VISIBLE);
+						applyShowFlags(win);
+					}
+				} else {
+					if (use) {
+						applyHideFlags(win);
+					} else {
+						applyShowFlags(win);
+					}
+				}
+				return;
+			}
+			if (JavaANGame.isAndroidVersionHigher(16)) {
+				View decor = win.getDecorView();
+				if (decor != null) {
+					if (use) {
+						safeSetSystemUiVisibility(decor, View.SYSTEM_UI_FLAG_FULLSCREEN);
+					} else {
+						safeSetSystemUiVisibility(decor, View.SYSTEM_UI_FLAG_VISIBLE);
+					}
+				}
+				if (use) {
+					applyHideFlags(win);
+				} else {
+					applyShowFlags(win);
+				}
+				return;
+			}
+			if (JavaANGame.isAndroidVersionHigher(11)) {
+				if (use) {
+					win.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+							WindowManager.LayoutParams.FLAG_FULLSCREEN);
+					win.clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+				} else {
+					win.setFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN,
+							WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+					win.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+				}
+				return;
+			}
+		} catch (Throwable t) {
+			try {
+				if (use) {
+					win.setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+							WindowManager.LayoutParams.FLAG_FULLSCREEN);
+					win.clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+				} else {
+					win.setFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN,
+							WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+					win.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+				}
+			} catch (Throwable ignored) {
+			}
+		}
+	}
+
+	private void safeSetSystemUiVisibility(View decor, int flags) {
+		try {
+			decor.setSystemUiVisibility(flags);
+		} catch (Throwable ignored) {
+		}
+	}
+
+	private void trySetLayoutInDisplayCutoutModeShortEdges(Window win) {
+		try {
+			WindowManager.LayoutParams lp = win.getAttributes();
+			java.lang.reflect.Field field = lp.getClass().getField("layoutInDisplayCutoutMode");
+			java.lang.reflect.Field constField = lp.getClass()
+					.getDeclaredField("LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES");
+			constField.setAccessible(true);
+			int constValue = constField.getInt(null);
+			field.setInt(lp, constValue);
+			win.setAttributes(lp);
+		} catch (Throwable ignored) {
 		}
 	}
 
@@ -837,23 +1131,62 @@ public abstract class JavaANApplication extends Activity implements JavaANPlatfo
 			dm.scaledDensity = base.scaledDensity;
 			dm.xdpi = base.xdpi;
 			dm.ydpi = base.ydpi;
-			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-				WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
-				if (wm != null) {
-					WindowMetrics metrics = wm.getCurrentWindowMetrics();
-					Rect bounds = metrics.getBounds();
-					dm.widthPixels = bounds.width();
-					dm.heightPixels = bounds.height();
-				} else {
-					dm.widthPixels = base.widthPixels;
-					dm.heightPixels = base.heightPixels;
-				}
-			} else {
+			WindowManager wm = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
+			if (wm == null) {
 				dm.widthPixels = base.widthPixels;
 				dm.heightPixels = base.heightPixels;
+				return dm;
 			}
+			if (JavaANGame.isAndroidVersionHigher(30)) {
+				try {
+					java.lang.reflect.Method getCurrentWindowMetrics = WindowManager.class
+							.getMethod("getCurrentWindowMetrics");
+					Object windowMetrics = getCurrentWindowMetrics.invoke(wm);
+					if (windowMetrics != null) {
+						java.lang.reflect.Method getBounds = windowMetrics.getClass().getMethod("getBounds");
+						Object boundsObj = getBounds.invoke(windowMetrics);
+						if (boundsObj instanceof android.graphics.Rect) {
+							android.graphics.Rect bounds = (android.graphics.Rect) boundsObj;
+							dm.widthPixels = bounds.width();
+							dm.heightPixels = bounds.height();
+							return dm;
+						}
+					}
+				} catch (Throwable ignored) {
+				}
+			}
+			android.view.Display display = wm.getDefaultDisplay();
+			if (display == null) {
+				dm.widthPixels = base.widthPixels;
+				dm.heightPixels = base.heightPixels;
+				return dm;
+			}
+			if (JavaANGame.isAndroidVersionHigher(17)) {
+				try {
+					android.graphics.Point realSize = new android.graphics.Point();
+					java.lang.reflect.Method getRealSize = android.view.Display.class.getMethod("getRealSize",
+							android.graphics.Point.class);
+					getRealSize.invoke(display, realSize);
+					dm.widthPixels = realSize.x;
+					dm.heightPixels = realSize.y;
+					return dm;
+				} catch (Throwable ignored) {
+				}
+			}
+			if (JavaANGame.isAndroidVersionHigher(14)) {
+				try {
+					java.lang.reflect.Method getRawW = android.view.Display.class.getMethod("getRawWidth");
+					java.lang.reflect.Method getRawH = android.view.Display.class.getMethod("getRawHeight");
+					dm.widthPixels = (Integer) getRawW.invoke(display);
+					dm.heightPixels = (Integer) getRawH.invoke(display);
+					return dm;
+				} catch (Throwable ignored) {
+				}
+			}
+			dm.widthPixels = base.widthPixels;
+			dm.heightPixels = base.heightPixels;
 		} catch (Throwable cause) {
-			dm = Resources.getSystem().getDisplayMetrics();
+			dm = android.content.res.Resources.getSystem().getDisplayMetrics();
 		}
 		return dm;
 	}
@@ -986,46 +1319,127 @@ public abstract class JavaANApplication extends Activity implements JavaANPlatfo
 		});
 	}
 
-	public void showSystemButtonUI() {
-		if (JavaANGame.getSDKVersion() > 11 && JavaANGame.getSDKVersion() < 19) {
-			try {
-				View view = getWindow().getDecorView();
-				view.setSystemUiVisibility(View.VISIBLE);
-			} catch (Exception e) {
-			}
-			return;
-		}
-		if (JavaANGame.getSDKVersion() < 19) {
-			return;
-		}
+	private boolean tryInsetsController(Window win, boolean hide) {
 		try {
-			View view = getWindow().getDecorView();
-			int code = View.SYSTEM_UI_FLAG_FULLSCREEN;
-			view.setSystemUiVisibility(code);
-		} catch (Exception e) {
+			java.lang.reflect.Method getController = Window.class.getMethod("getInsetsController");
+			Object controller = getController.invoke(win);
+			if (controller == null)
+				return false;
+
+			Class<?> typeClass = Class.forName("android.view.WindowInsets$Type");
+			java.lang.reflect.Method statusBarsMethod = typeClass.getMethod("statusBars");
+			java.lang.reflect.Method navigationBarsMethod = typeClass.getMethod("navigationBars");
+			int statusBars = (Integer) statusBarsMethod.invoke(null);
+			int navigationBars = (Integer) navigationBarsMethod.invoke(null);
+			int mask = statusBars | navigationBars;
+
+			if (hide) {
+				java.lang.reflect.Method hideMethod = controller.getClass().getMethod("hide", int.class);
+				hideMethod.invoke(controller, mask);
+			} else {
+				java.lang.reflect.Method showMethod = controller.getClass().getMethod("show", int.class);
+				showMethod.invoke(controller, mask);
+			}
+			return true;
+		} catch (Throwable ignored) {
+			return false;
 		}
 	}
 
-	public void hideSystemButtonUI() {
-		if (JavaANGame.getSDKVersion() > 11 && JavaANGame.getSDKVersion() < 19) {
-			try {
-				View view = getWindow().getDecorView();
-				view.setSystemUiVisibility(View.GONE);
-			} catch (Exception e) {
-			}
-			return;
-		}
-		if (JavaANGame.getSDKVersion() < 19) {
-			return;
-		}
+	private void applyShowFlags(Window win) {
 		try {
-			View view = getWindow().getDecorView();
-			int code = View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-					| View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-					| View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
-			view.setSystemUiVisibility(code);
-		} catch (Exception e) {
+			win.setFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN,
+					WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+			win.clearFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+		} catch (Throwable ignored) {
 		}
+	}
+
+	private void applyHideFlags(Window win) {
+		try {
+			win.addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
+			win.clearFlags(WindowManager.LayoutParams.FLAG_FORCE_NOT_FULLSCREEN);
+		} catch (Throwable ignored) {
+		}
+	}
+
+	public void showSystemButtonUI() {
+		Window win = getWindow();
+		if (win == null) {
+			return;
+		}
+		if (!JavaANGame.isAndroidVersionHigher(11)) {
+			return;
+		}
+		if (JavaANGame.isAndroidVersionHigher(30)) {
+			if (tryInsetsController(win, false)) {
+				applyShowFlags(win);
+				return;
+			}
+		}
+		View decor = win.getDecorView();
+		if (decor == null) {
+			applyShowFlags(win);
+			return;
+		}
+		if (JavaANGame.isAndroidVersionHigher(19)) {
+			try {
+				decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+			} catch (Throwable ignored) {
+			}
+			applyShowFlags(win);
+			return;
+		}
+		if (JavaANGame.isAndroidVersionHigher(16)) {
+			try {
+				decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+			} catch (Throwable ignored) {
+			}
+			applyShowFlags(win);
+			return;
+		}
+		applyShowFlags(win);
+	}
+
+	public void hideSystemButtonUI() {
+		Window win = getWindow();
+		if (win == null) {
+			return;
+		}
+		if (!JavaANGame.isAndroidVersionHigher(11)) {
+			return;
+		}
+		if (JavaANGame.isAndroidVersionHigher(30)) {
+			if (tryInsetsController(win, true)) {
+				applyHideFlags(win);
+				return;
+			}
+		}
+		View decor = win.getDecorView();
+		if (decor == null) {
+			applyHideFlags(win);
+			return;
+		}
+		if (JavaANGame.isAndroidVersionHigher(19)) {
+			try {
+				int flags = View.SYSTEM_UI_FLAG_LAYOUT_STABLE | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+						| View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+						| View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY;
+				decor.setSystemUiVisibility(flags);
+			} catch (Throwable ignored) {
+			}
+			applyHideFlags(win);
+			return;
+		}
+		if (JavaANGame.isAndroidVersionHigher(16)) {
+			try {
+				decor.setSystemUiVisibility(View.SYSTEM_UI_FLAG_FULLSCREEN);
+			} catch (Throwable ignored) {
+			}
+			applyHideFlags(win);
+			return;
+		}
+		applyHideFlags(win);
 	}
 
 	/**
@@ -1085,36 +1499,78 @@ public abstract class JavaANApplication extends Activity implements JavaANPlatfo
 
 	public static RectI getDeviceScreenSize(Context context, boolean useDeviceSize) {
 		RectI rect = new RectI();
+		if (context == null) {
+			return rect;
+		}
 		WindowManager windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
-		android.view.Display display = windowManager.getDefaultDisplay();
+		if (windowManager == null) {
+			return rect;
+		}
 		DisplayMetrics metrics = new DisplayMetrics();
-		display.getMetrics(metrics);
-		int widthPixels = metrics.widthPixels;
-		int heightPixels = metrics.heightPixels;
-		if (!useDeviceSize) {
+		if (useDeviceSize && JavaANGame.isAndroidVersionHigher(30)) {
+			try {
+				java.lang.reflect.Method getCurrentWindowMetrics = WindowManager.class
+						.getMethod("getCurrentWindowMetrics");
+				Object windowMetrics = getCurrentWindowMetrics.invoke(windowManager);
+				if (windowMetrics != null) {
+					java.lang.reflect.Method getBounds = windowMetrics.getClass().getMethod("getBounds");
+					Object boundsObj = getBounds.invoke(windowMetrics);
+					if (boundsObj instanceof android.graphics.Rect) {
+						android.graphics.Rect bounds = (android.graphics.Rect) boundsObj;
+						rect.width = bounds.width();
+						rect.height = bounds.height();
+						return rect;
+					}
+				}
+			} catch (Throwable ignored) {
+			}
+		}
+		try {
+			android.view.Display display = windowManager.getDefaultDisplay();
+			if (display == null) {
+				return rect;
+			}
+			try {
+				display.getMetrics(metrics);
+			} catch (Throwable ignored) {
+			}
+			int widthPixels = metrics.widthPixels;
+			int heightPixels = metrics.heightPixels;
+			if (useDeviceSize) {
+				int sdk = JavaANGame.getSDKVersion();
+				if (sdk >= 17) {
+					try {
+						Point realSize = new Point();
+						java.lang.reflect.Method getRealSize = Display.class.getMethod("getRealSize", Point.class);
+						getRealSize.invoke(display, realSize);
+						widthPixels = realSize.x;
+						heightPixels = realSize.y;
+					} catch (Throwable ignored) {
+					}
+				} else if (sdk >= 14) {
+					try {
+						java.lang.reflect.Method getRawW = Display.class.getMethod("getRawWidth");
+						java.lang.reflect.Method getRawH = Display.class.getMethod("getRawHeight");
+						widthPixels = (Integer) getRawW.invoke(display);
+						heightPixels = (Integer) getRawH.invoke(display);
+					} catch (Throwable ignored) {
+					}
+				}
+			}
 			rect.width = widthPixels;
 			rect.height = heightPixels;
 			return rect;
+		} catch (Throwable t) {
+			try {
+				DisplayMetrics dm = context.getResources().getDisplayMetrics();
+				rect.width = dm.widthPixels;
+				rect.height = dm.heightPixels;
+			} catch (Throwable ignored) {
+				rect.width = 0;
+				rect.height = 0;
+			}
+			return rect;
 		}
-		int buildInt = JavaANGame.getSDKVersion();
-		if (buildInt >= 14 && buildInt < 17)
-			try {
-				widthPixels = (Integer) android.view.Display.class.getMethod("getRawWidth").invoke(display);
-				heightPixels = (Integer) android.view.Display.class.getMethod("getRawHeight").invoke(display);
-			} catch (Exception ignored) {
-			}
-		if (buildInt >= 17)
-			try {
-				android.graphics.Point realSize = new android.graphics.Point();
-				android.view.Display.class.getMethod("getRealSize", android.graphics.Point.class).invoke(display,
-						realSize);
-				widthPixels = realSize.x;
-				heightPixels = realSize.y;
-			} catch (Exception ignored) {
-			}
-		rect.width = widthPixels;
-		rect.height = heightPixels;
-		return rect;
 	}
 
 	@Override

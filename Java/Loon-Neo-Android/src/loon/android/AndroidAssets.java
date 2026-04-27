@@ -304,7 +304,7 @@ public class AndroidAssets extends Assets {
 				File file = null;
 				try {
 					file = android.os.Environment.getExternalStorageDirectory();
-				} catch (Exception e) {
+				} catch (Throwable e) {
 					file = Loon.self.getMainAppContext().getExternalCacheDir();
 				}
 				if (file == null || !file.exists()) {

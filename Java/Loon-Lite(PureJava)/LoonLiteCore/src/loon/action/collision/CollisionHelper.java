@@ -2266,4 +2266,34 @@ public final class CollisionHelper extends ShapeUtils {
 	public static Vector2f fitQuadControl(Vector2f p0, Vector2f p1, Vector2f p2) {
 		return new Vector2f(2 * p1.x - (p0.x + p2.x) / 2f, 2 * p1.y - (p0.y + p2.y) / 2f);
 	}
+
+	public static float[] removeCollinear(float[] verts, float eps) {
+		TArray<Vector2f> pts = new TArray<Vector2f>();
+		for (int i = 0; i < verts.length; i += 2) {
+			pts.add(Vector2f.at(verts[i], verts[i + 1]));
+		}
+		TArray<Vector2f> out = new TArray<Vector2f>();
+		int n = pts.size();
+		for (int i = 0; i < n; i++) {
+			Vector2f prev = pts.get((i - 1 + n) % n);
+			Vector2f cur = pts.get(i);
+			Vector2f next = pts.get((i + 1) % n);
+			Vector2f v1 = new Vector2f(cur.x - prev.x, cur.y - prev.y);
+			Vector2f v2 = new Vector2f(next.x - cur.x, next.y - cur.y);
+			float cross = MathUtils.abs(v1.x * v2.y - v1.y * v2.x);
+			if (cross > eps) {
+				out.add(cur);
+			}
+		}
+		if (out.size() < 3) {
+			return null;
+		}
+		float[] res = new float[out.size() * 2];
+		for (int i = 0; i < out.size(); i++) {
+			res[i * 2] = out.get(i).x;
+			res[i * 2 + 1] = out.get(i).y;
+		}
+		return res;
+	}
+
 }

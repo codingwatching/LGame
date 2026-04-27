@@ -2103,6 +2103,53 @@ public final class MathUtils {
 		}
 	}
 
+	public static Vector2f computeCentroid(float[] verts) {
+		float cx = 0, cy = 0, area = 0;
+		int n = verts.length / 2;
+		for (int i = 0; i < n; i++) {
+			int j = (i + 1) % n;
+			float x0 = verts[i * 2], y0 = verts[i * 2 + 1];
+			float x1 = verts[j * 2], y1 = verts[j * 2 + 1];
+			float a = x0 * y1 - x1 * y0;
+			area += a;
+			cx += (x0 + x1) * a;
+			cy += (y0 + y1) * a;
+		}
+		area *= 0.5f;
+		if (MathUtils.abs(area) < 1e-9f) {
+			return new Vector2f(Float.NaN, Float.NaN);
+		}
+		cx /= (6f * area);
+		cy /= (6f * area);
+		return new Vector2f(cx, cy);
+	}
+
+	public static void reverse(float[] verts) {
+		int n = verts.length / 2;
+		for (int i = 0; i < n / 2; i++) {
+			int j = n - 1 - i;
+			float tx = verts[i * 2], ty = verts[i * 2 + 1];
+			verts[i * 2] = verts[j * 2];
+			verts[i * 2 + 1] = verts[j * 2 + 1];
+			verts[j * 2] = tx;
+			verts[j * 2 + 1] = ty;
+		}
+	}
+
+	public static float polygonArea(float[] verts) {
+		float area = 0;
+		int n = verts.length / 2;
+		for (int i = 0; i < n; i++) {
+			int j = (i + 1) % n;
+			area += verts[i * 2] * verts[j * 2 + 1] - verts[j * 2] * verts[i * 2 + 1];
+		}
+		return area * 0.5f;
+	}
+
+	public static boolean isCCW(float[] verts) {
+		return polygonArea(verts) > 0;
+	}
+
 	public static boolean isCCW(float[] polys, int offset, int count) {
 		if (count < 6) {
 			return false;

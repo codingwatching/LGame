@@ -285,7 +285,7 @@ public class JavaANAssets extends Assets {
 				File file = null;
 				try {
 					file = android.os.Environment.getExternalStorageDirectory();
-				} catch (Exception e) {
+				} catch (Throwable e) {
 					file = (((JavaANGame) LSystem.base())).mainPlatform.getContext().getExternalCacheDir();
 				}
 				if (file == null || !file.exists()) {

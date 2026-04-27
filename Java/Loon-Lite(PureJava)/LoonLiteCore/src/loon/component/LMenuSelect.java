@@ -261,7 +261,7 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 		if (_labels != null && _labels.length > 0) {
 			_selectCountMax = labels.length;
 			_selectRects = new RectF[_selectCountMax];
-			TArray<CharSequence> chars = new TArray<>(_selectCountMax);
+			TArray<CharSequence> chars = new TArray<CharSequence>(_selectCountMax);
 			float maxWidth = 0;
 			float maxHeight = 0;
 
