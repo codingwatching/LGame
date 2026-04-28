@@ -2116,7 +2116,7 @@ public class GLEx implements LRelease {
 		final Path path = canvas.createPath();
 		float[] points = shape.getPoints();
 		for (int i = 0; i < points.length; i += 2) {
-			path.lineTo(points[i], points[i + 1]);
+			path.lineTo(points[i] + x, points[i + 1] + y);
 		}
 		path.close();
 		final LColor color = canvas.getStroketoLColor();
@@ -2167,14 +2167,14 @@ public class GLEx implements LRelease {
 			return this;
 		}
 		if (size == 4) {
-			drawLine(points[0], points[1], points[2], points[3]);
+			drawLine(points[0] + x, points[1] + y, points[2] + x, points[3] + y);
 			return this;
 		}
 		final Canvas canvas = gfx.getCanvas();
 		canvas.setTransform(tx());
 		final Path path = canvas.createPath();
 		for (int i = 0; i < points.length; i += 2) {
-			path.lineTo(points[i], points[i + 1]);
+			path.lineTo(points[i] + x, points[i + 1] + y);
 		}
 		path.close();
 		final LColor color = canvas.getStroketoLColor();
@@ -2216,7 +2216,7 @@ public class GLEx implements LRelease {
 	public GLEx fill(Shape shape, float x, float y, LColor color) {
 		int tmp = getTint();
 		setTint(color);
-		fill(shape, 0f, 0f);
+		fill(shape, x, y);
 		setTint(tmp);
 		return this;
 	}
@@ -2238,7 +2238,7 @@ public class GLEx implements LRelease {
 		final Path path = canvas.createPath();
 		final float[] points = shape.getPoints();
 		for (int i = 0; i < points.length; i += 2) {
-			path.lineTo(points[i], points[i + 1]);
+			path.lineTo(points[i] + x, points[i + 1] + y);
 		}
 		path.close();
 		final LColor color = canvas.getFilltoLColor();

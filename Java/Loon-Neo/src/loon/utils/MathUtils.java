@@ -2117,11 +2117,9 @@ public final class MathUtils {
 		}
 		area *= 0.5f;
 		if (MathUtils.abs(area) < 1e-9f) {
-			return new Vector2f(Float.NaN, Float.NaN);
+			return Vector2f.at(0, 0);
 		}
-		cx /= (6f * area);
-		cy /= (6f * area);
-		return new Vector2f(cx, cy);
+		return Vector2f.at(cx / (6 * area), cy / (6 * area));
 	}
 
 	public static void reverse(float[] verts) {

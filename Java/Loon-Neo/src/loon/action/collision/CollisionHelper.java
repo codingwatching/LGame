@@ -2278,22 +2278,19 @@ public final class CollisionHelper extends ShapeUtils {
 			Vector2f prev = pts.get((i - 1 + n) % n);
 			Vector2f cur = pts.get(i);
 			Vector2f next = pts.get((i + 1) % n);
-			Vector2f v1 = new Vector2f(cur.x - prev.x, cur.y - prev.y);
-			Vector2f v2 = new Vector2f(next.x - cur.x, next.y - cur.y);
-			float cross = MathUtils.abs(v1.x * v2.y - v1.y * v2.x);
+			float cross = MathUtils.abs((cur.x - prev.x) * (next.y - cur.y) - (cur.y - prev.y) * (next.x - cur.x));
 			if (cross > eps) {
 				out.add(cur);
 			}
 		}
 		if (out.size() < 3) {
-			return null;
+			return verts;
 		}
-		float[] res = new float[out.size() * 2];
-		for (int i = 0; i < out.size(); i++) {
+		float[] res = new float[out.size * 2];
+		for (int i = 0; i < out.size; i++) {
 			res[i * 2] = out.get(i).x;
 			res[i * 2 + 1] = out.get(i).y;
 		}
 		return res;
 	}
-
 }

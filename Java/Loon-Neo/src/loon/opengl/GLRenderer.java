@@ -364,6 +364,10 @@ public final class GLRenderer implements LRelease {
 	}
 
 	public void polygon(float[] vertices) {
+		polygon(vertices, 0f, 0f);
+	}
+
+	public void polygon(float[] vertices, float x, float y) {
 		if (_currType != GLType.Line) {
 			throw new LSysException("Must call begin(GLType.Line)");
 		}
@@ -397,9 +401,9 @@ public final class GLRenderer implements LRelease {
 			}
 
 			_renderer.color(colorFloat);
-			_renderer.vertex(x1, y1, 0);
+			_renderer.vertex(x1 + x, y1 + y, 0);
 			_renderer.color(colorFloat);
-			_renderer.vertex(x2, y2, 0);
+			_renderer.vertex(x2 + x, y2 + y, 0);
 		}
 		_drawCallCount++;
 	}

@@ -3321,7 +3321,7 @@ public class GLEx extends BatchEx<GLEx> implements LRelease {
 				}
 				beginRenderer(GLType.Line);
 				glRenderer.setColor(argb);
-				glRenderer.polygon(points);
+				glRenderer.polygon(points, x, y);
 				endRenderer();
 			}
 			drawCallCount++;
@@ -3423,7 +3423,7 @@ public class GLEx extends BatchEx<GLEx> implements LRelease {
 	public GLEx fill(Shape shape, float x, float y, LColor color) {
 		int tmp = getTint();
 		setTint(color);
-		fill(shape, 0f, 0f);
+		fill(shape, x, y);
 		setTint(tmp);
 		return this;
 	}

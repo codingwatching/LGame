@@ -39,8 +39,10 @@ public final class GLUtils {
 	}
 
 	public static void setBlendMode(Canvas g, int blend) {
-		GLUtils.currentBlendMode = blend;
-		g.setBlendMethod(blend);
+		if (GLUtils.currentBlendMode != blend) {
+			g.setBlendMethod(blend);
+			GLUtils.currentBlendMode = blend;
+		}
 	}
 
 	public static int getBlendMode() {

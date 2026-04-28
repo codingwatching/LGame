@@ -581,6 +581,14 @@ public class ObjectMap<K, V> implements Iterable<ObjectMap.Entry<K, V>>, IArray,
 		}
 	}
 
+	public V getOrDefault(Object key, V v) {
+		V result = get(key);
+		if (result == null) {
+			return v;
+		}
+		return result;
+	}
+
 	@SuppressWarnings("unchecked")
 	public V get(Object key) {
 		if (key == null) {
