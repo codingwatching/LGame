@@ -210,6 +210,9 @@ public class BattleMapObject extends Role implements LRelease {
 
 	private boolean inCombat = false;
 
+	// 若此项为真，将以斜视的4方向行走
+	private boolean findDirFour = false;
+
 	// 动作进度
 	private float attackProgress;
 	private float skillProgress;
@@ -1136,6 +1139,7 @@ public class BattleMapObject extends Role implements LRelease {
 		}
 		BattlePathFinder f = battleMap.getPathFinder();
 		f.setFlying(isFlying());
+		f.setFindDirFour(findDirFour);
 		TArray<PointI> p = f.findPath(gridX, gridY, tx, ty);
 		if (!p.isEmpty()) {
 			setCharacters(battleMap._mapObjects);
@@ -1144,6 +1148,24 @@ public class BattleMapObject extends Role implements LRelease {
 			}
 			setPath(p);
 		}
+	}
+
+	public BattleMapObject setFindDirFour(boolean f) {
+		findDirFour = f;
+		return this;
+	}
+
+	public BattleMapObject setFindDirEight(boolean e) {
+		findDirFour = !e;
+		return this;
+	}
+
+	public boolean isFindDirFour() {
+		return findDirFour;
+	}
+
+	public boolean isFindDirEight() {
+		return !findDirFour;
 	}
 
 	public PointI getCurrentMapTile() {

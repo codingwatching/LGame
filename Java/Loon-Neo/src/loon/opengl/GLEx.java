@@ -62,7 +62,7 @@ public class GLEx extends BatchEx<GLEx> implements LRelease {
 	/*
 	 * 内部类，用来保存与复位GLEx的基本渲染参数
 	 */
-	private static class BrushSave {
+	private class BrushSave {
 		int baseColor = LColor.DEF_COLOR;
 		int fillColor = LColor.DEF_COLOR;
 		int pixSkip = def_skip;
@@ -84,11 +84,12 @@ public class GLEx extends BatchEx<GLEx> implements LRelease {
 			save.font = this.font;
 			save.patternTex = this.patternTex;
 			save.blend = this.blend;
+			save.baseAlpha = this.baseAlpha;
 			return save;
 		}
 	}
 
-	public static enum Direction {
+	public enum Direction {
 		TRANS_NONE, TRANS_MIRROR, TRANS_FLIP, TRANS_MF;
 	}
 
@@ -2143,7 +2144,7 @@ public class GLEx extends BatchEx<GLEx> implements LRelease {
 			if (rotDirty) {
 				if (pivot != null && (pivot.x != -1 && pivot.y != -1)) {
 					centerX = x + pivot.x;
-					centerX = y + pivot.y;
+					centerY = y + pivot.y;
 				}
 				xf.translate(centerX, centerY);
 				xf.preRotate(rotation);
@@ -2152,7 +2153,7 @@ public class GLEx extends BatchEx<GLEx> implements LRelease {
 			if (scaleDirty) {
 				if (pivot != null && (pivot.x != -1 && pivot.y != -1)) {
 					centerX = x + pivot.x;
-					centerX = y + pivot.y;
+					centerY = y + pivot.y;
 				}
 				xf.translate(centerX, centerY);
 				xf.preScale(scaleX, scaleY);

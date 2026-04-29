@@ -115,8 +115,15 @@ public class BattlePathFinder implements LRelease {
 	public static final int PATH_CACHE_SIZE = 50;
 	private final BattleTile[][] map;
 	private final int width, height;
-	private final int[][] dirs = { { 1, 0, 10 }, { -1, 0, 10 }, { 0, 1, 10 }, { 0, -1, 10 }, { 1, 1, 14 },
+
+	// 四方向寻径，具体到斜视地图即几乎只走斜线(直线必须存在，否则会有路径无法移动，所以真实寻径方向为6方向,但显示上【大多时候】只有斜视4方向的移动存在)
+	private final int[][] fourDirs = { { 1, 0, 14 }, { -1, 0, 14 }, { 1, 1, 14 }, { -1, 1, 14 }, { 1, -1, 10 },
+			{ -1, -1, 10 } };
+
+	// 八方向寻径
+	private final int[][] eightDirs = { { 1, 0, 10 }, { -1, 0, 10 }, { 0, 1, 10 }, { 0, -1, 10 }, { 1, 1, 14 },
 			{ -1, 1, 14 }, { 1, -1, 14 }, { -1, -1, 14 } };
+
 	private int[][] gCost, hCost, parentX, parentY;
 	private boolean[][] closed;
 	// 路径缓存
@@ -124,6 +131,9 @@ public class BattlePathFinder implements LRelease {
 	// 寻径启发函数权重
 	private final float heuristicWeight = 1.0f;
 	private final GameEventBus<PathResult> eventBus;
+
+	// 若此项为真，将以斜视的4方向行走
+	private boolean findDirFour = false;
 
 	private boolean allowSmoothPath = true;
 	// 飞行选项
@@ -258,7 +268,7 @@ public class BattlePathFinder implements LRelease {
 
 			if (cx == ex && cy == ey) {
 				TArray<PointI> path = reconstructPath(ex, ey);
-				if (allowSmoothPath) {
+				if (allowSmoothPath && !findDirFour) {
 					TArray<PointI> smoothPath = smoothPath(path);
 					cachePath(cacheKey, smoothPath);
 					publishPathEvent(true, "Path found", smoothPath);
@@ -269,16 +279,17 @@ public class BattlePathFinder implements LRelease {
 				}
 			}
 
+			// 四方向或八方向移动
+			final int[][] dirs = findDirFour ? fourDirs : eightDirs;
+
 			for (int[] dir : dirs) {
 				int nx = cx + dir[0], ny = cy + dir[1];
 				int baseCost = dir[2];
-
-				// 斜向移动合法性检查
 				if (!flying) {
 					if (!isValid(nx, ny) || closed[nx][ny] || !map[nx][ny].isPassable()) {
 						continue;
 					}
-					if (dir[0] != 0 && dir[1] != 0) {
+					if (!findDirFour && dir[0] != 0 && dir[1] != 0) {
 						if (!map[cx + dir[0]][cy].isPassable() || !map[cx][cy + dir[1]].isPassable()) {
 							continue;
 						}
@@ -346,13 +357,35 @@ public class BattlePathFinder implements LRelease {
 	private int calculateHeuristic(int x, int y, int ex, int ey) {
 		int dx = MathUtils.abs(x - ex);
 		int dy = MathUtils.abs(y - ey);
-		int manhattan = dx + dy;
-		float euclidean = MathUtils.sqrt(dx * dx + dy * dy);
-		return MathUtils.ifloor((manhattan + euclidean) * heuristicWeight);
+		if (findDirFour) {
+			return MathUtils.ifloor(MathUtils.max(dx, dy) * heuristicWeight);
+		} else {
+			int manhattan = dx + dy;
+			float euclidean = MathUtils.sqrt(dx * dx + dy * dy);
+			return MathUtils.ifloor((manhattan + euclidean) * heuristicWeight);
+		}
+	}
+
+	public BattlePathFinder setFindDirFour(boolean f) {
+		findDirFour = f;
+		return this;
+	}
+
+	public BattlePathFinder setFindDirEight(boolean e) {
+		findDirFour = !e;
+		return this;
+	}
+
+	public boolean isFindDirFour() {
+		return findDirFour;
+	}
+
+	public boolean isFindDirEight() {
+		return !findDirFour;
 	}
 
 	/**
-	 * 发布寻径事件,一边上级程序操作
+	 * 发布寻径事件,以便上级程序操作
 	 * 
 	 * @param success
 	 * @param message
