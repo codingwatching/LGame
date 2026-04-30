@@ -40,6 +40,7 @@ import loon.action.sprite.ISprite;
 import loon.events.GameEvent;
 import loon.events.GameEventType;
 import loon.geom.PointI;
+import loon.geom.RectBox;
 import loon.geom.Vector2f;
 import loon.geom.XY;
 import loon.opengl.GLEx;
@@ -176,6 +177,8 @@ public class BattleMapObject extends Role implements LRelease {
 
 	private final TArray<PointI> filterValidTempPath = new TArray<PointI>();
 
+	private final PointI tempMapTile = new PointI();
+
 	protected ObjectStateListener objectStateListener;
 
 	// 初始(当前)坐标
@@ -195,7 +198,7 @@ public class BattleMapObject extends Role implements LRelease {
 
 	// 斜角地图配置
 	protected final IsoConfig isoConfig;
-	private final int charInMapWidth, charInMapHeight;
+	private int charInMapWidth, charInMapHeight;
 
 	// 速度系统
 	private float baseSpeed;
@@ -266,6 +269,16 @@ public class BattleMapObject extends Role implements LRelease {
 
 	private float keyMoveTimer;
 
+	// 角色逻辑尺寸 (以地图瓦片为单位)
+	// 例如角色视觉上占宽2瓦片，高2瓦片，则设置为2
+	// 注意，这与像素大小charInMapWidth之类像素大小不同，这是角色逻辑上占用的瓦片大小
+	private int logicWidth = 1;
+	private int logicHeight = 1;
+	// 碰撞体相对于逻辑坐标（左上角）的偏移量
+	// 例如狼，头在左，身体向右延伸。逻辑坐标在头，但身体需要向右偏移1格，以避免寻径无法移动过去。
+	protected int collisionTileOffsetX = 0;
+	protected int collisionTileOffsetY = 0;
+
 	public BattleMapObject(IsoConfig cfg, BattleMap map, ISprite sprite, int id, String name, int gx, int gy, int w,
 			int h, MovementListener l) {
 		this(cfg, map, sprite, id, name, gx, gy, w, h, l, DEFAULT_EASING);
@@ -314,6 +327,77 @@ public class BattleMapObject extends Role implements LRelease {
 			sprite.setLocation(startPixel.x, startPixel.y);
 			setRoleObject(sprite);
 		}
+	}
+
+	/**
+	 * 设定角色占用的瓦片大小，而非像素大小 (比如树，塔，桥，总之太长或者太高的东西，是没法判定像素碰撞的，否则你会无法在他周围移动，只能算占几格)
+	 * 
+	 * @param width
+	 * @param height
+	 * @return
+	 */
+	public BattleMapObject setSizeInTile(int width, int height) {
+		this.logicWidth = MathUtils.max(1, width);
+		this.logicHeight = MathUtils.max(1, height);
+		return this;
+	}
+
+	public int getLogicTileWidth() {
+		return logicWidth;
+	}
+
+	public int getLogicTileHeight() {
+		return logicHeight;
+	}
+
+	/**
+	 * 偏移角色占用的瓦片大小，而非像素大小
+	 * 
+	 * @param x
+	 * @param y
+	 * @return
+	 */
+	public BattleMapObject setCollisionTileOffset(int x, int y) {
+		this.collisionTileOffsetX = MathUtils.max(0, x);
+		this.collisionTileOffsetY = MathUtils.max(0, y);
+		return this;
+	}
+
+	public int getCollisionTileOffsetX() {
+		return collisionTileOffsetX;
+	}
+
+	public int getCollisionTileOffsetY() {
+		return collisionTileOffsetY;
+	}
+
+	@Override
+	public BattleMapObject setSize(float w, float h) {
+		if (isLocked()) {
+			return this;
+		}
+		charInMapWidth = MathUtils.ifloor(w);
+		charInMapHeight = MathUtils.ifloor(h);
+		if (_roleObject != null) {
+			_roleObject.setSize(w, h);
+		}
+		if (battleMap != null) {
+			int tileWidth = battleMap.getTileWidth();
+			int tileHeight = battleMap.getTileHeight();
+			if (tileWidth > 0 && tileHeight > 0) {
+				// 以像素大小默认推导出瓦片实际占位大小，估算值，不一定准，必要时setSizeInTile和setCollisionTileOffset自行设置
+				this.logicWidth = MathUtils.max(1, MathUtils.ifloor(w / tileWidth - 1.0f));
+				this.logicHeight = MathUtils.max(1, MathUtils.ifloor(h / tileHeight - 1.5f));
+				if (logicWidth > 1) {
+					collisionTileOffsetX = 1;
+				}
+			}
+		} else {
+			this.logicWidth = 1;
+			this.logicHeight = 1;
+		}
+		updateRenderPriorityZ();
+		return this;
 	}
 
 	private void handleAttackState(float deltaTime, TArray<BattleMapObject> allObjects) {
@@ -470,9 +554,8 @@ public class BattleMapObject extends Role implements LRelease {
 	}
 
 	private float calculateRenderPriority() {
-		Vector2f screenPos = getTileToScreenPosition();
 		float base = (gridX + gridY);
-		float footY = screenPos.y - (getCharHeight() * isoConfig.heightScale);
+		float footY = (getY() + moveOffsetPixel.y + (getCharHeight() * isoConfig.heightScale) / 2) * 0.1f;
 		return base + footY;
 	}
 
@@ -486,6 +569,24 @@ public class BattleMapObject extends Role implements LRelease {
 		return getTileToScreenPosition();
 	}
 
+	public RectBox getActualScreenRect() {
+		Vector2f basePos = getTileToScreenPosition();
+		float x = basePos.x;
+		float y = basePos.y;
+		float w = getCharWidth();
+		float h = getCharHeight();
+		return new RectBox(x - w / 2, y - h, w, h);
+	}
+
+	public RectBox getFutureScreenRect(int targetGridX, int targetGridY) {
+		Vector2f basePos = getTileToScreen(targetGridX, targetGridY);
+		float x = basePos.x;
+		float y = basePos.y;
+		float w = getCharWidth();
+		float h = getCharHeight();
+		return new RectBox(x - w / 2, y - h, w, h);
+	}
+
 	public Vector2f getOffsetPixel() {
 		return moveOffsetPixel;
 	}
@@ -493,6 +594,11 @@ public class BattleMapObject extends Role implements LRelease {
 	public BattleMapObject setOffsetPixel(XY pos) {
 		if (pos != null)
 			moveOffsetPixel.set(pos);
+		return this;
+	}
+
+	public BattleMapObject setOffsetPixel(float x, float y) {
+		moveOffsetPixel.set(x, y);
 		return this;
 	}
 
@@ -1169,7 +1275,7 @@ public class BattleMapObject extends Role implements LRelease {
 	}
 
 	public PointI getCurrentMapTile() {
-		return new PointI(currentMapTile);
+		return tempMapTile.set(currentMapTile);
 	}
 
 	public void setCurrentMapTile(PointI tile) {
@@ -1262,6 +1368,28 @@ public class BattleMapObject extends Role implements LRelease {
 		targetSpeed = baseSpeed * type.getMoveSpeedMultiplier();
 	}
 
+	public TArray<PointI> getOccupiedTiles() {
+		return getOccupiedTiles(null);
+	}
+
+	/**
+	 * 获取角色当前逻辑上占据的所有瓦片坐标
+	 * 
+	 * @param out
+	 * @return
+	 */
+	public TArray<PointI> getOccupiedTiles(TArray<PointI> out) {
+		if (out == null) {
+			out = new TArray<PointI>();
+		}
+		for (int x = 0; x < logicWidth; x++) {
+			for (int y = 0; y < logicHeight; y++) {
+				out.add(new PointI(gridX + x, gridY + y));
+			}
+		}
+		return out;
+	}
+
 	/**
 	 * 碰撞检测
 	 */
@@ -1269,19 +1397,44 @@ public class BattleMapObject extends Role implements LRelease {
 		if (otherCharacters.isEmpty()) {
 			return CollisionResponse.CONTINUE;
 		}
-		PointI targetTile = null;
-		if (currentStep < path.size()) {
-			targetTile = path.get(currentStep);
+		PointI targetTilePoint = null;
+		if (currentStep < path.size() && !path.isEmpty()) {
+			targetTilePoint = path.get(currentStep);
 		} else {
-			targetTile = getCurrentMapTile();
+			targetTilePoint = gridTempPoint.set(gridX, gridY);
 		}
-		for (BattleMapObject o : otherCharacters) {
-			if (o == null || o == this) {
+		if (targetTilePoint == null) {
+			return CollisionResponse.CONTINUE;
+		}
+
+		int myLeft = targetTilePoint.x;
+		int myTop = targetTilePoint.y;
+		int myRight = myLeft + logicWidth > 1 ? 1 : logicWidth;
+		int myBottom = myTop + logicHeight > 1 ? 1 : logicHeight;
+
+		for (BattleMapObject other : otherCharacters) {
+			if (other == null || other == this) {
 				continue;
 			}
-			if (targetTile.equals(o.getCurrentMapTile())) {
+			PointI otherTile = other.getCurrentMapTile();
+			if (otherTile == null) {
+				continue;
+			}
+			int myIsoKey = targetTilePoint.x - targetTilePoint.y;
+			int otherIsoKey = otherTile.x - otherTile.y;
+			boolean amIOnTheLeft = (myIsoKey <= otherIsoKey) && other.logicWidth > 1;
+
+			int enemyOffsetX = amIOnTheLeft ? other.collisionTileOffsetX : 0;
+			int enemyLeft = otherTile.x + enemyOffsetX;
+			int enemyTop = otherTile.y + other.collisionTileOffsetY;
+			int enemyRight = enemyLeft + other.logicWidth;
+			int enemyBottom = enemyTop + other.logicHeight;
+
+			boolean xOverlap = (myLeft < enemyRight) && (myRight > enemyLeft);
+			boolean yOverlap = (myTop < enemyBottom) && (myBottom > enemyTop);
+			if (xOverlap && yOverlap && !amIOnTheLeft) {
 				if (listener != null) {
-					listener.onCollision(this, o, CollisionResponse.STOP);
+					listener.onCollision(this, other, CollisionResponse.STOP);
 				}
 				return CollisionResponse.BACKWARD;
 			}
@@ -1317,6 +1470,7 @@ public class BattleMapObject extends Role implements LRelease {
 		if (listener != null) {
 			listener.onPathCompleted(this);
 		}
+		clearPath();
 	}
 
 	/**
@@ -1414,22 +1568,51 @@ public class BattleMapObject extends Role implements LRelease {
 	/**
 	 * 判断是否可移动到目标瓦片
 	 * 
-	 * @param gx
-	 * @param gy
+	 * @param tile
 	 * @return
 	 */
-	public boolean canMoveTo(int gx, int gy) {
-		return canMoveTo(gridTempPoint.set(gx, gy));
+	public boolean canMoveTo(int gx, int gy, BattleMapObject ignoreObj) {
+		return isTilePassable(gx, gy, ignoreObj);
 	}
 
 	/**
 	 * 判断是否可移动到目标瓦片
 	 * 
-	 * @param tile
+	 * @param gx
+	 * @param gy
 	 * @return
 	 */
-	public boolean canMoveTo(PointI tile) {
-		if (tile == null || state == ObjectState.DEAD) {
+	public boolean canMoveTo(int gx, int gy) {
+		return canMoveTo(gx, gy, null);
+	}
+
+	/**
+	 * 判断是否可移动到目标瓦片
+	 * 
+	 * @param pos
+	 * @return
+	 */
+	public boolean canMoveTo(PointI pos) {
+		if (pos == null) {
+			return false;
+		}
+		return canMoveTo(pos.x, pos.y);
+	}
+
+	public boolean isTilePassable(int x, int y) {
+		return isTilePassable(x, y, null);
+	}
+
+	/**
+	 * 检查单个瓦片是否可通行
+	 * 
+	 * @param x
+	 * @param y
+	 * @return
+	 */
+	public boolean isTilePassable(int x, int y, BattleMapObject ignoreObj) {
+		PointI tile = gridTempPoint.set(x, y);
+		if (state == ObjectState.DEAD) {
 			return false;
 		}
 		for (MovementState s : moveManager.getActiveStates()) {
@@ -1439,7 +1622,7 @@ public class BattleMapObject extends Role implements LRelease {
 		}
 		if (battleMap != null) {
 			BattleTile t = battleMap.getMapTile(tile.x, tile.y);
-			if (t == null || !t.isPassable() && !isFlying()) {
+			if (t == null || (!t.isPassable() && !isFlying())) {
 				return false;
 			}
 		}
@@ -1447,10 +1630,33 @@ public class BattleMapObject extends Role implements LRelease {
 			return false;
 		}
 		for (BattleMapObject o : otherCharacters) {
-			if (o == null || o == this) {
+			if (o == null || o == this || o.isDead()) {
 				continue;
 			}
-			if (tile.equals(o.getCurrentMapTile())) {
+			if (o == ignoreObj) {
+				continue;
+			}
+			PointI otherTile = o.getCurrentMapTile();
+			if (otherTile == null) {
+				continue;
+			}
+			int targetGridX = gridX;
+			int targetGridY = gridY;
+			if (currentStep < path.size() && !path.isEmpty()) {
+				PointI next = path.get(currentStep);
+				targetGridX = next.x;
+				targetGridY = next.y;
+			}
+			int myIsoKey = targetGridX - targetGridY;
+			int otherIsoKey = otherTile.x - otherTile.y;
+			boolean amIOnTheLeft = (myIsoKey <= otherIsoKey) && o.logicWidth > 1;
+			int effectiveOffsetX = amIOnTheLeft ? o.collisionTileOffsetX : 0;
+			int effectiveOffsetY = o.collisionTileOffsetY;
+			int enemyLeft = otherTile.x + effectiveOffsetX;
+			int enemyTop = otherTile.y + effectiveOffsetY;
+			int enemyRight = enemyLeft + o.logicWidth;
+			int enemyBottom = enemyTop + o.logicHeight;
+			if (x >= enemyLeft && x < enemyRight && y >= enemyTop && y < enemyBottom) {
 				return false;
 			}
 		}

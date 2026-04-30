@@ -1,0 +1,43 @@
+{
+	"frameWidth": 64,
+	"frameHeight": 64,
+	"basePath": "assets/",
+	"animations": {
+		"MOVING": {
+			"filePattern": "wolf-run.png",
+			"speed": 0.22,
+			"looping": true,
+			"isSheet": true,
+			"region": {
+				"x": 0,
+				"y": 0,
+				"rows": 8,
+				"cols": 4
+			},
+			"frames": {
+				"DOWN_LEFT": [0,1,2,3,4,5,6,7],
+				"DOWN_RIGHT": [8,9,10,11,12,13,14,15],
+				"UP_LEFT": [16,17,18,19,20,21,22,23],
+				"UP_RIGHT": [24,25,26,27,28,29,30,31]
+			}
+		},
+		"IDLE": {
+				"filePattern": "wolf-idle.png",
+				"speed": 0.22,
+				"looping": true,
+				"isSheet": true,
+				"region": {
+					"x": 0,
+					"y": 0,
+					"rows": 4,
+					"cols": 4
+				},
+				"frames": {
+					"DOWN_LEFT": [0,1,2,3],
+					"DOWN_RIGHT": [4,5,6,7],
+					"UP_LEFT": [8,9,10,11],
+					"UP_RIGHT": [12,13,14,15]
+				}
+		}
+	}
+}

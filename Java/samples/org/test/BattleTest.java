@@ -52,6 +52,7 @@ import loon.geom.Vector2f;
 import loon.opengl.TextureUtils;
 import loon.utils.Easing;
 import loon.utils.ISOUtils.IsoConfig;
+import loon.utils.MathUtils;
 import loon.utils.TArray;
 
 /**
@@ -60,18 +61,22 @@ import loon.utils.TArray;
 public class BattleTest extends Stage {
 
 	private BattleMapObject makeObject(final BattleMap newMap, String battleJosn, int gx, int gy, String name,
-			final boolean clearPath) {
+			final boolean clearPath, final boolean fourDir) {
 
 		// 加载json动画配置资源到纹理动画管理器，不绑定任何对象(若绑定具体战斗对象或事件，则在执行对应命令时会回调触发)
 		AnimationManager mang = new AnimationManager(battleJosn, null, null);
 
 		// 插入图层IDLE标识动画，同时添加动作标识LEFT和RIGHT(任何状态标识都是json中设置了才能执行，没有对应名称则无效，另外此处使用字符串或者枚举类型的效果一样，只是用枚举方便用我自定义的模板，若自定义字符串则只能自行定义具体触发的事件)
 		mang.addLayerDirs(ObjectState.IDLE);
-
+		// 加个针对4方向图的特殊处理，其实就是实例中的狼，只有4方向，所以和8方向人物的处理有差异
+		if (fourDir) {
+			// 针对4方向图加上moving的动画层贴图管理
+			mang.addLayerDirs(ObjectState.MOVING);
+		}
 		mang.setState("IDLE", Direction.DOWN_LEFT);
 
 		// 构建并获得一个战斗地图对象，瓦片坐标位置，大小64x64，使用AnimationManager控制动画，监控所有移动相关动作
-		BattleMapObject hero = newMap.addMapObject(gx, gy, 64, 64, name, mang, new MovementListener() {
+		BattleMapObject mapObject = newMap.addMapObject(gx, gy, 64, 64, name, mang, new MovementListener() {
 
 			@Override
 			public void onTileEntered(BattleMapObject o, int mapX, int mapY) {
@@ -125,6 +130,13 @@ public class BattleTest extends Stage {
 
 			@Override
 			public void onPathCompleted(BattleMapObject o) {
+				// 还是狼的特殊处理，四方向图得转方向，否则用默认算法是处理8方向的，会有方向不存在
+				if (fourDir) {
+					// 把wolf的方向地址转化为四方向地址，否则没有8方向贴图……
+					mang.setState("IDLE", o.getDirection().toIso4Direction());
+					// 设定状态为IDLE
+					o.setState(ObjectState.IDLE);
+				}
 				if (clearPath) {
 					// 移动完毕后，清空瓦片高亮设置
 					newMap.clearHighlighterEffect();
@@ -149,13 +161,17 @@ public class BattleTest extends Stage {
 			@Override
 			public void onDirectionChanged(BattleMapObject o, Direction newDirection) {
 				// 改变当前动画角色方向，为移动检测的方向(PS:loon中的Direction为类，而不是枚举，所以允许自定义，但若自定了特殊方向名称对应的动画，此处需要自行匹配动画切换)
-				mang.setState("IDLE", Direction.toDisplayDirection(newDirection));
+				if (fourDir) {
+					// 这是wolf也就是狼的示例中专用处理，因为只有4方向图，但我在loon寻径时是默认返回8方向的，所以得8方向转4方向。注意，这只是示例，所以能用我的默认设置，但某些图位置会不同，就得用户自己改方向了，总之转化正常即可，完全看图怎么设置的，没有通用算法
+					mang.setState("MOVING", newDirection.toIso4Direction());
+				} else {
+					// 正常的移动8方向转贴图方向
+					mang.setState("IDLE", Direction.toDisplayDirection(newDirection));
+				}
 			}
 
 			@Override
 			public void onCollision(BattleMapObject self, BattleMapObject other, CollisionResponse response) {
-
-				System.out.println("CCC");
 			}
 
 			@Override
@@ -163,8 +179,19 @@ public class BattleTest extends Stage {
 
 			}
 		});
+		// wolf专用4方向图的特殊处理
+		if (fourDir) {
+			// 狼原图大量像素留空，所以设定为96x96，比实际图大，才和人物成比例
+			mapObject.setSize(96, 96);
+			// 使用4方向寻径，否则缺方向图，部分移动会很怪，滑铲什么的……
+			mapObject.setFindDirFour(true);
+			// 偏移显示坐标，适应狼的大小(这也没什么算法，例如人物图是横窄竖长的，狼图则是横长竖窄，
+			// 加上图片大小不等于像素范围，所以即便图片看上去都是64x64，但图留空范围不同，显示效果根本不一样。
+			// 不可能算法通用，偏移其实就是在找图片和格子的中心点，视觉上到位即可，怎么设置好看怎么来……)
+			mapObject.setOffsetPixel(0, 8);
+		}
 
-		return hero;
+		return mapObject;
 
 	}
 
@@ -240,10 +267,31 @@ public class BattleTest extends Stage {
 		// newMap.setDrawGrid(true);
 
 		// 在游戏网格坐标坐标1,4构建一个角色
-		BattleMapObject hero = makeObject(newMap, "battleRole0.json", 1, 4, "role0", true);
+		final BattleMapObject hero = makeObject(newMap, "battleRole0.json", 1, 4, "role0", true, false);
+
+		// 在网格7,11处构建一个狼，这个图是不同画风的，只有四方向，此处演示了如何混用不同设置的图片与移动
+		final BattleMapObject wolf = makeObject(newMap, "wolf.json", 7, 11, "wolf", false, true);
+
+		// 开启一个无限循环的任务，每隔五秒一次
+		postTask(() -> {
+			// 如果狼没有移动
+			if (!wolf.isMoving()) {
+				// 让它随便从屏幕范围中找个地方跑过去……
+				wolf.moveToGrid(newMap.findTileXY(MathUtils.random(0, getWidth()), MathUtils.random(0, getHeight())));
+			}
+		}, 5f);
 
 		// 在游戏网格坐标坐标16,14构建一个角色
-		BattleMapObject enemy = makeObject(newMap, "battleRole1.json", 16, 14, "role1", false);
+		final BattleMapObject enemy = makeObject(newMap, "battleRole1.json", 16, 14, "role1", false, false);
+		// 开启一个另无限循环的任务，每隔十秒一次
+		postTask(() -> {
+			// 如果敌人没有移动
+			if (!enemy.isMoving()) {
+				// 让他随便从屏幕范围中找个地方跑过去……
+				enemy.moveToGrid(newMap.findTileXY(MathUtils.random(0, getWidth()), MathUtils.random(0, getHeight())));
+			}
+		}, 10f);
+		
 		// 将地图对象缩放2倍(瓦片的缩放和地图对象的缩放不通用，需分别设置)
 		// hero.setScale(2f);
 
@@ -332,6 +380,8 @@ public class BattleTest extends Stage {
 		});
 
 		add(newMap);
+
+		add(MultiScreenTest.getBackButton(this, 0));
 	}
 
 }

@@ -117,8 +117,8 @@ public class BattlePathFinder implements LRelease {
 	private final int width, height;
 
 	// 四方向寻径，具体到斜视地图即几乎只走斜线(直线必须存在，否则会有路径无法移动，所以真实寻径方向为6方向,但显示上【大多时候】只有斜视4方向的移动存在)
-	private final int[][] fourDirs = { { 1, 0, 14 }, { -1, 0, 14 }, { 1, 1, 14 }, { -1, 1, 14 }, { 1, -1, 10 },
-			{ -1, -1, 10 } };
+	private final int[][] fourDirs = { { 1, 0, 14 }, { -1, 0, 14 }, { 1, 1, 14 }, { -1, 1, 14 }, { 1, -1, 14 },
+			{ -1, -1, 14 } };
 
 	// 八方向寻径
 	private final int[][] eightDirs = { { 1, 0, 10 }, { -1, 0, 10 }, { 0, 1, 10 }, { 0, -1, 10 }, { 1, 1, 14 },

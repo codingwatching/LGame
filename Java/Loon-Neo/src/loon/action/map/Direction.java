@@ -139,20 +139,39 @@ public class Direction {
 	}
 
 	/**
-	 * 转换8方向为4方向显示
+	 * 转换斜视8方向为4方向显示
 	 * 
 	 * @param d
 	 * @return
 	 */
 	public final static Direction toDisplay4Direction(Direction d) {
-		if (d == Direction.DOWN_RIGHT) {
+		if (d == Direction.DOWN_LEFT) {
 			d = Direction.DOWN;
-		} else if (d == Direction.UP_LEFT) {
+		} else if (d == Direction.UP_RIGHT) {
 			d = Direction.UP;
-		} else if (d == Direction.DOWN_LEFT) {
+		} else if (d == Direction.UP_LEFT) {
 			d = Direction.LEFT;
 		} else if (d == Direction.DOWN_RIGHT) {
 			d = Direction.RIGHT;
+		}
+		return d;
+	}
+
+	/**
+	 * 转化正常4方向显示为斜视的四方向
+	 * 
+	 * @param d
+	 * @return
+	 */
+	public final static Direction toDisplayIso4Direction(Direction d) {
+		if (d == Direction.DOWN) {
+			d = Direction.DOWN_LEFT;
+		} else if (d == Direction.UP) {
+			d = Direction.UP_RIGHT;
+		} else if (d == Direction.LEFT) {
+			d = Direction.UP_LEFT;
+		} else if (d == Direction.RIGHT) {
+			d = Direction.DOWN_RIGHT;
 		}
 		return d;
 	}
@@ -399,6 +418,24 @@ public class Direction {
 			return "diagonal";
 		}
 		return "unknown";
+	}
+
+	/**
+	 * 转化为斜视的4方向视图 （仅对特定标准图片有效，大部分还得自己对方向转换，完全看图片设置，不是智能的）
+	 * 
+	 * @return
+	 */
+	public Direction toIso4Direction() {
+		return toDisplayIso4Direction(this);
+	}
+
+	/**
+	 * 转化为4方向视图 （仅对特定标准图片有效，大部分还得自己对方向转换，完全看图片设置，不是智能的）
+	 * 
+	 * @return
+	 */
+	public Direction toBase4Direction() {
+		return toDisplay4Direction(this);
 	}
 
 	@Override
