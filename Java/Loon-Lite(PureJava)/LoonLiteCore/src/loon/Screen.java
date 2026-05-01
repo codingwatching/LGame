@@ -125,6 +125,7 @@ import loon.utils.TimeUtils;
 import loon.utils.processes.Coroutine;
 import loon.utils.processes.CoroutineProcess;
 import loon.utils.processes.GameProcess;
+import loon.utils.processes.GameProcessType;
 import loon.utils.processes.RealtimeProcess;
 import loon.utils.processes.RealtimeProcessManager;
 import loon.utils.processes.YieldExecute;
@@ -8270,6 +8271,7 @@ public abstract class Screen extends PlayerUtils implements SysInput, IArray, LR
 				if (_screenAction != null) {
 					removeAllActions(_screenAction);
 				}
+				RealtimeProcessManager.get().remove(GameProcessType.Time);
 				_battleProcess.close();
 				_disposes.close();
 				_conns.close();

@@ -197,6 +197,10 @@ public class BattlePathFinder implements LRelease {
 		allowSmoothPath = s;
 	}
 
+	public GameEventBus<PathResult> getEventBus() {
+		return eventBus;
+	}
+
 	private final static int setKey(int x, int y) {
 		int result = 1;
 		result = LSystem.unite(result, x);

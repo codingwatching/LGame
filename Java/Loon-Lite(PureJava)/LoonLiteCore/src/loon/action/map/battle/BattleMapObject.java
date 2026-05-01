@@ -2028,6 +2028,20 @@ public class BattleMapObject extends Role implements LRelease {
 		keyDelay = k;
 	}
 
+	public RectBox getBounds() {
+		return getBounds(isoConfig);
+	}
+
+	public RectBox getBounds(IsoConfig cfg) {
+		float tw = cfg.tileWidth * logicWidth;
+		float th = cfg.tileHeight * logicHeight;
+		float sx = (gridX - gridY) * (tw / 2f);
+		float sy = (gridX + gridY) * (th / 2f);
+		float x = sx - tw / 2f;
+		float y = sy - th / 2f;
+		return new RectBox(x, y, tw, th);
+	}
+
 	public boolean canControl() {
 		return state == ObjectState.IDLE && state != ObjectState.DEAD && !paused;
 	}

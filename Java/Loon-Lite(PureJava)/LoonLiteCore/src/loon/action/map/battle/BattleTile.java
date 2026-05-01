@@ -20,6 +20,7 @@
  */
 package loon.action.map.battle;
 
+import loon.LRelease;
 import loon.LSystem;
 import loon.action.map.battle.BattleType.MoveState;
 import loon.action.sprite.Animation;
@@ -34,7 +35,7 @@ import loon.utils.MathUtils;
 /**
  * 战斗瓦片动画纹理显示类
  */
-public class BattleTile {
+public class BattleTile implements LRelease {
 
 	public interface EffectService {
 		void applyEffect(BattleTile tile, BattleTileType newType, float duration);
@@ -51,6 +52,9 @@ public class BattleTile {
 
 	// 瓦片尺寸
 	public int cellWidth, cellHeight;
+
+	// 瓦片层级高度，非实际高度，视差移动时才有用
+	public int layerHeight;
 
 	private final Vector2f tempResult = new Vector2f();
 	private final IsoResult tempisoResult = new IsoResult();
@@ -72,7 +76,8 @@ public class BattleTile {
 
 	// 动画对象：背景、地表、特效
 	protected Animation bgAnim, groundAnim, effectAnim;
-
+	// 基础的全局偏移值
+	protected float baseOffsetX, baseOffsetY;
 	// 背景动画偏移
 	protected float bgOffsetX, bgOffsetY;
 	// 地表动画偏移
@@ -117,6 +122,7 @@ public class BattleTile {
 	protected boolean isDestroyed = false;
 	protected int durability = 100;
 	protected final IsoConfig isoConfig;
+	protected int layerIndex = 0;
 
 	public BattleTile(int x, int y, int w, int h, IsoConfig config) {
 		this(x, y, w, h, config, null, null);
@@ -180,6 +186,8 @@ public class BattleTile {
 		copy.bgAnim = this.bgAnim != null ? this.bgAnim.cpy() : null;
 		copy.groundAnim = this.groundAnim != null ? this.groundAnim.cpy() : null;
 		copy.effectAnim = this.effectAnim != null ? this.effectAnim.cpy() : null;
+		copy.baseOffsetX = this.baseOffsetX;
+		copy.baseOffsetY = this.baseOffsetY;
 		copy.bgOffsetX = this.bgOffsetX;
 		copy.bgOffsetY = this.bgOffsetY;
 		copy.groundOffsetX = this.groundOffsetX;
@@ -198,7 +206,20 @@ public class BattleTile {
 		copy.flipX = this.flipX;
 		copy.flipY = this.flipY;
 		copy.isBlinking = this.isBlinking;
+		copy.layerIndex = this.layerIndex;
 		return copy;
+	}
+
+	public boolean hasLayerOffset() {
+		return !MathUtils.equal(baseOffsetX, 0f) || !MathUtils.equal(baseOffsetY, 0f);
+	}
+
+	public void setLayerIndex(int idx) {
+		layerIndex = idx;
+	}
+
+	public int getLayerIndex() {
+		return layerIndex;
 	}
 
 	public void setPassable(boolean p) {
@@ -321,8 +342,8 @@ public class BattleTile {
 		float finalScale = this.scale;
 		float renderW = tileWidth * finalScale;
 		float renderH = tileHeight * finalScale;
-		float renderX = drawX - (renderW - tileWidth) / 2;
-		float renderY = drawY - (renderH - tileHeight) / 2;
+		float renderX = drawX - (renderW - tileWidth) / 2 + baseOffsetX;
+		float renderY = drawY - (renderH - tileHeight) / 2 + baseOffsetY;
 
 		// 背景层
 		if (bgAnim != null) {
@@ -392,6 +413,11 @@ public class BattleTile {
 		return (tiletype == null || tiletype.isPassable()) && passable && !isDestroyed;
 	}
 
+	public void setBaseLayerOffset(float x, float y) {
+		this.baseOffsetX = x;
+		this.baseOffsetY = y;
+	}
+
 	public void setBgOffset(float x, float y) {
 		this.bgOffsetX = x;
 		this.bgOffsetY = y;
@@ -405,6 +431,14 @@ public class BattleTile {
 	public void setEffectOffset(float x, float y) {
 		this.effectOffsetX = x;
 		this.effectOffsetY = y;
+	}
+
+	public float getBaseLayerOffsetX() {
+		return baseOffsetX;
+	}
+
+	public float getBaseLayerOffsetY() {
+		return baseOffsetY;
 	}
 
 	public float getBgOffsetX() {
@@ -448,7 +482,7 @@ public class BattleTile {
 	}
 
 	public void setHighlightColor(LColor color) {
-		this.highlightColor = new LColor(color);
+		this.highlightColor.setColor(color);
 	}
 
 	public void setFlip(boolean flipX, boolean flipY) {
@@ -511,6 +545,14 @@ public class BattleTile {
 
 	public void setGridY(int gridY) {
 		this.gridY = gridY;
+	}
+
+	public int getLayerHeight() {
+		return layerHeight;
+	}
+
+	public void setLayerHeight(int height) {
+		this.layerHeight = height;
 	}
 
 	public int getCellWidth() {
@@ -732,5 +774,21 @@ public class BattleTile {
 	@Override
 	public String toString() {
 		return tiletype == null ? LSystem.UNKNOWN : tiletype.toString();
+	}
+
+	@Override
+	public void close() {
+		if (bgAnim != null) {
+			bgAnim.close();
+			bgAnim = null;
+		}
+		if (groundAnim != null) {
+			groundAnim.close();
+			groundAnim = null;
+		}
+		if (effectAnim != null) {
+			effectAnim.close();
+			effectAnim = null;
+		}
 	}
 }

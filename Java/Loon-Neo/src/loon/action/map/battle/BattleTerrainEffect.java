@@ -20,6 +20,8 @@
  */
 package loon.action.map.battle;
 
+import loon.utils.StringUtils;
+
 /**
  * 用于为特定瓦片绑定特殊效果
  */
@@ -57,11 +59,44 @@ public class BattleTerrainEffect {
 
 	public int bindingid = 0;
 
+	public static BattleTerrainEffect valueOf(String name) {
+		if (StringUtils.isEmpty(name)) {
+			return NONE;
+		}
+		String key = name.toLowerCase();
+		if ("none".equals(key)) {
+			return NONE;
+		} else if ("poison".equals(key)) {
+			return POISON;
+		} else if ("heal".equals(key)) {
+			return HEAL;
+		} else if ("slow".equals(key)) {
+			return SLOW;
+		} else if ("boost".equals(key)) {
+			return BOOST;
+		} else if ("mprestore".equals(key)) {
+			return MP_RESTORE;
+		} else if ("strestore".equals(key)) {
+			return STAMINA_RESTORE;
+		} else if ("silence".equals(key)) {
+			return SILENCE;
+		} else if ("bless".equals(key)) {
+			return BLESS;
+		} else if ("curse".equals(key)) {
+			return CURSE;
+		}
+		return NONE;
+	}
+
 	private BattleTerrainEffect(String name, float value, int duration) {
 		this.name = name;
 		this.value = value;
 		this.duration = duration;
 		this.remainingTurns = duration;
+	}
+
+	public String getName() {
+		return name;
 	}
 
 	public boolean update() {
