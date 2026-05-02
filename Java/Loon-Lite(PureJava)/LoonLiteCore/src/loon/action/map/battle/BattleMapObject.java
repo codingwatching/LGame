@@ -21,6 +21,7 @@
 package loon.action.map.battle;
 
 import loon.LRelease;
+import loon.action.collision.CollisionHelper;
 import loon.action.map.Direction;
 import loon.action.map.TileIsoHighlighter.EffectType;
 import loon.action.map.battle.BattleMovementManager.AnimationState;
@@ -199,6 +200,7 @@ public class BattleMapObject extends Role implements LRelease {
 	// 斜角地图配置
 	protected final IsoConfig isoConfig;
 	private int charInMapWidth, charInMapHeight;
+	private int halfCharWidth, halfCharHeight;
 
 	// 速度系统
 	private float baseSpeed;
@@ -309,6 +311,8 @@ public class BattleMapObject extends Role implements LRelease {
 		// 尺寸校验
 		this.charInMapWidth = MathUtils.max(1, w);
 		this.charInMapHeight = MathUtils.max(1, h);
+		this.halfCharWidth = charInMapWidth / 2;
+		this.halfCharHeight = charInMapHeight / 2;
 		this.listener = l;
 		// 初始化移动管理器
 		this.moveManager = new BattleMovementManager(listener);
@@ -371,22 +375,43 @@ public class BattleMapObject extends Role implements LRelease {
 		return collisionTileOffsetY;
 	}
 
+	/**
+	 * 单纯改变显示大小，不改变计算时的矩形大小
+	 * 
+	 * @param w
+	 * @param h
+	 * @return
+	 */
+	public BattleMapObject setDisplaySize(float w, float h) {
+		if (isLocked()) {
+			return this;
+		}
+		charInMapWidth = MathUtils.max(1, MathUtils.ifloor(w));
+		charInMapHeight = MathUtils.max(1, MathUtils.ifloor(h));
+		halfCharWidth = charInMapWidth / 2;
+		halfCharHeight = charInMapHeight / 2;
+		if (_roleObject == null) {
+			return this;
+		}
+		if (MathUtils.equal(_roleObject.getWidth(), w) && MathUtils.equal(_roleObject.getHeight(), h)) {
+			return this;
+		}
+		_roleObject.setSize(w, h);
+		return this;
+	}
+
 	@Override
 	public BattleMapObject setSize(float w, float h) {
 		if (isLocked()) {
 			return this;
 		}
-		charInMapWidth = MathUtils.ifloor(w);
-		charInMapHeight = MathUtils.ifloor(h);
-		if (_roleObject != null) {
-			_roleObject.setSize(w, h);
-		}
+		setDisplaySize(w, h);
 		if (battleMap != null) {
 			int tileWidth = battleMap.getTileWidth();
 			int tileHeight = battleMap.getTileHeight();
 			if (tileWidth > 0 && tileHeight > 0) {
 				// 以像素大小默认推导出瓦片实际占位大小，估算值，不一定准，必要时setSizeInTile和setCollisionTileOffset自行设置
-				this.logicWidth = MathUtils.max(1, MathUtils.ifloor(w / tileWidth - 1.0f));
+				this.logicWidth = MathUtils.max(1, MathUtils.ifloor(w / tileWidth - 0.5f));
 				this.logicHeight = MathUtils.max(1, MathUtils.ifloor(h / tileHeight - 1.5f));
 				if (logicWidth > 1) {
 					collisionTileOffsetX = 1;
@@ -531,6 +556,14 @@ public class BattleMapObject extends Role implements LRelease {
 
 	public int getRenderPriority() {
 		return renderPriority;
+	}
+
+	public int getHalfCharWidth() {
+		return MathUtils.iceil(halfCharWidth * getCharScaleX());
+	}
+
+	public int getHalfCharHeight() {
+		return MathUtils.iceil(halfCharHeight * getCharScaleY());
 	}
 
 	public int getCharWidth() {
@@ -1042,8 +1075,8 @@ public class BattleMapObject extends Role implements LRelease {
 
 	public void updateCurrentMapTile(float x, float y, int cw, int ch) {
 		Vector2f p = getScreenToTile(x, y, cw, ch);
-		gridX = (int) p.x;
-		gridY = (int) p.y;
+		gridX = p.x();
+		gridY = p.y();
 		currentMapTile.set(gridX, gridY);
 	}
 
@@ -1390,6 +1423,23 @@ public class BattleMapObject extends Role implements LRelease {
 		return out;
 	}
 
+	public boolean isClick(float gx, float gy) {
+		return (gx == gridX && gy == gridY)
+				|| CollisionHelper.checkPointvsAABB(gx + 1, gy + 1, gridX, gridY, logicWidth, logicHeight);
+	}
+
+	private void fixBattleMapObjectOffset(PointI dstTile, BattleMapObject dst) {
+		if (!dst.moveOffsetPixel.isEmpty() && dst.logicWidth == 1 && dst.logicHeight == 1) {
+			// 若仅一侧偏移，需要多向隔壁借一格，避免触碰异常
+			if (MathUtils.equal(dst.moveOffsetPixel.x, 0f) && dst.getHalfCharWidth() >= isoConfig.getScaleTileX()) {
+				dstTile.x += dst.moveOffsetPixel.y > 0 ? 1 : -1;
+			}
+			if (MathUtils.equal(dst.moveOffsetPixel.y, 0f) && dst.getHalfCharHeight() >= isoConfig.getScaleTileY()) {
+				dstTile.y += dst.moveOffsetPixel.x > 0 ? 1 : -1;
+			}
+		}
+	}
+
 	/**
 	 * 碰撞检测
 	 */
@@ -1420,6 +1470,8 @@ public class BattleMapObject extends Role implements LRelease {
 			if (otherTile == null) {
 				continue;
 			}
+			fixBattleMapObjectOffset(otherTile, other);
+
 			int myIsoKey = targetTilePoint.x - targetTilePoint.y;
 			int otherIsoKey = otherTile.x - otherTile.y;
 			boolean amIOnTheLeft = (myIsoKey <= otherIsoKey) && other.logicWidth > 1;
@@ -1636,10 +1688,12 @@ public class BattleMapObject extends Role implements LRelease {
 			if (o == ignoreObj) {
 				continue;
 			}
+
 			PointI otherTile = o.getCurrentMapTile();
 			if (otherTile == null) {
 				continue;
 			}
+			fixBattleMapObjectOffset(otherTile, o);
 			int targetGridX = gridX;
 			int targetGridY = gridY;
 			if (currentStep < path.size() && !path.isEmpty()) {

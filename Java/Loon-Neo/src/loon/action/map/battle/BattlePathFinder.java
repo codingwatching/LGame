@@ -219,7 +219,7 @@ public class BattlePathFinder implements LRelease {
 	 */
 	public TArray<PointI> findPath(int sx, int sy, int ex, int ey) {
 		if (!flying) {
-			if (!isValid(sx, sy) || !isValid(ex, ey) || !map[ex][ey].isPassable()) {
+			if (!isValid(sx, sy) || !isValid(ex, ey) || map[ex][ey] == null || !map[ex][ey].isPassable()) {
 				publishPathEvent(false, "Invalid or impassable start/end point", null);
 				return new TArray<PointI>();
 			}
@@ -290,11 +290,12 @@ public class BattlePathFinder implements LRelease {
 				int nx = cx + dir[0], ny = cy + dir[1];
 				int baseCost = dir[2];
 				if (!flying) {
-					if (!isValid(nx, ny) || closed[nx][ny] || !map[nx][ny].isPassable()) {
+					if (!isValid(nx, ny) || closed[nx][ny] || map[nx][ny] == null || !map[nx][ny].isPassable()) {
 						continue;
 					}
 					if (!findDirFour && dir[0] != 0 && dir[1] != 0) {
-						if (!map[cx + dir[0]][cy].isPassable() || !map[cx][cy + dir[1]].isPassable()) {
+						if (map[cx + dir[0]][cy] == null || !map[cx + dir[0]][cy].isPassable()
+								|| map[cx][cy + dir[1]] == null || !map[cx][cy + dir[1]].isPassable()) {
 							continue;
 						}
 					}
@@ -305,9 +306,9 @@ public class BattlePathFinder implements LRelease {
 				BattleTile tile = map[nx][ny];
 				float terrainMultiplier;
 				if (flying) {
-					terrainMultiplier = flyIgnoreTerrainCost ? 1.0f : tile.pathCost;
+					terrainMultiplier = flyIgnoreTerrainCost ? 1.0f : (tile != null ? tile.pathCost : 1.0f);
 				} else {
-					terrainMultiplier = tile.pathCost;
+					terrainMultiplier = (tile != null ? tile.pathCost : 999.0f);
 				}
 
 				float dirCost = (dir[0] != 0 && dir[1] != 0) ? PATH_DIAGONAL_COST : 1.0f;
@@ -489,8 +490,10 @@ public class BattlePathFinder implements LRelease {
 				break;
 			}
 			// 飞行时忽略阻挡
-			if (!flying && !map[x][y].isPassable()) {
-				return false;
+			if (!flying) {
+				if (!isValid(x, y) || map[x][y] == null || !map[x][y].isPassable()) {
+					return false;
+				}
 			}
 			int e2 = 2 * err;
 			if (e2 > -dy) {

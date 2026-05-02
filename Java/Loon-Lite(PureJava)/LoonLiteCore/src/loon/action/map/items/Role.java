@@ -33,6 +33,7 @@ import loon.canvas.LColor;
 import loon.events.EventActionN;
 import loon.events.EventActionT;
 import loon.geom.RectBox;
+import loon.geom.Vector2f;
 import loon.geom.XY;
 import loon.utils.TArray;
 import loon.utils.reply.Callback;
@@ -59,6 +60,8 @@ public class Role extends RoleValue implements ActionBind, EventActionN {
 	private final TArray<Attribute> _attributes = new TArray<Attribute>();
 
 	private final TArray<Item<Object>> _items = new TArray<Item<Object>>();
+
+	private final Vector2f _offset = new Vector2f();
 
 	protected ISprite _roleObject;
 
@@ -484,6 +487,26 @@ public class Role extends RoleValue implements ActionBind, EventActionN {
 		}
 		if (_roleObject != null) {
 			_roleObject.setSize(w, h);
+		}
+		return this;
+	}
+
+	public Role setOffset(float x, float y) {
+		if (isLocked()) {
+			return this;
+		}
+		if (_roleObject != null) {
+			_roleObject.setOffset(_offset.set(x, y));
+		}
+		return this;
+	}
+
+	public Role setOffset(Vector2f pos) {
+		if (isLocked()) {
+			return this;
+		}
+		if (_roleObject != null) {
+			_roleObject.setOffset(pos);
 		}
 		return this;
 	}

@@ -27,6 +27,7 @@ import loon.action.map.Field2D;
 import loon.action.map.TileIsoHighlighter;
 import loon.action.map.TileIsoHighlighter.EffectType;
 import loon.action.map.battle.BattleMap;
+import loon.action.map.battle.BattleMap.MapLayoutStyle;
 import loon.action.map.battle.BattleMapGenerator;
 import loon.action.map.battle.BattleMapObject;
 import loon.action.map.battle.BattlePathFinder.PathResult;
@@ -258,8 +259,19 @@ public class BattleTest extends Stage {
 
 		// 构建一个战斗用地图精灵(本身是一个基于数组构建的斜视地图，但是绑定了现成的战斗系统，作用是一些沙盒游戏或者策略游戏的直接构建,传参可用)
 		BattleMap newMap = new BattleMap(make, map, this, bus, config);
+		// 设定默认的图层间显示用偏移值，会逐渐累加，所有层都会按这个数值偏移递进
+		// newMap.setDefaultIsoLayerStepOffset(8, -8);
+		// 设置地图构建的布局方式，使用菱形，剪切最外4圈
+		newMap.setGeneratetMapLayout(MapLayoutStyle.CUT_OUTER_RHOMBUS, 4);
+		// 注册指定索引与指定地形的绑定关系
+		// newMap.registerTileTypeId(1, BattleTileType.PLAIN);
+		// 构建一个指定大小的数组地图，全部填充成索引1的对应地形，此操作将产生一个逐层累加的Layer，create多少次，地图就有多少层
+		// newMap.createMap(Field2D.of(32, 24).fill(1));
+		// 构建一个指定大小的数组地图，全部填充成索引2的对应地形，多少层都可以建立，此处仅为简单演示
+		// newMap.createMap(Field2D.of(32, 24).fill(2));
 		// 实际构建地图(因为构建方式可能不同，所以不会自动构建。比如目前演示为随机地图，但也允许直接注入BattleTile数组制作固定地图,精确设定每块瓦片的图片样式参数等)
 		newMap.createMap(new GameEventBus<PathResult>(), new GameEventBus<BattleMapObject>());
+	
 		// 获得瓦片高亮特效控制器
 		// TileIsoHighlighter highlighter= newMap.getTileHighlighter();
 
@@ -291,7 +303,7 @@ public class BattleTest extends Stage {
 				enemy.moveToGrid(newMap.findTileXY(MathUtils.random(0, getWidth()), MathUtils.random(0, getHeight())));
 			}
 		}, 10f);
-		
+
 		// 将地图对象缩放2倍(瓦片的缩放和地图对象的缩放不通用，需分别设置)
 		// hero.setScale(2f);
 

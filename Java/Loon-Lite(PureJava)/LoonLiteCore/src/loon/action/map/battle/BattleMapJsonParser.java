@@ -119,6 +119,11 @@ public class BattleMapJsonParser {
 				}
 				map.set(TileMapConfig.reversalXandY(idMap));
 			}
+		} else {
+			String idMapArray = root.getString("tileIdMap");
+			if (idMapArray != null) {
+				map.set(TileMapConfig.loadCharsMap(idMapArray));
+			}
 		}
 	}
 

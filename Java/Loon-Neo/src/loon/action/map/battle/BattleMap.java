@@ -42,7 +42,6 @@ import loon.action.map.battle.BattlePathFinder.PathResult;
 import loon.action.map.battle.BattleTile.EffectService;
 import loon.action.map.battle.BattleTile.SkillService;
 import loon.action.map.battle.BattleTileMake.TileAnimation;
-import loon.action.map.battle.BattleType.ObjectState;
 import loon.action.map.battle.BattleType.RangeType;
 import loon.action.map.items.RoleEquip;
 import loon.action.map.items.Team;
@@ -82,6 +81,70 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 
 	// 允许跨层寻径的最大高度差（设定上最多允许跨1层移动，也就是允许A-B不能A-C，必须按顺序，但若改变默认值，则可以跳着走）
 	private static final int MAX_ALLOWED_HEIGHT_DIFF = 1;
+
+	// BattleMap地图布局裁剪专用，用于设置产生BattleTile[][]时的地图样式，裁剪为只显示需要的区域，裁剪的粗细可设置
+	public enum MapLayoutStyle {
+		// 完整地图不裁剪
+		FULL,
+		// 以下为只保留特定区域的方法
+		// 仅保留外围N圈边框
+		OUTER_BORDER,
+		// 仅保留内部N圈边框
+		INNER_BORDER,
+		// 仅保留中心圆形
+		CENTER_CIRCLE,
+		// 仅保留中心菱形
+		CENTER_RHOMBUS,
+		// 仅保留中心十字
+		CENTER_CROSS,
+		// 仅保留中心横一字
+		CENTER_H_LINE,
+		// 仅保留中心竖一字
+		CENTER_V_LINE,
+		// 仅保留中心X形
+		CENTER_X,
+		// 仅保留向上三角形
+		CENTER_TRIANGLE_UP,
+		// 仅保留向下三角形
+		CENTER_TRIANGLE_DOWN,
+		// 仅保留向左三角形
+		CENTER_TRIANGLE_LEFT,
+		// 仅保留向右三角形
+		CENTER_TRIANGLE_RIGHT,
+		// 此下方法和上面的正相反，上面是只保留，下面是只裁剪
+		// 只裁剪外围N行矩形边
+		CUT_OUTER_EDGE,
+		// 只裁剪外围N行菱形边
+		CUT_OUTER_RHOMBUS,
+		// 只裁剪外围四边斜角
+		CUT_OUTER_SLOPE_4,
+		// 只裁剪外围八角形
+		CUT_OUTER_OCTAGON,
+		// 只裁剪外围圆角矩形
+		CUT_OUTER_ROUND_RECT,
+		// 只裁剪外围对角斜切四角
+		CUT_OUTER_DIAGONAL_CORNER,
+		// 仅外围左右斜边裁切
+		CUT_OUTER_SIDE_SLOPE_LR,
+		// 仅外围上下斜边裁切
+		CUT_OUTER_SIDE_SLOPE_TB,
+		// 仅外围六边形裁切
+		CUT_OUTER_HEX,
+		// 仅外围外围星型切边
+		CUT_OUTER_STAR_EDGE,
+		// 仅外围波浪边裁切
+		CUT_OUTER_WAVE_EDGE,
+		// 仅外围阶梯锯齿边裁切
+		CUT_OUTER_STEP_EDGE,
+		// 仅外围左侧单边斜切
+		CUT_OUTER_LEFT_SLOPE,
+		// 仅外围右侧单边斜切
+		CUT_OUTER_RIGHT_SLOPE,
+		// 仅外围顶部单边斜切
+		CUT_OUTER_TOP_SLOPE,
+		// 仅外围底部单边斜切
+		CUT_OUTER_BOTTOM_SLOPE
+	}
 
 	// 层排序
 	private final Comparator<IsoTileLayer> LAYER_SORTER = new Comparator<IsoTileLayer>() {
@@ -167,12 +230,19 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 	private final Vector2f _backgroundOffset = new Vector2f();
 	private final Vector2f _backgroundSize = new Vector2f();
 
+	// 自动生成地图时专用的地图布局剪裁遮罩系统，菱形，三角形，一字，十字什么的奇怪地行都可以生成
+	private MapLayoutStyle _currentLayout = MapLayoutStyle.FULL;
+	// 自动生成地图时使用的形状粗细设定(例如一字布局时，为1时占1行，为2占两行，以此类推)
+	private int _layoutThickness = 1;
+
 	// 默认的瓦片类型与索引id绑定用类，用于二维数组到地图的生成
 	private final IntMap<BattleTileType> _tileIdToTypeMap = new IntMap<BattleTileType>();
 	// 默认的坐标位置与瓦片绑定关系，用于二维数组到地图的生成
 	private final IntMap<BattleTile> _tilePosToTiles = new IntMap<BattleTile>();
 	// 寻路时允许在相邻层之间“上下楼”（楼梯/斜坡所在瓦片）
 	private final TArray<PointI> _stairTiles = new TArray<PointI>();
+
+	private final IsoConfig _isoConfig;
 
 	// 地图自身存储子精灵的的Sprites
 	private final Sprites _mapSprites;
@@ -203,7 +273,6 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 	private boolean _hideAllTile = false;
 	private int _dragStartX, _dragStartY;
 	private int _pixelInWidth, _pixelInHeight;
-	private IsoConfig _isoConfig;
 
 	private float _deltaTime = LSystem.MIN_SECONE_SPEED_FIXED;
 	public DrawListener<BattleMap> _drawListener;
@@ -217,16 +286,14 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 	// 渲染瓦片网格的颜色
 	private LColor _drawGridColor = LColor.red;
 	private boolean _drawGrid;
-	// 默认层初始索引
-	public int isolayerIndex = 0;
 	// 层高度
 	public int isolayerHeight = 0;
 	// 层偏移
 	public float isolayerOffsetX = -1f;
 	public float isolayerOffsetY = -1f;
 	// 每层默认的阶梯偏移（像素），当瓦片未设置显式layerOffset时使用
-	protected float _defaultLayerStepOffsetX = 8f;
-	protected float _defaultLayerStepOffsetY = 4f;
+	protected float _defaultLayerStepOffsetX = 16f;
+	protected float _defaultLayerStepOffsetY = -16f;
 	protected GameEventBus<PathResult> _pathResultBus = null;
 	// 指定用于寻路的层索引，-1表示自动（默认最低层0）
 	protected int _pathFinderLayerIndex = -1;
@@ -289,9 +356,12 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		} else {
 			this.setLocation(x, y);
 		}
+		// 默认情况下，下一层比上一层差一格，当然可以调整，非强制
+		setDefaultIsoLayerStepOffset(_isoConfig.getScaleTileX() / 2, -_isoConfig.getScaleTileY() / 2);
 		_defaultGlobalSkill.setRunning(false);
 		_defaultGlobalSkill.setBattleMap(this);
 		_layerSortDirty = true;
+		_layoutThickness = 1;
 	}
 
 	public BattleMapObject addMapObject(int gx, int gy, int cw, int ch, String name, ISprite sprite,
@@ -714,24 +784,27 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 				}
 			}
 		}
+		final float layerOffsetX = posOffsetX + _pathFinderLayerOffsetX;
+		final float layerOffsetY = posOffsetY + _pathFinderLayerOffsetY;
+
 		// 其它地图精灵渲染
-		_mapSprites.paint(g, posOffsetX, posOffsetY, startX * tileWidth, startY * tileHeight, endX * tileWidth,
+		_mapSprites.paint(g, layerOffsetX, layerOffsetY, startX * tileWidth, startY * tileHeight, endX * tileWidth,
 				endY * tileHeight);
 		// 地图对象渲染
 		for (int i = 0; i < _mapObjects.size; i++) {
 			BattleMapObject o = _mapObjects.get(i);
 			if (o != null) {
-				o.paint(g, _deltaTime, posOffsetX, posOffsetY);
+				o.paint(g, _deltaTime, layerOffsetX, layerOffsetY);
 			}
 		}
 		// 全局特效
 		if (_defaultGlobalSkill.running) {
 			_defaultGlobalSkill.updateSkill(_deltaTime);
-			_defaultGlobalSkill.drawSkillEffect(g, _deltaTime, posOffsetX, posOffsetY);
+			_defaultGlobalSkill.drawSkillEffect(g, _deltaTime, layerOffsetX, layerOffsetY);
 		}
 		// 其他渲染
 		if (_drawListener != null) {
-			_drawListener.draw(g, posOffsetX, posOffsetY);
+			_drawListener.draw(g, layerOffsetX, layerOffsetY);
 		}
 	}
 
@@ -1242,12 +1315,16 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		float stepX = _defaultLayerStepOffsetX;
 		float stepY = _defaultLayerStepOffsetY;
 		float autoOx = 0, autoOy = 0;
-		if (tile.hasLayerOffset()) {
+		final boolean hasTile = (tile != null);
+		if (hasTile && tile.hasLayerOffset()) {
 			autoOx = tile.baseOffsetX;
 			autoOy = tile.baseOffsetY;
-		} else {
+		} else if (hasTile) {
 			autoOx = stepX * layerIndex + (tile.getLayerHeight() * stepX * 0.3f);
 			autoOy = stepY * layerIndex + (tile.getLayerHeight() * stepY * 0.3f);
+		} else {
+			autoOx = stepX * layerIndex;
+			autoOy = stepY * layerIndex;
 		}
 		return _layerOffet.set(autoOx, autoOy);
 	}
@@ -1333,24 +1410,64 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		this._layerSortDirty = true;
 	}
 
-	public void createMap(GameEventBus<PathResult> pathResult, GameEventBus<BattleMapObject> bus) {
-		createMap(pathResult, bus, null, null);
+	public BattleMap createMap(Field2D map) {
+		return createMap(map, _layers.size - 1, null, null);
 	}
 
-	public void createMap(GameEventBus<PathResult> pathResult, GameEventBus<BattleMapObject> bus,
+	public BattleMap createMap(Field2D map, int layerIndex) {
+		return createMap(map, layerIndex, null, null);
+	}
+
+	public BattleMap createMap(Field2D map, int layerIndex, EffectService effectService, SkillService skillService) {
+		return createMap(generateMergedMap(map, MathUtils.max(0, layerIndex), effectService, skillService));
+	}
+
+	public BattleMap createMap() {
+		return createMap(generateMap(null, null));
+	}
+
+	public BattleMap createMap(BattleTile[][] maps) {
+		return createMap(new GameEventBus<PathResult>(), new GameEventBus<BattleMapObject>(), maps);
+	}
+
+	public BattleMap createMap(GameEventBus<PathResult> pathResult, GameEventBus<BattleMapObject> bus) {
+		return createMap(pathResult, bus, null, null);
+	}
+
+	public BattleMap createMap(GameEventBus<PathResult> pathResult, GameEventBus<BattleMapObject> bus,
 			EffectService effectService, SkillService skillService) {
-		BattleTile[][] maps = generateMap(effectService, skillService);
-		createMap(pathResult, bus, maps, _field2d.getWidth(), _field2d.getHeight());
+		return createMap(pathResult, bus, _field2d, effectService, skillService);
 	}
 
-	public void createMap(GameEventBus<PathResult> pathResult, GameEventBus<BattleMapObject> bus, BattleTile[][] maps,
-			int mapWidth, int mapHeight) {
+	public BattleMap createMap(GameEventBus<PathResult> pathResult, GameEventBus<BattleMapObject> bus, Field2D map,
+			EffectService effectService, SkillService skillService) {
+		return createMap(pathResult, bus, generateMap(effectService, skillService));
+	}
+
+	public BattleMap createMap(GameEventBus<PathResult> pathResult, GameEventBus<BattleMapObject> bus,
+			BattleTile[][] maps) {
+		return createMap(null, pathResult, bus, maps);
+	}
+
+	/**
+	 * 创建一个BattleMap使用的地图层，注意，每次create都会产生一个新Layer层，将自动叠加。
+	 * 在不设定操作Layer的前提下，loon默认操作位于最上面一层。
+	 * 
+	 * @param name
+	 * @param pathResult
+	 * @param bus
+	 * @param maps
+	 * @return
+	 */
+	public BattleMap createMap(String name, GameEventBus<PathResult> pathResult, GameEventBus<BattleMapObject> bus,
+			BattleTile[][] maps) {
 		_selectionManager = new BattleSelectManager(bus);
 		BattleTile[][] layerTiles = maps;
 		if (layerTiles == null) {
 			layerTiles = generateMap(null, null);
 		}
-		IsoTileLayer newLayer = new IsoTileLayer(layerTiles, "layer_" + _layers.size);
+		IsoTileLayer newLayer = new IsoTileLayer(layerTiles,
+				StringUtils.isEmpty(name) ? "layer_" + _layers.size : name);
 		_layers.add(newLayer);
 		_mapTiles = layerTiles;
 		int newIndex = _layers.size - 1;
@@ -1368,6 +1485,7 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		_pathFinderLayerIndex = MathUtils.max(0, newIndex);
 		rebuildPathFinderUsingSelectedLayer();
 		_layerSortDirty = true;
+		return this;
 	}
 
 	private void applyTileAnimation(BattleTile tile, int tileId) {
@@ -1393,54 +1511,222 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		return _tileMake;
 	}
 
-	public BattleTile[][] generateMergedMap(int layerIndex, EffectService effectService, SkillService skillService) {
-		int width = _field2d.getWidth();
-		int height = _field2d.getHeight();
-		int tileWidth = _field2d.getTileWidth();
-		int tileHeight = _field2d.getTileHeight();
+	public void setGeneratetMapLayout(MapLayoutStyle layout) {
+		this.setGeneratetMapLayout(layout, _layoutThickness);
+	}
+
+	public void setGeneratetMapLayout(MapLayoutStyle layout, int thickness) {
+		this._currentLayout = layout;
+		this._layoutThickness = MathUtils.max(1, thickness);
+	}
+
+	public void resetGenerateMapLayout() {
+		this._currentLayout = MapLayoutStyle.FULL;
+	}
+
+	public BattleTile[][] generateMap(EffectService effectService, SkillService skillService) {
+		return generateMap(_field2d, effectService, skillService);
+	}
+
+	public BattleTile[][] generateMap(Field2D map, EffectService effectService, SkillService skillService) {
+		return generateMergedMap(map, _pathFinderLayerIndex, effectService, skillService);
+	}
+
+	public BattleTile[][] generateMergedMap(Field2D map, int layerIndex, EffectService effectService,
+			SkillService skillService) {
+		return generateMergedMap(map, layerIndex, effectService, skillService, _currentLayout, _layoutThickness);
+	}
+
+	/**
+	 * 数组地图构建器，以指定的数组地图构建一个指定参数的BattleMap专用瓦片数组集合
+	 * 
+	 * @param map
+	 * @param layerIndex
+	 * @param effectService
+	 * @param skillService
+	 * @param layout
+	 * @param tickness
+	 * @return
+	 */
+	public BattleTile[][] generateMergedMap(Field2D map, int layerIndex, EffectService effectService,
+			SkillService skillService, MapLayoutStyle layout, int tickness) {
+		int width = map.getWidth();
+		int height = map.getHeight();
+		int tileWidth = map.getTileWidth();
+		int tileHeight = map.getTileHeight();
 		BattleTile[][] finalTiles = new BattleTile[width][height];
+		int centerX = width / 2;
+		int centerY = height / 2;
 		for (int x = 0; x < width; x++) {
 			for (int y = 0; y < height; y++) {
+				boolean inLayout = isInLayoutShape(x, y, width, height, centerX, centerY, layout, tickness);
+				if (!inLayout) {
+					finalTiles[x][y] = null;
+					continue;
+				}
 				int key = getTilePosKey(x, y, layerIndex);
 				if (_tilePosToTiles.containsKey(key)) {
 					finalTiles[x][y] = _tilePosToTiles.get(key);
 					continue;
 				}
-				if (x < _field2d.getWidth() && y < _field2d.getHeight()) {
-					int tileId = _field2d.getTileType(x, y);
-					BattleTileType type = _tileIdToTypeMap.get(tileId, BattleTileType.PLAIN);
-					BattleTile tile = new BattleTile(x, y, tileWidth, tileHeight, _isoConfig, type, effectService,
-							skillService);
-					applyTileAnimation(tile, tileId);
-					finalTiles[x][y] = tile;
-					continue;
+				int tileId = map.getTileType(x, y);
+				BattleTileType tileType = _tileIdToTypeMap.get(tileId);
+				if (tileType == null) {
+					tileType = BattleTileType.getById(tileId);
 				}
-				finalTiles[x][y] = new BattleTile(x, y, tileWidth, tileHeight, _isoConfig, BattleTileType.PLAIN,
-						effectService, skillService);
+				BattleTile tile = new BattleTile(x, y, tileWidth, tileHeight, _isoConfig, tileType, effectService,
+						skillService);
+				applyTileAnimation(tile, tileId);
+				finalTiles[x][y] = tile;
 			}
 		}
 		return finalTiles;
 	}
 
-	public BattleTile[][] generateMap(EffectService effectService, SkillService skillService) {
-		int width = _field2d.getWidth();
-		int height = _field2d.getHeight();
-		int tileWidth = _field2d.getTileWidth();
-		int tileHeight = _field2d.getTileHeight();
-		BattleTile[][] newMap = new BattleTile[width][height];
-		for (int x = 0; x < width; x++) {
-			for (int y = 0; y < height; y++) {
-				int id = _field2d.getTileType(x, y);
-				BattleTileType tileType = BattleTileType.getById(id);
-				BattleTile tile = new BattleTile(x, y, tileWidth, tileHeight, _isoConfig, tileType, effectService,
-						skillService);
-				if (_tileMake != null) {
-					applyTileAnimation(tile, id);
+	/**
+	 * 自动生成地图时专用的布局器，剪裁生成的地图为指定形状
+	 * 
+	 * @param x
+	 * @param y
+	 * @param w
+	 * @param h
+	 * @param cx
+	 * @param cy
+	 * @param layout
+	 * @param thickness
+	 * @return
+	 */
+	private boolean isInLayoutShape(int x, int y, int w, int h, int cx, int cy, MapLayoutStyle layout, int thickness) {
+		int dx = MathUtils.abs(x - cx);
+		int dy = MathUtils.abs(y - cy);
+		int dx2 = 0;
+		int dy2 = 0;
+		int cut = 0;
+		boolean left, right;
+		boolean top, bot;
+		switch (layout) {
+		case FULL:
+			return true;
+		case OUTER_BORDER:
+			for (int i = 0; i < thickness; i++) {
+				if (x == i || x == w - 1 - i || y == i || y == h - 1 - i) {
+					return true;
 				}
-				newMap[x][y] = tile;
 			}
+			return false;
+		case INNER_BORDER:
+			int m = thickness;
+			boolean inner = x >= m && x < w - m && y >= m && y < h - m;
+			boolean edge = (x == m || x == w - 1 - m || y == m || y == h - 1 - m);
+			return inner && edge;
+		case CENTER_CIRCLE:
+			return dx * dx + dy * dy <= thickness * thickness;
+		case CENTER_RHOMBUS:
+			return dx + dy <= thickness;
+		case CENTER_CROSS:
+			return (MathUtils.abs(x - cx) <= thickness && y == cy) || (MathUtils.abs(y - cy) <= thickness && x == cx);
+		case CENTER_H_LINE:
+			return y == cy && MathUtils.abs(x - cx) <= thickness;
+		case CENTER_V_LINE:
+			return x == cx && MathUtils.abs(y - cy) <= thickness;
+		case CENTER_X:
+			return MathUtils.abs(dx - dy) <= thickness && (dx + dy) <= thickness * 2;
+		case CENTER_TRIANGLE_UP:
+			dy2 = cy - y;
+			if (dy2 < 0 || dy2 > thickness) {
+				return false;
+			}
+			return MathUtils.abs(x - cx) <= dy2;
+		case CENTER_TRIANGLE_DOWN:
+			dy2 = y - cy;
+			if (dy2 < 0 || dy2 > thickness) {
+				return false;
+			}
+			return MathUtils.abs(x - cx) <= dy2;
+		case CENTER_TRIANGLE_LEFT:
+			dx2 = cx - x;
+			if (dx2 < 0 || dx2 > thickness) {
+				return false;
+			}
+			return MathUtils.abs(y - cy) <= dx2;
+		case CENTER_TRIANGLE_RIGHT:
+			dx2 = x - cx;
+			if (dx2 < 0 || dx2 > thickness) {
+				return false;
+			}
+			return MathUtils.abs(y - cy) <= dx2;
+		case CUT_OUTER_EDGE:
+			return !(x < thickness || x >= w - thickness || y < thickness || y >= h - thickness);
+		case CUT_OUTER_RHOMBUS:
+			return (dx + dy) <= (cx + cy) - thickness;
+		case CUT_OUTER_SLOPE_4:
+			cut = thickness;
+			top = y < cut && (MathUtils.abs(x - cx) > (cut - y));
+			bot = y >= h - cut && (MathUtils.abs(x - cx) > (cut - (h - 1 - y)));
+			left = x < cut && (MathUtils.abs(y - cy) > (cut - x));
+			right = x >= w - cut && (MathUtils.abs(y - cy) > (cut - (w - 1 - x)));
+			return !(top || bot || left || right);
+		case CUT_OUTER_OCTAGON:
+			int oc = thickness;
+			boolean corner = (x < oc && y < oc) || (x < oc && y >= h - oc) || (x >= w - oc && y < oc)
+					|| (x >= w - oc && y >= h - oc);
+			return !corner;
+		case CUT_OUTER_ROUND_RECT:
+			int r = thickness;
+			if (x >= r && x < w - r && y >= r && y < h - r) {
+				return true;
+			}
+			boolean tl = (x - r) * (x - r) + (y - r) * (y - r) <= r * r;
+			boolean tr = (x - (w - 1 - r)) * (x - (w - 1 - r)) + (y - r) * (y - r) <= r * r;
+			boolean bl = (x - r) * (x - r) + (y - (h - 1 - r)) * (y - (h - 1 - r)) <= r * r;
+			boolean br = (x - (w - 1 - r)) * (x - (w - 1 - r)) + (y - (h - 1 - r)) * (y - (h - 1 - r)) <= r * r;
+			return !(tl || tr || bl || br);
+		case CUT_OUTER_DIAGONAL_CORNER:
+			int dia = thickness;
+			boolean c1 = x + y < dia;
+			boolean c2 = (w - 1 - x) + (h - 1 - y) < dia;
+			boolean c3 = (w - 1 - x) + y < dia;
+			boolean c4 = x + (h - 1 - y) < dia;
+			return !(c1 || c2 || c3 || c4);
+		case CUT_OUTER_SIDE_SLOPE_LR:
+			cut = thickness;
+			boolean l = x < cut && dx > (cut - x);
+			boolean rv = x >= w - cut && dx > (cut - (w - 1 - x));
+			return !l && !rv;
+		case CUT_OUTER_SIDE_SLOPE_TB:
+			cut = thickness;
+			boolean t = y < cut && dy > (cut - y);
+			boolean b = y >= h - cut && dy > (cut - (h - 1 - y));
+			return !t && !b;
+		case CUT_OUTER_HEX:
+			return dx <= cx - thickness && dy <= cy - thickness && (dx + dy) <= (cx + cy) - thickness;
+		case CUT_OUTER_STAR_EDGE:
+			return (dx + dy) <= (cx + cy) - thickness || MathUtils.abs(dx - dy) <= thickness;
+		case CUT_OUTER_WAVE_EDGE:
+			return !(x < thickness && (y + x) % (thickness + 1) == 0)
+					&& !(x >= w - thickness && (y - x) % (thickness + 1) == 0);
+		case CUT_OUTER_STEP_EDGE:
+			return !((x < thickness || x >= w - thickness) && (y / thickness) % 2 == 0)
+					&& !((y < thickness || y >= h - thickness) && (x / thickness) % 2 == 0);
+		case CUT_OUTER_LEFT_SLOPE:
+			cut = thickness;
+			left = x < cut && dx > (cut - x);
+			return !left;
+		case CUT_OUTER_RIGHT_SLOPE:
+			cut = thickness;
+			right = x >= w - cut && dx > (cut - (w - 1 - x));
+			return !right;
+		case CUT_OUTER_TOP_SLOPE:
+			cut = thickness;
+			top = y < cut && dy > (cut - y);
+			return !top;
+		case CUT_OUTER_BOTTOM_SLOPE:
+			cut = thickness;
+			bot = y >= h - cut && dy > (cut - (h - 1 - y));
+			return !bot;
+		default:
+			return true;
 		}
-		return newMap;
 	}
 
 	public void registerTileTypeId(int tileId, BattleTileType type) {
@@ -1498,6 +1784,10 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		return null;
 	}
 
+	public Vector2f findTileXY(float touchX, float touchY) {
+		return findTileXY(touchX, touchY, true);
+	}
+
 	/**
 	 * 转化屏幕触点为游戏瓦片坐标并返回
 	 * 
@@ -1505,11 +1795,13 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 	 * @param touchY
 	 * @return
 	 */
-	public Vector2f findTileXY(float touchX, float touchY) {
+	public Vector2f findTileXY(float touchX, float touchY, boolean offsetLayer) {
 		int tx = MathUtils.floor(offsetXNScalePixel(touchX));
 		int ty = MathUtils.floor(offsetYNScalePixel(touchY));
-		tx -= MathUtils.ifloor(this._pathFinderLayerOffsetX);
-		ty -= MathUtils.ifloor(this._pathFinderLayerOffsetY);
+		if (offsetLayer) {
+			tx -= MathUtils.ifloor(this._pathFinderLayerOffsetX);
+			ty -= MathUtils.ifloor(this._pathFinderLayerOffsetY);
+		}
 		Vector2f gridPos = ISOUtils.screenToGrid(tx, ty, _isoConfig, _tempPosition);
 		try {
 			int gx = gridPos.x();
@@ -1581,27 +1873,16 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 	}
 
 	public BattleMapObject findObjectTouch(float touchX, float touchY) {
-		for (BattleMapObject obj : _mapObjects) {
-			if (obj.state != ObjectState.DEAD) {
-				Vector2f objPos = obj.getInterpolatedPosition();
-				float drawX = objPos.x - _isoConfig.offsetX;
-				float drawY = objPos.y - _isoConfig.offsetY;
-				RectBox bounds = new RectBox(drawX - _isoConfig.tileWidth / 2, drawY - _isoConfig.tileHeight / 2,
-						_isoConfig.tileWidth, _isoConfig.tileHeight);
-				if (bounds.contains(touchX, touchY)) {
-					return obj;
-				}
-			}
-		}
-		return null;
+		Vector2f pos = findTileXY(touchX, touchY);
+		return findObjectTile(pos.x(), pos.y());
 	}
 
 	public BattleMapObject findObjectTile(int gridX, int gridY) {
-		for (BattleMapObject obj : _mapObjects) {
-			if (obj.state != ObjectState.DEAD) {
-				if (obj.gridX == gridX && obj.gridY == gridY) {
-					return obj;
-				}
+		int size = _mapObjects.size - 1;
+		for (int i = size; i > -1; i--) {
+			BattleMapObject o = _mapObjects.get(i);
+			if (o != null && o.isClick(gridX, gridY)) {
+				return o;
 			}
 		}
 		return null;
@@ -1750,7 +2031,7 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 	}
 
 	public void setIsoConfig(IsoConfig s) {
-		this._isoConfig = s;
+		this._isoConfig.set(s);
 	}
 
 	public float getWidthScale() {
@@ -2643,13 +2924,14 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		}
 		int useIndex = this._pathFinderLayerIndex;
 		if (useIndex < 0 || useIndex >= this._layers.size) {
-			useIndex = 0;
+			useIndex = _layers.size - 1;
 		}
 		IsoTileLayer chosen = this._layers.get(useIndex);
 		if (chosen != null && chosen.tiles != null) {
 			this._pathFinderTiles = chosen.tiles;
-			this._pathFinderLayerOffsetX = chosen.offsetX;
-			this._pathFinderLayerOffsetY = chosen.offsetY;
+			PointF totalOffset = calculateLayerOffset(useIndex, null);
+			this._pathFinderLayerOffsetX = chosen.offsetX + totalOffset.x;
+			this._pathFinderLayerOffsetY = chosen.offsetY + totalOffset.y;
 			this._pathFinder = new BattlePathFinder(this._pathResultBus, this._pathFinderTiles, chosen.width,
 					chosen.height);
 		} else {
@@ -2670,14 +2952,6 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 
 	public int getIsoLayerCount() {
 		return _layers.size;
-	}
-
-	public void setIsoLayerIndex(int idx) {
-		this.isolayerIndex = idx;
-	}
-
-	public int getIsoLayerIndex() {
-		return this.isolayerIndex;
 	}
 
 	public void setIsoLayerHeight(int h) {

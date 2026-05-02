@@ -117,7 +117,7 @@ public final class ISOUtils {
 		// 默认差值
 		public float baseLayerOffset = 5f;
 		// 自定义模式用
-		public float[] customLayerOffsets = null;
+		public float[] customLayerOffsets = new float[0];
 
 		public float tileWidth = 64f;
 		public float tileHeight = 32f;
@@ -171,6 +171,12 @@ public final class ISOUtils {
 		}
 
 		public IsoConfig(IsoConfig other) {
+			this.heightOffsetMode = other.heightOffsetMode;
+			this.baseLayerOffset = other.baseLayerOffset;
+			if (other.customLayerOffsets.length > 0) {
+				this.customLayerOffsets = CollectionUtils.copyOf(other.customLayerOffsets,
+						other.customLayerOffsets.length);
+			}
 			this.tileWidth = other.tileWidth;
 			this.tileHeight = other.tileHeight;
 			this.heightScale = other.heightScale;
@@ -188,7 +194,45 @@ public final class ISOUtils {
 			this.cameraDistance = other.cameraDistance;
 			this.tiltAngle = other.tiltAngle;
 			this.renderLayerCount = other.renderLayerCount;
-			this.layerScale = other.layerScale;
+			if (other.layerScale != null) {
+				this.layerScale = CollectionUtils.copyOf(other.layerScale, other.layerScale.length);
+			}
+			this.lights.clear();
+			this.lights.addAll(other.lights.cpy());
+		}
+
+		public void set(IsoConfig other) {
+			if (other == null) {
+				return;
+			}
+			this.heightOffsetMode = other.heightOffsetMode;
+			this.baseLayerOffset = other.baseLayerOffset;
+			if (other.customLayerOffsets.length > 0) {
+				this.customLayerOffsets = CollectionUtils.copyOf(other.customLayerOffsets,
+						other.customLayerOffsets.length);
+			}
+			this.tileWidth = other.tileWidth;
+			this.tileHeight = other.tileHeight;
+			this.heightScale = other.heightScale;
+			this.offsetX = other.offsetX;
+			this.offsetY = other.offsetY;
+			this.scaleX = other.scaleX;
+			this.scaleY = other.scaleY;
+			this.rotationAngle = other.rotationAngle;
+			this.projectionMode = other.projectionMode;
+			this.mirror = other.mirror;
+			this.obliqueAngle = other.obliqueAngle;
+			this.obliqueScale = other.obliqueScale;
+			this.perspective = other.perspective;
+			this.cameraHeight = other.cameraHeight;
+			this.cameraDistance = other.cameraDistance;
+			this.tiltAngle = other.tiltAngle;
+			this.renderLayerCount = other.renderLayerCount;
+			if (other.layerScale != null) {
+				this.layerScale = CollectionUtils.copyOf(other.layerScale, other.layerScale.length);
+			} else {
+				this.layerScale = null;
+			}
 			this.lights.clear();
 			this.lights.addAll(other.lights.cpy());
 		}
@@ -231,6 +275,14 @@ public final class ISOUtils {
 
 		public float getTileCenterY() {
 			return tileHeight / 2;
+		}
+
+		public float getScaleTileX() {
+			return tileWidth * scaleX;
+		}
+
+		public float getScaleTileY() {
+			return tileHeight * scaleY;
 		}
 
 		public static IsoConfig defaultConfig() {
@@ -332,12 +384,13 @@ public final class ISOUtils {
 							+ (MathUtils.random() - 0.5f) * config.baseLayerOffset;
 					break;
 				case CUSTOM:
-					if (config.customLayerOffsets != null && i < config.customLayerOffsets.length) {
+					if (i < config.customLayerOffsets.length) {
 						offsetY = config.customLayerOffsets[i];
 					} else {
 						offsetY = 0f;
 					}
 					break;
+
 				}
 				layerOffsets[i].y = baseY - offsetY;
 			}
