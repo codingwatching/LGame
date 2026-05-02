@@ -881,20 +881,11 @@ public class Entity extends SpriteBase<IEntity> implements IEntity {
 				}
 			} else {
 				if (_image != null) {
-					if (isUpdateWidth() || isUpdateHeight()) {
-						if (_shear == null) {
-							g.draw(_image, nx, ny, _width * _scaleX, _height * _scaleY, _baseColor);
-						} else {
-							g.draw(_image, nx, ny, _width * _scaleX, _height * _scaleY, _shear.x, _shear.y,
-									_shear.width, _shear.height, _baseColor);
-						}
+					if (_shear == null) {
+						g.draw(_image, nx, ny, _width, _height, _baseColor);
 					} else {
-						if (_shear == null) {
-							g.draw(_image, nx, ny, _width, _height, _baseColor);
-						} else {
-							g.draw(_image, nx, ny, _width, _height, _shear.x, _shear.y, _shear.width, _shear.height,
-									_baseColor);
-						}
+						g.draw(_image, nx, ny, _width, _height, _shear.x, _shear.y, _shear.width, _shear.height,
+								_baseColor);
 					}
 				} else {
 					g.fillRect(nx, ny, _width, _height, _baseColor);
