@@ -136,8 +136,8 @@ public class LGesture extends LComponent {
 	}
 
 	@Override
-	protected void processTouchReleased() {
-		super.processTouchReleased();
+	public void upClick() {
+		super.upClick();
 		if (_autoClear) {
 			clear();
 		}
@@ -156,7 +156,7 @@ public class LGesture extends LComponent {
 
 	@Override
 	protected void processTouchDragged() {
-		if (SysTouch.isDrag() && _input.isMoving()) {
+		if (SysTouch.isDrag() && (_input != null && _input.isMoving())) {
 			final float x = getUITouchX();
 			final float y = getUITouchY();
 			if (isPointInUI(x, y)) {

@@ -132,8 +132,8 @@ public class LColorPicker extends LComponent {
 	}
 
 	@Override
-	protected void processTouchReleased() {
-		super.processTouchReleased();
+	public void upClick() {
+		super.upClick();
 		_selected = getColorIndexSelected();
 		final Vector2f pos = getUITouchXY();
 		final int x = MathUtils.floor(pos.x / this._gridSize);

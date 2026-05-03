@@ -301,7 +301,7 @@ public class LSelect extends LContainer implements FontSet<LSelect> {
 		// 刚重置时，禁止触摸自动修改索引
 		if (!isClickUp() && !_justReset) {
 			if (_selects != null && _selectSize > 0) {
-				float touchY = _input.getTouchY();
+				float touchY = _input == null ? 0 : _input.getTouchY();
 				int listTop = MathUtils.ifloor(_messageTop + _space - _sizeFont / 2);
 				int effectiveTouchY = MathUtils.ifloor(touchY == 0 ? getTouchY() : touchY);
 				int itemHeight = _space;

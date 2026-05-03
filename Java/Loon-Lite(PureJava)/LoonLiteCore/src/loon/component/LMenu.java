@@ -753,7 +753,7 @@ public class LMenu extends LComponent implements FontSet<LMenu> {
 	}
 
 	private void handleScrollInput(float delta) {
-		if (_supportScroll && _input.isMoving()) {
+		if (_supportScroll && _input != null && _input.isMoving()) {
 			if (_input.getTouchDY() > 5) {
 				scroll -= scrollspeed * delta;
 			} else if (_input.getTouchDY() < -5) {
@@ -796,7 +796,7 @@ public class LMenu extends LComponent implements FontSet<LMenu> {
 	}
 
 	public boolean isDoClickItem() {
-		return !SysTouch.isDrag() && !_input.isMoving() && (_tabOpening || _panelOpening);
+		return !SysTouch.isDrag() && (_input != null && !_input.isMoving()) && (_tabOpening || _panelOpening);
 	}
 
 	public boolean isNotInMenuTouchClick() {

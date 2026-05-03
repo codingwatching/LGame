@@ -58,6 +58,18 @@ import loon.utils.TArray;
  */
 public class BattleMapObject extends Role implements LRelease {
 
+	// 角色速度预设模板
+	public static class SpeedPreset {
+
+		public final float baseSpeed;
+		public final float speedMul;
+
+		SpeedPreset(float baseSpeed, float speedMul) {
+			this.baseSpeed = baseSpeed;
+			this.speedMul = speedMul;
+		}
+	}
+
 	// 对象主状态变更监听
 	public static interface ObjectStateListener {
 
@@ -171,10 +183,39 @@ public class BattleMapObject extends Role implements LRelease {
 		}
 	}
 
-	/** 最大惯性值 */
+	/** 默认最大惯性值 */
 	public static final float MAX_INERTIA = 0.1f;
+	/** 默认每帧最大加速度 */
+	public static final float MAX_ACCELERATION = 1f;
+	/** 默认最小速度倍率 */
+	public static final float MIN_SPEED_MULTIPLIER = 0.15f;
+	/** 默认最大速度倍率 */
+	public static final float MAX_SPEED_MULTIPLIER = 3f;
+	/** 默认平滑阻尼系数 */
+	public static final float SMOOTH_DAMP = 0.06f;
+
+	/** 最大惯性值 */
+	private float maxInertia = MAX_INERTIA;
+	/** 每帧最大加速度 */
+	private float maxAcceleration = MAX_ACCELERATION;
+	/** 最小速度倍率 */
+	private float minSpeedMultiplier = MIN_SPEED_MULTIPLIER;
+	/** 最大速度倍率 */
+	private float maxSpeedMultiplier = MAX_SPEED_MULTIPLIER;
+	/** 平滑阻尼系数 */
+	private float smoothDamp = SMOOTH_DAMP;
 	/** 默认缓动函数 */
 	private static final Easing DEFAULT_EASING = Easing.TIME_LINEAR;
+	/** 角色神速移动（神速力附体） */
+	public final static SpeedPreset SUPER_SPEED = new SpeedPreset(20.0f, 10f);
+	/** 角色高速移动（快速移动） */
+	public final static SpeedPreset HIGH_SPEED = new SpeedPreset(12.0f, 5.0f);
+	/** 角色普通移动（默认速度） */
+	public final static SpeedPreset NORMAL = new SpeedPreset(5.0f, 1.0f);
+	/** 角色缓慢移动（减速移动） */
+	public final static SpeedPreset SLOW = new SpeedPreset(3.0f, 0.6f);
+	/** 角色艰难移动（极慢移动） */
+	public final static SpeedPreset HARD = new SpeedPreset(1.5f, 0.25f);
 
 	private final TArray<PointI> filterValidTempPath = new TArray<PointI>();
 
@@ -320,8 +361,9 @@ public class BattleMapObject extends Role implements LRelease {
 		// 初始化像素坐标
 		this.startPixel.set(getTileToScreen(gridX, gridY));
 		this.targetPixel.set(startPixel);
-		// 基础速度
-		this.baseSpeed = MathUtils.max(MAX_INERTIA, 5f);
+		// 设定默认移动速度为普通
+		this.setSpeedPreset(NORMAL);
+		// 同步z轴遮挡关系
 		this.updateRenderPriorityZ();
 		// 重置移动路径状态与初始移动点为100
 		resetPathState(100);
@@ -799,11 +841,21 @@ public class BattleMapObject extends Role implements LRelease {
 				return;
 			}
 		}
-		// 更新速度
 		updateSpeed();
-		// 平滑惯性移动
-		currentSpeed += (targetSpeed - currentSpeed) * MAX_INERTIA;
+		// 计算目标速度差
+		float speedDelta = targetSpeed - currentSpeed;
+		// 限制每帧加速度，防止突然加速，视觉效果受影响
+		speedDelta = MathUtils.clamp(speedDelta, -maxAcceleration, maxAcceleration);
+		// 阻尼平滑插值
+		currentSpeed += speedDelta * smoothDamp;
+		// 限制速度在合理范围（防止过快过慢）
+		float minSpeed = baseSpeed * minSpeedMultiplier;
+		float maxSpeed = baseSpeed * maxSpeedMultiplier;
+		currentSpeed = MathUtils.clamp(currentSpeed, minSpeed, maxSpeed);
+
+		// 平滑更新移动进度
 		moveProgress += currentSpeed * deltaTime;
+
 		float eased = MathUtils.min(easing.apply(moveProgress), 1f);
 		movePixel.set(startPixel.x + (targetPixel.x - startPixel.x) * eased,
 				startPixel.y + (targetPixel.y - startPixel.y) * eased);
@@ -1104,9 +1156,12 @@ public class BattleMapObject extends Role implements LRelease {
 		if (battleMap != null) {
 			BattleTile t = battleMap.getMapTile(gridX, gridY);
 			if (t != null) {
+				// 计算地形速度倍率，达到加速/减速效果
 				mul *= t.getTileType().getMoveSpeedMultiplier();
 			}
 		}
+		// 限制倍率范围，避免太快造成瞬移
+		mul = MathUtils.clamp(mul, minSpeedMultiplier, maxSpeedMultiplier);
 		targetSpeed = baseSpeed * mul;
 	}
 
@@ -1203,6 +1258,109 @@ public class BattleMapObject extends Role implements LRelease {
 		path.clear();
 		paused = true;
 		endMovement();
+	}
+
+	/**
+	 * 批量设置所有移动平滑参数
+	 * 
+	 * @param maxInertia
+	 * @param maxAcceleration
+	 * @param minSpeedMul
+	 * @param maxSpeedMul
+	 * @param smoothDamp
+	 */
+	public void setMoveSmoothParams(float maxInertia, float maxAcceleration, float minSpeedMul, float maxSpeedMul,
+			float smoothDamp) {
+		this.maxInertia = MathUtils.max(0.01f, maxInertia);
+		this.maxAcceleration = MathUtils.max(0.1f, maxAcceleration);
+		this.minSpeedMultiplier = MathUtils.clamp(minSpeedMul, 0.01f, 1f);
+		this.maxSpeedMultiplier = MathUtils.clamp(maxSpeedMul, 1f, 5f);
+		this.smoothDamp = MathUtils.clamp(smoothDamp, 0.01f, 0.2f);
+	}
+
+	/**
+	 * 重置为默认平滑参数
+	 */
+	public void resetDefaultSmoothParams() {
+		setMoveSmoothParams(MAX_INERTIA, MAX_ACCELERATION, MIN_SPEED_MULTIPLIER, MAX_SPEED_MULTIPLIER, SMOOTH_DAMP);
+	}
+
+	public void setMaxInertia(float maxInertia) {
+		this.maxInertia = maxInertia;
+	}
+
+	public void setMaxAcceleration(float maxAcceleration) {
+		this.maxAcceleration = maxAcceleration;
+	}
+
+	public void setMinSpeedMultiplier(float minSpeedMultiplier) {
+		this.minSpeedMultiplier = minSpeedMultiplier;
+	}
+
+	public void setMaxSpeedMultiplier(float maxSpeedMultiplier) {
+		this.maxSpeedMultiplier = maxSpeedMultiplier;
+	}
+
+	public void setSmoothDamp(float smoothDamp) {
+		this.smoothDamp = smoothDamp;
+	}
+
+	public float getMaxInertia() {
+		return maxInertia;
+	}
+
+	public float getMaxAcceleration() {
+		return maxAcceleration;
+	}
+
+	public float getMinSpeedMultiplier() {
+		return minSpeedMultiplier;
+	}
+
+	public float getMaxSpeedMultiplier() {
+		return maxSpeedMultiplier;
+	}
+
+	public float getSmoothDamp() {
+		return smoothDamp;
+	}
+
+	/**
+	 * 移动速度一键设置(以下同，不一一说明)
+	 */
+	public void speedSuper() {
+		setSpeedPreset(BattleMapObject.SUPER_SPEED);
+	}
+
+	public void speedHigh() {
+		setSpeedPreset(BattleMapObject.HIGH_SPEED);
+	}
+
+	public void speedNormal() {
+		setSpeedPreset(BattleMapObject.NORMAL);
+	}
+
+	public void speedSlow() {
+		setSpeedPreset(BattleMapObject.SLOW);
+	}
+
+	public void speedHard() {
+		setSpeedPreset(BattleMapObject.HARD);
+	}
+
+	/**
+	 * 设置速度预设
+	 * 
+	 * @param preset
+	 */
+	public void setSpeedPreset(SpeedPreset preset) {
+		if (preset == null) {
+			preset = NORMAL;
+		}
+		setBaseSpeed(preset.baseSpeed);
+		this.moveSpeedMultiplier = preset.speedMul;
+		this.currentSpeed = preset.baseSpeed;
+		this.targetSpeed = preset.baseSpeed;
 	}
 
 	public void addMoveEffect(MovementEffect effect) {
@@ -1388,6 +1546,11 @@ public class BattleMapObject extends Role implements LRelease {
 	 * 
 	 * @param tile
 	 */
+	/**
+	 * 应用地形效果
+	 * 
+	 * @param tile
+	 */
 	private void applyTerrainEffects(PointI tile) {
 		if (battleMap == null || tile == null || listener == null) {
 			return;
@@ -1398,7 +1561,6 @@ public class BattleMapObject extends Role implements LRelease {
 		}
 		BattleTileType type = t.getTileType();
 		listener.onTerrainEffectApplied(this, type.getName(), type);
-		targetSpeed = baseSpeed * type.getMoveSpeedMultiplier();
 	}
 
 	public TArray<PointI> getOccupiedTiles() {
@@ -1577,7 +1739,7 @@ public class BattleMapObject extends Role implements LRelease {
 		if (p == null) {
 			return;
 		}
-		currentSpeed = MathUtils.max(MAX_INERTIA, p.getFloat("speed", baseSpeed));
+		currentSpeed = MathUtils.max(maxInertia, p.getFloat("speed", baseSpeed));
 		currentStep = MathUtils.max(0, p.getInt("step", 0));
 		paused = p.getBool("paused", false);
 		currentMode = (MovementMode) p.get("mode", MovementMode.WALK);
@@ -1778,6 +1940,9 @@ public class BattleMapObject extends Role implements LRelease {
 		movePoints = MathUtils.max(0, p);
 		actionPoints = movePoints;
 		path.clear();
+		currentSpeed = baseSpeed;
+		targetSpeed = baseSpeed;
+		moveInertia = 0f;
 	}
 
 	public void setRemainingMovementPoints(int p) {
@@ -1905,7 +2070,7 @@ public class BattleMapObject extends Role implements LRelease {
 	}
 
 	public void setBaseSpeed(float s) {
-		baseSpeed = MathUtils.max(MAX_INERTIA, s);
+		baseSpeed = MathUtils.max(maxInertia, s);
 		if (listener != null) {
 			listener.onSpeedChanged(this, baseSpeed);
 		}

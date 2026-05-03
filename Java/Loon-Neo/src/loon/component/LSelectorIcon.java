@@ -434,8 +434,8 @@ public class LSelectorIcon extends LComponent {
 	}
 
 	@Override
-	public void processTouchReleased() {
-		super.processTouchReleased();
+	public void upClick() {
+		super.upClick();
 		if (_function != null) {
 			_function.call(this);
 		}

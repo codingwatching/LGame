@@ -608,8 +608,8 @@ public class LTextTree extends LComponent implements FontSet<LTextTree> {
 	}
 
 	@Override
-	public void processTouchReleased() {
-		super.processTouchReleased();
+	public void upClick() {
+		super.upClick();
 		checkSelected(true);
 	}
 

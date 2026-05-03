@@ -108,9 +108,9 @@ public class LPad extends LComponent {
 	}
 
 	@Override
-	protected void processTouchReleased() {
+	public void upClick() {
 		freeClick();
-		super.processTouchReleased();
+		super.upClick();
 	}
 
 	@Override
@@ -205,16 +205,16 @@ public class LPad extends LComponent {
 	}
 
 	private void freeClick() {
-		if (_limitClick) {
+		this.cancel();
+		if (_limitClick && _lockedKey != null && _lockedKey.isPressed()) {
 			_lockedKey.release();
 		}
-		this.cancel();
 		this._lastDir = -1;
 	}
 
 	@Override
 	public void process(long elapsedTime) {
-		if (isPadUp()) {
+		if (!_tempDownClick && _isClick) {
 			freeClick();
 		}
 	}

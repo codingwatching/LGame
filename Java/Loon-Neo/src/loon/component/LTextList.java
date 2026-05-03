@@ -547,7 +547,7 @@ public class LTextList extends LComponent implements FontSet<LTextList> {
 					}
 				}
 
-				if (SysTouch.isDrag() && _input.isMoving()) {
+				if (SysTouch.isDrag() && _input != null && _input.isMoving()) {
 					if ((mouseX > _maxX + this._scrollBarX)
 							&& (mouseX <= _maxX + this._scrollBarX + this._scrollButtonWidth)
 							&& (mouseY > _maxY + y + this._scrollButtonHeight)

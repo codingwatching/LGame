@@ -358,8 +358,8 @@ public class LTable extends LContainer implements FontSet<LTable> {
 	}
 
 	@Override
-	protected void processTouchReleased() {
-		super.processTouchReleased();
+	public void upClick() {
+		super.upClick();
 		try {
 			mouseReleased(getUITouchX(), getUITouchY());
 		} catch (Throwable t) {

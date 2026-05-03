@@ -63,6 +63,7 @@ import loon.geom.Sized;
 import loon.geom.Vector2f;
 import loon.geom.XY;
 import loon.opengl.GLEx;
+import loon.utils.BoolArray;
 import loon.utils.ISOUtils;
 import loon.utils.IntArray;
 import loon.utils.IntMap;
@@ -165,6 +166,20 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		}
 	}
 
+	// 层状态变更监听
+	public interface LayerChangeListener {
+
+		void onLayerOffsetChanged(int layerIndex, float offsetX, float offsetY);
+
+		void onLayerVisibilityChanged(int layerIndex, boolean visible);
+
+		void onLayerAdded(int layerIndex);
+
+		void onLayerRemoved(int layerIndex);
+
+		void onLayerSorted();
+	}
+
 	// 数组地图分层用类
 	public static class IsoTileLayer {
 
@@ -175,20 +190,26 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		public String name;
 		public float offsetX;
 		public float offsetY;
+		public int layerIndex;
 
-		public IsoTileLayer(BattleTile[][] tiles, String name) {
+		public IsoTileLayer(BattleTile[][] tiles, String name, int layerIndex) {
 			this.tiles = tiles;
 			this.width = tiles == null ? 0 : tiles.length;
 			this.height = (tiles == null || tiles.length == 0) ? 0 : tiles[0].length;
 			this.name = name == null ? "battlelayer" : name;
 			this.offsetX = 0f;
 			this.offsetY = 0f;
+			this.layerIndex = layerIndex;
 		}
 	}
 
 	private final static class ObjectComparator implements Comparator<BattleMapObject> {
 		@Override
 		public int compare(BattleMapObject o1, BattleMapObject o2) {
+			int layerCompare = MathUtils.compare(MathUtils.abs(o1.getLayer()), MathUtils.abs(o2.getLayer()));
+			if (layerCompare != 0) {
+				return layerCompare;
+			}
 			return MathUtils.compare(o1.renderPriority, o2.renderPriority);
 		}
 	}
@@ -214,6 +235,8 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 	protected final TArray<IsoTileLayer> _layers = new TArray<IsoTileLayer>();
 
 	private final TArray<PointI> _strategicPoint = new TArray<PointI>();
+
+	private final PointF _baseComposite = new PointF(0f, 0f);
 
 	private final float[] _tempPx = new float[4];
 	private final float[] _tempPy = new float[4];
@@ -295,12 +318,26 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 	protected float _defaultLayerStepOffsetX = 16f;
 	protected float _defaultLayerStepOffsetY = -16f;
 	protected GameEventBus<PathResult> _pathResultBus = null;
-	// 指定用于寻路的层索引，-1表示自动（默认最低层0）
+	// 指定用于寻路的层索引，也就是寻径时按照第几层的Layer偏移来计算，-1表示自动使用最高层，即_layers.size-1
 	protected int _pathFinderLayerIndex = -1;
 	protected BattleTile[][] _pathFinderTiles = null;
-	// 当前用于寻路的层像素偏移
+	// 当前用于寻路的层像素偏移，也就是寻径时偏移多少数值
 	protected float _pathFinderLayerOffsetX = 0f;
 	protected float _pathFinderLayerOffsetY = 0f;
+	// 缓存每层渲染偏移（计算结果）与脏标记
+	private final TArray<PointF> _layerRenderOffsetCache = new TArray<PointF>();
+	private final BoolArray _layerRenderOffsetDirty = new BoolArray();
+
+	// 指定渲染偏移基准层（也就是人物渲染的偏移值基于第几层Layer，不设置时默认最高层，即_layers.size-1）
+	private int _renderBaseLayerIndex = -1;
+
+	// 当层级偏移改变时的监听器
+	private LayerChangeListener _layerChangeListener = null;
+
+	// 是否启用层偏移缓存
+	private boolean _useLayerOffsetCache = true;
+
+	private int _maxAllowedHeightDiff = MAX_ALLOWED_HEIGHT_DIFF;
 
 	public BattleMap(BattleTileMake make, Field2D field2d, Screen screen, GameEventBus<Object> events,
 			IsoConfig config) {
@@ -756,9 +793,15 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 						float drawX = tilePos.x - _isoConfig.offsetX + posOffsetX + layerOffsetX;
 						float drawY = tilePos.y - _isoConfig.offsetY + posOffsetY + layerOffsetY;
 
-						PointF offset = calculateLayerOffset(li, tile);
-						drawX += offset.x;
-						drawY += offset.y;
+						// 先确保缓存存在并计算
+						PointF cached = computeLayerRenderOffsetIfDirty(li, null);
+						float compositeOffsetX = cached.x + layerOffsetX;
+						float compositeOffsetY = cached.y + layerOffsetY;
+
+						// 基于指定的基础层，合成偏移数值
+						PointF baseComposite = getIsoLayerCompositeOffset(getRenderBaseIsoLayerIndex());
+						drawX += compositeOffsetX - baseComposite.x;
+						drawY += compositeOffsetY - baseComposite.y;
 
 						if (!CollisionHelper.checkAABBvsAABB(0, 0, screenW, screenH, drawX, drawY, tileWidth,
 								tileHeight)) {
@@ -784,13 +827,28 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 				}
 			}
 		}
-		final float layerOffsetX = posOffsetX + _pathFinderLayerOffsetX;
-		final float layerOffsetY = posOffsetY + _pathFinderLayerOffsetY;
 
-		// 其它地图精灵渲染
+		final float basePosOffsetX = posOffsetX;
+		final float basePosOffsetY = posOffsetY;
+
+		// 获得当前渲染的基准层
+		final int baseLayerIndex = getRenderBaseLayerIndex();
+
+		if (baseLayerIndex >= 0 && baseLayerIndex < _layers.size) {
+			IsoTileLayer baseLayer = _layers.get(baseLayerIndex);
+			PointF baseCache = computeLayerRenderOffsetIfDirty(baseLayerIndex, null);
+			float bx = (baseLayer == null ? 0f : baseLayer.offsetX) + (baseCache == null ? 0f : baseCache.x);
+			float by = (baseLayer == null ? 0f : baseLayer.offsetY) + (baseCache == null ? 0f : baseCache.y);
+			_baseComposite.set(bx, by);
+		}
+
+		final float layerOffsetX = basePosOffsetX + _baseComposite.x;
+		final float layerOffsetY = basePosOffsetY + _baseComposite.y;
+
+		// 地图精灵渲染
 		_mapSprites.paint(g, layerOffsetX, layerOffsetY, startX * tileWidth, startY * tileHeight, endX * tileWidth,
 				endY * tileHeight);
-		// 地图对象渲染
+		// 其它地图对象渲染
 		for (int i = 0; i < _mapObjects.size; i++) {
 			BattleMapObject o = _mapObjects.get(i);
 			if (o != null) {
@@ -806,6 +864,7 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		if (_drawListener != null) {
 			_drawListener.draw(g, layerOffsetX, layerOffsetY);
 		}
+
 	}
 
 	public void drawIsoTileBorder(GLEx g, float centerX, float centerY, float tileWidth, float tileHeight,
@@ -869,10 +928,7 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 	 * @return
 	 */
 	public IsoTileLayer getIsoLayer(int layerIndex) {
-		if (layerIndex < 0 || layerIndex >= _layers.size) {
-			return null;
-		}
-		return _layers.get(layerIndex);
+		return (layerIndex >= 0 && layerIndex < _layers.size) ? _layers.get(layerIndex) : null;
 	}
 
 	/**
@@ -899,6 +955,14 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		_pathFinderLayerIndex = MathUtils.max(0, _layers.size - 1);
 		rebuildPathFinderUsingSelectedLayer();
 		_layerSortDirty = true;
+		ensureLayerCacheSize();
+		markAllLayerOffsetsDirty();
+		if (_renderBaseLayerIndex >= _layers.size) {
+			_renderBaseLayerIndex = -1;
+		}
+		if (_layerChangeListener != null) {
+			_layerChangeListener.onLayerRemoved(layerIndex);
+		}
 		return this;
 	}
 
@@ -917,6 +981,10 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		}
 		layer.offsetX = offsetX;
 		layer.offsetY = offsetY;
+		forceRecomputeLayerOffset(layerIndex);
+		if (_layerChangeListener != null) {
+			_layerChangeListener.onLayerOffsetChanged(layerIndex, offsetX, offsetY);
+		}
 		return this;
 	}
 
@@ -929,6 +997,9 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		_pathFinderLayerIndex = -1;
 		rebuildPathFinderUsingSelectedLayer();
 		_layerSortDirty = true;
+		_layerRenderOffsetCache.clear();
+		_layerRenderOffsetDirty.clear();
+		_renderBaseLayerIndex = -1;
 		return this;
 	}
 
@@ -939,6 +1010,11 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		if (_layers.size > 1 && _layerSortDirty) {
 			_layers.sort(LAYER_SORTER);
 			_layerSortDirty = false;
+			ensureLayerCacheSize();
+			markAllLayerOffsetsDirty();
+			if (_layerChangeListener != null) {
+				_layerChangeListener.onLayerSorted();
+			}
 		}
 	}
 
@@ -1036,6 +1112,59 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 	}
 
 	/**
+	 * 设定当前渲染层(即除了layer之外的画面渲染，基于哪个层级的偏移值进行)
+	 * 
+	 * @param layerIndex
+	 * @return
+	 */
+	public BattleMap setRenderBaseIsoLayerIndex(int layerIndex) {
+		if (layerIndex < -1) {
+			layerIndex = -1;
+		}
+		this._renderBaseLayerIndex = layerIndex;
+		return this;
+	}
+
+	/**
+	 * 获得当前渲染层
+	 * 
+	 * @return
+	 */
+	public int getRenderBaseIsoLayerIndex() {
+		if (_renderBaseLayerIndex < 0) {
+			return _layers.size - 1;
+		}
+		return MathUtils.clamp(_renderBaseLayerIndex, 0, MathUtils.max(0, _layers.size - 1));
+	}
+
+	/**
+	 * 获取某层相对于最下层的偏移数值
+	 * 
+	 * @param layerIndex
+	 * @return
+	 */
+	public PointF getIsoLayerCompositeOffset(int layerIndex) {
+		int base = getRenderBaseIsoLayerIndex();
+		if (base < 0 || base >= _layers.size) {
+			base = _layers.size - 1;
+		}
+		PointF result = new PointF(0f, 0f);
+		if (layerIndex < 0 || layerIndex >= _layers.size) {
+			return result;
+		}
+		IsoTileLayer layer = _layers.get(layerIndex);
+		IsoTileLayer baseLayer = _layers.get(base);
+		PointF layerCache = _layerRenderOffsetCache.size > layerIndex ? _layerRenderOffsetCache.get(layerIndex) : null;
+		PointF baseCache = _layerRenderOffsetCache.size > base ? _layerRenderOffsetCache.get(base) : null;
+		float lx = (layer == null ? 0f : layer.offsetX) + (layerCache == null ? 0f : layerCache.x);
+		float ly = (layer == null ? 0f : layer.offsetY) + (layerCache == null ? 0f : layerCache.y);
+		float bx = (baseLayer == null ? 0f : baseLayer.offsetX) + (baseCache == null ? 0f : baseCache.x);
+		float by = (baseLayer == null ? 0f : baseLayer.offsetY) + (baseCache == null ? 0f : baseCache.y);
+		result.set(lx - bx, ly - by);
+		return result;
+	}
+
+	/**
 	 * 判断坐标是否在层瓦片范围内
 	 * 
 	 * @param layer
@@ -1072,7 +1201,7 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		if (to == null || !to.isPassable()) {
 			return false;
 		}
-		return getTileHeightDiff(from, to) <= MAX_ALLOWED_HEIGHT_DIFF;
+		return getTileHeightDiff(from, to) <= _maxAllowedHeightDiff;
 	}
 
 	/**
@@ -1086,7 +1215,7 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		if (fromLayer == toLayer) {
 			return true;
 		}
-		return MathUtils.abs(fromLayer - toLayer) <= MAX_ALLOWED_HEIGHT_DIFF;
+		return MathUtils.abs(fromLayer - toLayer) <= _maxAllowedHeightDiff;
 	}
 
 	/**
@@ -1176,13 +1305,11 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 	public TArray<PathNodeWithLayer> findStairLayerPath(int fromLayer, int fromX, int fromY, int toLayer, int toX,
 			int toY) {
 		TArray<PathNodeWithLayer> result = new TArray<PathNodeWithLayer>();
-		// 起点终点合法性
 		BattleTile fromTile = getIsoLayerTile(fromLayer, fromX, fromY);
 		BattleTile toTile = getIsoLayerTile(toLayer, toX, toY);
 		if (fromTile == null || toTile == null || !fromTile.isPassable() || !toTile.isPassable()) {
 			return result;
 		}
-		// 同层直接走
 		if (fromLayer == toLayer) {
 			TArray<PointI> path = findCrossIsoLayerPath(fromLayer, fromX, fromY, toLayer, toX, toY);
 			if (path != null) {
@@ -1192,27 +1319,20 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 			}
 			return result;
 		}
-		// 不同层必须通过楼梯切换，会查询楼梯是否存在
 		if (!isStairTile(fromX, fromY) && !isStairTile(toX, toY)) {
 			return result;
 		}
-
-		// 先寻路到最近楼梯，切换层，再寻路到终点
 		PointI stair = findNearestStair(fromX, fromY);
 		if (stair == null) {
 			return result;
 		}
-		// 起点到楼梯
 		TArray<PointI> p1 = findCrossIsoLayerPath(fromLayer, fromX, fromY, fromLayer, stair.x, stair.y);
-		// 楼梯到终点（切换到目标层）
 		TArray<PointI> p2 = findCrossIsoLayerPath(toLayer, stair.x, stair.y, toLayer, toX, toY);
-
 		if (p1 != null) {
 			for (PointI p : p1) {
 				result.add(new PathNodeWithLayer(p.x, p.y, fromLayer));
 			}
 		}
-		// 切换层
 		result.add(new PathNodeWithLayer(stair.x, stair.y, toLayer));
 		if (p2 != null) {
 			for (PointI p : p2) {
@@ -1330,6 +1450,120 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 	}
 
 	/**
+	 * 获取当前渲染基准层索引（若为-1则返回最高层索引）
+	 * 
+	 * @return
+	 */
+	public int getRenderBaseLayerIndex() {
+		if (_renderBaseLayerIndex < 0) {
+			return MathUtils.max(0, _layers.size - 1);
+		}
+		if (_renderBaseLayerIndex >= _layers.size) {
+			return MathUtils.max(0, _layers.size - 1);
+		}
+		return _renderBaseLayerIndex;
+	}
+
+	/**
+	 * 设定当前画面渲染人物特效时基于的基准层，即按照那一层的坐标来计算
+	 * 
+	 * @param idx
+	 * @return
+	 */
+	public BattleMap setRenderBaseLayerIndex(int idx) {
+		if (idx < -1) {
+			idx = -1;
+		}
+		this._renderBaseLayerIndex = idx;
+		return this;
+	}
+
+	protected void ensureLayerCacheSize() {
+		int layerCount = _layers.size;
+		while (_layerRenderOffsetCache.size < layerCount) {
+			_layerRenderOffsetCache.add(new PointF(0f, 0f));
+			_layerRenderOffsetDirty.add(true);
+		}
+		while (_layerRenderOffsetCache.size > layerCount) {
+			_layerRenderOffsetCache.removeIndex(_layerRenderOffsetCache.size - 1);
+			_layerRenderOffsetDirty.removeIndex(_layerRenderOffsetDirty.length - 1);
+		}
+	}
+
+	/**
+	 * 标记某层缓存为脏
+	 * 
+	 * @param layerIndex
+	 */
+	public void forceRecomputeLayerOffset(int layerIndex) {
+		if (layerIndex >= 0 && layerIndex < _layerRenderOffsetDirty.length) {
+			_layerRenderOffsetDirty.set(layerIndex, true);
+		}
+	}
+
+	/**
+	 * 标记所有层为脏
+	 */
+	public void markAllLayerOffsetsDirty() {
+		for (int i = 0; i < _layerRenderOffsetDirty.length; i++) {
+			_layerRenderOffsetDirty.set(i, true);
+		}
+	}
+
+	/**
+	 * 计算单层的偏移
+	 * 
+	 * @param layerIndex
+	 * @param tile
+	 * @return
+	 */
+	protected PointF computeLayerRenderOffsetIfDirty(int layerIndex, BattleTile tile) {
+		ensureLayerCacheSize();
+		if (layerIndex < 0 || layerIndex >= _layers.size) {
+			return _baseComposite.set(0f, 0f);
+		}
+		if (!_useLayerOffsetCache) {
+			return calculateLayerOffset(layerIndex, tile);
+		}
+		if (_layerRenderOffsetDirty.get(layerIndex)) {
+			PointF computed = calculateLayerOffset(layerIndex, tile);
+			PointF cache = _layerRenderOffsetCache.get(layerIndex);
+			cache.set(computed.x, computed.y);
+			_layerRenderOffsetDirty.set(layerIndex, false);
+			return cache;
+		}
+		return _layerRenderOffsetCache.get(layerIndex);
+	}
+
+	/**
+	 * 获取某层相对于基准层的偏移
+	 * 
+	 * @param layerIndex
+	 * @return
+	 */
+	public PointF getLayerCompositeOffsetRelativeToBase(int layerIndex) {
+		ensureLayerCacheSize();
+		PointF result = new PointF(0f, 0f);
+		if (layerIndex < 0 || layerIndex >= _layers.size) {
+			return result;
+		}
+		int baseIdx = getRenderBaseLayerIndex();
+		IsoTileLayer layer = _layers.get(layerIndex);
+		IsoTileLayer baseLayer = _layers.get(baseIdx);
+
+		PointF layerCache = computeLayerRenderOffsetIfDirty(layerIndex, null);
+		PointF baseCache = computeLayerRenderOffsetIfDirty(baseIdx, null);
+
+		float lx = layer.offsetX + layerCache.x;
+		float ly = layer.offsetY + layerCache.y;
+		float bx = baseLayer.offsetX + baseCache.x;
+		float by = baseLayer.offsetY + baseCache.y;
+
+		result.set(lx - bx, ly - by);
+		return result;
+	}
+
+	/**
 	 * 设置指定索引层是否可见性
 	 * 
 	 * @param layerIndex
@@ -1338,10 +1572,75 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 	 */
 	public BattleMap setIsoLayerVisible(int layerIndex, boolean visible) {
 		IsoTileLayer layer = getIsoLayer(layerIndex);
-		if (layer != null) {
-			layer.visible = visible;
+		if (layer == null || layer.visible == visible) {
+			return this;
+		}
+		layer.visible = visible;
+		_layerSortDirty = true;
+		forceRecomputeLayerOffset(layerIndex);
+		if (_layerChangeListener != null) {
+			_layerChangeListener.onLayerVisibilityChanged(layerIndex, visible);
 		}
 		return this;
+	}
+
+	/**
+	 * 将一个新增的渲染层插入指定位置取代原有数据
+	 * 
+	 * @param index
+	 * @param tiles
+	 * @param name
+	 * @return
+	 */
+	public BattleMap insertIsoLayer(int index, BattleTile[][] tiles, String name) {
+		if (index < 0 || index > _layers.size) {
+			return addIsoLayer(tiles, name);
+		}
+		IsoTileLayer newLayer = new IsoTileLayer(tiles, name, index);
+		_layers.insert(index, newLayer);
+		for (int i = 0; i < _layers.size; i++) {
+			_layers.get(i).layerIndex = i;
+		}
+		_mapTiles = tiles;
+		_pathFinderLayerIndex = index;
+		rebuildPathFinderUsingSelectedLayer();
+		ensureLayerCacheSize();
+		markAllLayerOffsetsDirty();
+		_layerSortDirty = true;
+		if (_layerChangeListener != null) {
+			_layerChangeListener.onLayerAdded(index);
+		}
+		return this;
+	}
+
+	/**
+	 * 交换两个层的所有数据
+	 * 
+	 * @param idx1
+	 * @param idx2
+	 * @return
+	 */
+	public BattleMap swapIsoLayers(int idx1, int idx2) {
+		if (idx1 < 0 || idx2 < 0 || idx1 >= _layers.size || idx2 >= _layers.size || idx1 == idx2) {
+			return this;
+		}
+		IsoTileLayer temp = _layers.get(idx1);
+		_layers.set(idx1, _layers.get(idx2));
+		_layers.set(idx2, temp);
+		_layers.get(idx1).layerIndex = idx1;
+		_layers.get(idx2).layerIndex = idx2;
+		_layerSortDirty = true;
+		markAllLayerOffsetsDirty();
+		return this;
+	}
+
+	/**
+	 * 设定允许跨越层的最大差值
+	 * 
+	 * @param diff
+	 */
+	public void setMaxAllowedHeightDiff(int diff) {
+		this._maxAllowedHeightDiff = MathUtils.max(0, diff);
 	}
 
 	/**
@@ -1400,6 +1699,38 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		IsoTileLayer layer = _layers.removeIndex(layerIndex);
 		_layers.set(layerIndex + 1, layer);
 		_layerSortDirty = true;
+		return this;
+	}
+
+	/**
+	 * 获取某坐标从上到下的所有可见层索引
+	 * 
+	 * @param gx
+	 * @param gy
+	 * @return
+	 */
+	public IntArray getVisibleLayersAt(int gx, int gy) {
+		IntArray result = new IntArray();
+		for (int i = _layers.size - 1; i >= 0; i--) {
+			IsoTileLayer l = _layers.get(i);
+			if (l != null && l.visible && inTileLayerBounds(l, gx, gy)) {
+				BattleTile t = l.tiles[gx][gy];
+				if (t != null && t.isVisible) {
+					result.add(i);
+				}
+			}
+		}
+		return result;
+	}
+
+	/**
+	 * 层级监听器设置
+	 * 
+	 * @param l
+	 * @return
+	 */
+	public BattleMap setLayerChangeListener(LayerChangeListener l) {
+		this._layerChangeListener = l;
 		return this;
 	}
 
@@ -1466,8 +1797,8 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		if (layerTiles == null) {
 			layerTiles = generateMap(null, null);
 		}
-		IsoTileLayer newLayer = new IsoTileLayer(layerTiles,
-				StringUtils.isEmpty(name) ? "layer_" + _layers.size : name);
+		IsoTileLayer newLayer = new IsoTileLayer(layerTiles, StringUtils.isEmpty(name) ? "layer_" + _layers.size : name,
+				_layers.size);
 		_layers.add(newLayer);
 		_mapTiles = layerTiles;
 		int newIndex = _layers.size - 1;
@@ -1485,6 +1816,12 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		_pathFinderLayerIndex = MathUtils.max(0, newIndex);
 		rebuildPathFinderUsingSelectedLayer();
 		_layerSortDirty = true;
+		ensureLayerCacheSize();
+		markAllLayerOffsetsDirty();
+		if (_layerChangeListener != null) {
+			_layerChangeListener.onLayerAdded(_layers.size - 1);
+		}
+		_renderBaseLayerIndex = -1;
 		return this;
 	}
 
@@ -2836,7 +3173,7 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 	 * @return
 	 */
 	public BattleMap addIsoLayer(BattleTile[][] tiles, String name) {
-		IsoTileLayer layer = new IsoTileLayer(tiles, name);
+		IsoTileLayer layer = new IsoTileLayer(tiles, name, _layers.size);
 		_layers.add(layer);
 		int idx = _layers.size - 1;
 		for (int gx = 0; gx < layer.width; gx++) {
@@ -2853,12 +3190,22 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		this._mapTiles = tiles;
 		this._pathFinderLayerIndex = MathUtils.max(0, idx);
 		rebuildPathFinderUsingSelectedLayer();
+		ensureLayerCacheSize();
+		int newIndex = _layers.size - 1;
+		if (newIndex >= 0 && newIndex < _layerRenderOffsetDirty.length) {
+			_layerRenderOffsetDirty.set(newIndex, true);
+		}
+		if (_layerChangeListener != null) {
+			_layerChangeListener.onLayerAdded(_layers.size - 1);
+		}
+		_layerSortDirty = true;
 		return this;
 	}
 
 	public BattleMap setDefaultIsoLayerStepOffset(float ox, float oy) {
 		this._defaultLayerStepOffsetX = ox;
 		this._defaultLayerStepOffsetY = oy;
+		markAllLayerOffsetsDirty();
 		return this;
 	}
 
@@ -2948,6 +3295,8 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 				this._pathFinderLayerOffsetY = 0f;
 			}
 		}
+		ensureLayerCacheSize();
+		markAllLayerOffsetsDirty();
 	}
 
 	public int getIsoLayerCount() {

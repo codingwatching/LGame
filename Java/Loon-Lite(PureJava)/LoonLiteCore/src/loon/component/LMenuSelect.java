@@ -406,8 +406,8 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 			return;
 		}
 
-		if ((SysTouch.isDown() || SysTouch.isDrag() || SysTouch.isMove() || _input.isMoving()) && _selectRects != null
-				&& _labels != null) {
+		if ((SysTouch.isDown() || SysTouch.isDrag() || SysTouch.isMove() || (_input != null && _input.isMoving()))
+				&& _selectRects != null && _labels != null) {
 			float touchX = getUITouchX();
 			float touchY = getUITouchY();
 			for (int i = 0; i < _selectRects.length; i++) {
@@ -500,7 +500,7 @@ public class LMenuSelect extends LComponent implements FontSet<LMenuSelect> {
 		if (isSelected() && !_keyEvent.isPressed()) {
 			_pressedTime = 5;
 			_pressed = true;
-			int code = _input.getKeyPressed();
+			int code = _input == null ? -1 : _input.getKeyPressed();
 			switch (code) {
 			case SysKey.UP:
 				_selected = MathUtils.max(0, _selected - 1);

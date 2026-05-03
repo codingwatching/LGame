@@ -172,7 +172,7 @@ public abstract class LComponent extends LObject<LContainer>
 
 	private PointF _compPosition = new PointF();
 
-	private boolean _downClick = false;
+	protected boolean _tempDownClick = false;
 	// 中心点
 	protected float _pivotX = -1, _pivotY = -1;
 
@@ -281,7 +281,7 @@ public abstract class LComponent extends LObject<LContainer>
 		this._cam_x = _cam_y = 0;
 		this._screenX = _screenY = 0;
 		this._touchDownMovedValue = 2f;
-		this._downClick = false;
+		this._tempDownClick = false;
 		this._pivotX = _pivotY = -1;
 		this._component_visible = true;
 		this._component_enabled = true;
@@ -1305,15 +1305,15 @@ public abstract class LComponent extends LObject<LContainer>
 		} catch (Throwable e) {
 			LSystem.error("Component downClick() exception", e);
 		}
-		if (!this._downClick) {
+		if (!this._tempDownClick) {
 			checkDownPosition();
 			this._downUpTimer.start();
 		}
-		this._downClick = true;
+		this._tempDownClick = true;
 	}
 
 	protected void processTouchReleased() {
-		if (this._downClick) {
+		if (this._tempDownClick) {
 			this._downUpTimer.stop();
 			try {
 				this.upClick();
@@ -1321,7 +1321,7 @@ public abstract class LComponent extends LObject<LContainer>
 				LSystem.error("Component upClick() exception", e);
 			}
 			checkUpPosition();
-			this._downClick = false;
+			this._tempDownClick = false;
 		}
 	}
 
@@ -1332,7 +1332,7 @@ public abstract class LComponent extends LObject<LContainer>
 	}
 
 	protected void processTouchExited() {
-		_downClick = false;
+		_tempDownClick = false;
 		_downUpTimer.reset();
 	}
 
@@ -1419,7 +1419,7 @@ public abstract class LComponent extends LObject<LContainer>
 	}
 
 	protected boolean isTouchDownClick() {
-		return _downClick;
+		return _tempDownClick;
 	}
 
 	public long getDownUpStartTimer() {
@@ -1462,7 +1462,7 @@ public abstract class LComponent extends LObject<LContainer>
 		if (_downUpTimer.completed()) {
 			return false;
 		}
-		if (!_downClick) {
+		if (!_tempDownClick) {
 			final long timer = getDownUpTimer();
 			if (timer >= seconds * LSystem.SECOND) {
 				return true;
@@ -2213,21 +2213,21 @@ public abstract class LComponent extends LObject<LContainer>
 		if (_input == null) {
 			return SysTouch.isDown();
 		}
-		return _input.getTouchPressed() == SysTouch.TOUCH_DOWN;
+		return _input.getTouchPressed() == SysTouch.TOUCH_DOWN || _tempDownClick;
 	}
 
 	public boolean isClickUp() {
 		if (_input == null) {
 			return SysTouch.isUp();
 		}
-		return _input.getTouchReleased() == SysTouch.TOUCH_UP;
+		return (_input.getTouchReleased() == SysTouch.TOUCH_UP && !_tempDownClick);
 	}
 
 	public boolean isClickDrag() {
 		if (_input == null) {
 			return SysTouch.isDrag();
 		}
-		return _input.getTouchPressed() == SysTouch.TOUCH_DRAG && (_downClick && _input.isDragMoved());
+		return _input.getTouchPressed() == SysTouch.TOUCH_DRAG && (_tempDownClick && _input.isDragMoved());
 	}
 
 	public boolean isTouchResponseEvent(final float x, final float y) {

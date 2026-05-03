@@ -100,21 +100,21 @@ public class LPaper extends LContainer {
 
 	@Override
 	protected void processTouchClicked() {
-		if (!_input.isMoving()) {
+		if (_input != null && !_input.isMoving()) {
 			super.processTouchClicked();
 		}
 	}
 
 	@Override
 	protected void processTouchPressed() {
-		if (!_input.isMoving()) {
+		if (_input != null && !_input.isMoving()) {
 			super.processTouchPressed();
 		}
 	}
 
 	@Override
 	protected void processTouchReleased() {
-		if (!_input.isMoving()) {
+		if (_input != null && !_input.isMoving()) {
 			super.processTouchReleased();
 		}
 	}

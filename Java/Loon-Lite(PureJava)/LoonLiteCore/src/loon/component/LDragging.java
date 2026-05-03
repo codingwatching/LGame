@@ -144,7 +144,7 @@ public class LDragging extends LComponent {
 	@Override
 	public void processTouchPressed() {
 		super.processTouchPressed();
-		if (!(SysTouch.isDrag() && _input.isMoving())) {
+		if (!(SysTouch.isDrag() && (_input != null && _input.isMoving()))) {
 			if (!_locked.isPressed()) {
 				start();
 				_locked.press();
@@ -333,8 +333,8 @@ public class LDragging extends LComponent {
 		final float areaWidth = MathUtils.clamp(this._display_area.width, 1, getWidth());
 		final float areaHeight = MathUtils.clamp(this._display_area.height, 1, getHeight());
 		if (_circle) {
-			final float centerRadius = (MathUtils.max(areaWidth, areaHeight) + areaWidth / LSystem.LAYER_TILE_SIZE / 2f + _lineWidth / 2f)
-					/ 2f;
+			final float centerRadius = (MathUtils.max(areaWidth, areaHeight) + areaWidth / LSystem.LAYER_TILE_SIZE / 2f
+					+ _lineWidth / 2f) / 2f;
 			return new Circle(areaX + centerRadius, areaY + centerRadius, centerRadius);
 		} else {
 			return new RectBox(areaX, areaY, areaWidth, areaHeight);
