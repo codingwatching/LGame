@@ -2209,6 +2209,27 @@ public class BattleMap extends LObject<ISprite> implements TileMapCollision, Siz
 		}
 	}
 
+	public BattleMapObject findObjectPixel(float px, float py) {
+		return findObjectPixel(px, py, true);
+	}
+
+	public BattleMapObject findObjectPixel(float px, float py, boolean offsetLayer) {
+		int touchX = MathUtils.floor(offsetXNScalePixel(px));
+		int touchY = MathUtils.floor(offsetYNScalePixel(py));
+		if (offsetLayer) {
+			touchX -= MathUtils.ifloor(this._pathFinderLayerOffsetX);
+			touchY -= MathUtils.ifloor(this._pathFinderLayerOffsetY);
+		}
+		int size = _mapObjects.size - 1;
+		for (int i = size; i > -1; i--) {
+			BattleMapObject o = _mapObjects.get(i);
+			if (o != null && o.getBounds().contains(touchX, touchY)) {
+				return o;
+			}
+		}
+		return null;
+	}
+
 	public BattleMapObject findObjectTouch(float touchX, float touchY) {
 		Vector2f pos = findTileXY(touchX, touchY);
 		return findObjectTile(pos.x(), pos.y());

@@ -28,8 +28,10 @@ import loon.utils.MathUtils;
  *
  */
 public abstract class RoleValue {
+
 	/**
-	 * 大职业类型
+	 * 大职业类型(不是具体职业，而是职业特性，允许混合数值，产生多特性的新职业，
+	 * 例如【魔法+魔兽+飞行==龙(或其他飞行魔兽)】，或者【骑兵+飞行+魔法+魔兽==飞龙骑士】，【仙人+机械==赛博剑仙】之类)
 	 */
 	public static class UnitType {
 		// 步兵
@@ -56,10 +58,63 @@ public abstract class RoleValue {
 		public static final int NAVAL = 1 << 10;
 		// 亡灵
 		public static final int UNDEAD = 1 << 11;
+		// 隐形
+		public static final int STEALTH = 1 << 12;
+		// 刺客
+		public static final int ASSASSIN = 1 << 13;
+		// 工程师
+		public static final int ENGINEER = 1 << 14;
+		// 机械种（赛博坦星人什么的）
+		public static final int MECHANICAL = 1 << 15;
+		// 攻城机
+		public static final int SIEGE = 1 << 16;
+		// 天使
+		public static final int ANGEL = 1 << 17;
+		// 恶魔
+		public static final int DEMON = 1 << 18;
+		// 精灵
+		public static final int ELF = 1 << 19;
+		// 仙人
+		public static final int FAIRY = 1 << 20;
+		// 邪魔 (一切邪恶种族，随便什么东西都可加上这个特性，比如堕天使，比如黑暗骑士什么的，和具体的恶魔有区别)
+		public static final int FIEND = 1 << 21;
 
-		// 判断是否包含某类型
+		/**
+		 * 判断某整型数值是否包含某类型
+		 * 
+		 * @param fullType
+		 * @param checkType
+		 * @return
+		 */
 		public static boolean hasType(int fullType, int checkType) {
 			return (fullType & checkType) != 0;
+		}
+
+		/**
+		 * 合并多种类型到一个整数值中，数值最多不要超过30，推荐用默认参数
+		 * 
+		 * @param types
+		 * @return
+		 */
+		public static int combineFlags(int... types) {
+			int flags = 0;
+			if (types == null) {
+				return flags;
+			}
+			for (int i = 0; i < types.length; i++) {
+				flags |= types[i];
+			}
+			return flags;
+		}
+
+		/**
+		 * 将flags中的每个bit转换为索引
+		 * 
+		 * @param bitMask
+		 * @return
+		 */
+		public static int bitIndex(int bitMask) {
+			return MathUtils.numberOfTrailingZeros(bitMask);
 		}
 	}
 
@@ -1868,34 +1923,47 @@ public abstract class RoleValue {
 		if (target == null) {
 			return false;
 		}
+
 		int atk = this.unitType;
 		int def = target.unitType;
+
 		// 长枪克骑兵
 		if (UnitType.hasType(atk, UnitType.SPEARMAN) && UnitType.hasType(def, UnitType.CAVALRY)) {
 			return true;
 		}
-		// 骑兵克步兵/远程/魔法
+		// 步兵克长枪
+		if (UnitType.hasType(atk, UnitType.INFANTRY) && UnitType.hasType(def, UnitType.SPEARMAN)) {
+			return true;
+		}
+		// 骑兵克步兵/远程（指近战克制）/法师/工程师/治疗者
 		if (UnitType.hasType(atk, UnitType.CAVALRY) && (UnitType.hasType(def, UnitType.INFANTRY)
-				|| UnitType.hasType(def, UnitType.RANGE) || UnitType.hasType(def, UnitType.MAGIC))) {
+				|| UnitType.hasType(def, UnitType.RANGE) || UnitType.hasType(def, UnitType.MAGIC)
+				|| UnitType.hasType(def, UnitType.ENGINEER) || UnitType.hasType(def, UnitType.HEALER))) {
 			return true;
 		}
-		// 弓箭/远程克步兵/飞行
+		// 弓箭/远程(指近战克制)/飞行/步兵/刺客
 		if ((UnitType.hasType(atk, UnitType.ARCHER) || UnitType.hasType(atk, UnitType.RANGE))
-				&& (UnitType.hasType(def, UnitType.INFANTRY) || UnitType.hasType(def, UnitType.FLY))) {
+				&& (UnitType.hasType(def, UnitType.FLY) || UnitType.hasType(def, UnitType.INFANTRY)
+						|| UnitType.hasType(def, UnitType.ASSASSIN))) {
 			return true;
 		}
-		// 魔法克重甲/飞行
-		if (UnitType.hasType(atk, UnitType.MAGIC)
-				&& (UnitType.hasType(def, UnitType.ARMOR) || UnitType.hasType(def, UnitType.FLY))) {
+		// 魔法克重甲/亡灵/机械(互相克制)/飞行/隐形
+		if (UnitType.hasType(atk, UnitType.MAGIC) && (UnitType.hasType(def, UnitType.ARMOR)
+				|| UnitType.hasType(def, UnitType.UNDEAD) || UnitType.hasType(def, UnitType.MECHANICAL)
+				|| UnitType.hasType(def, UnitType.FLY) || UnitType.hasType(def, UnitType.STEALTH))) {
 			return true;
 		}
-		// 重甲克长枪
-		if (UnitType.hasType(atk, UnitType.ARMOR) && UnitType.hasType(def, UnitType.SPEARMAN)) {
+		// 重甲克步兵/长枪
+		if (UnitType.hasType(atk, UnitType.ARMOR)
+				&& (UnitType.hasType(def, UnitType.INFANTRY) || UnitType.hasType(def, UnitType.SPEARMAN))) {
 			return true;
 		}
-		// 飞行克重甲/海军
-		if (UnitType.hasType(atk, UnitType.FLY)
-				&& (UnitType.hasType(def, UnitType.ARMOR) || UnitType.hasType(def, UnitType.NAVAL))) {
+		// 飞行克制一切“无法飞行的职业”，但不克制任何超自然生物
+		if (UnitType.hasType(atk, UnitType.FLY) && !UnitType.hasType(def, UnitType.FLY) // 目标不能飞
+				&& !UnitType.hasType(def, UnitType.MAGIC) // 排除所有超自然职业
+				&& !UnitType.hasType(def, UnitType.UNDEAD) && !UnitType.hasType(def, UnitType.DEMON)
+				&& !UnitType.hasType(def, UnitType.FIEND) && !UnitType.hasType(def, UnitType.ANGEL)
+				&& !UnitType.hasType(def, UnitType.ELF) && !UnitType.hasType(def, UnitType.FAIRY)) {
 			return true;
 		}
 		// 魔兽克步兵/骑兵
@@ -1903,13 +1971,77 @@ public abstract class RoleValue {
 				&& (UnitType.hasType(def, UnitType.INFANTRY) || UnitType.hasType(def, UnitType.CAVALRY))) {
 			return true;
 		}
-		// 治疗克亡灵
-		if (UnitType.hasType(atk, UnitType.HEALER) && UnitType.hasType(def, UnitType.UNDEAD)) {
+		// 治疗者克亡灵/邪魔/恶魔
+		if (UnitType.hasType(atk, UnitType.HEALER) && (UnitType.hasType(def, UnitType.UNDEAD)
+				|| UnitType.hasType(def, UnitType.FIEND) || UnitType.hasType(def, UnitType.DEMON))) {
 			return true;
 		}
-		// 海军克骑兵/步兵/重甲（水域，游戏中需要额外判定，结合地形参数）
-		if (UnitType.hasType(atk, UnitType.NAVAL) && (UnitType.hasType(def, UnitType.CAVALRY)
-				|| UnitType.hasType(def, UnitType.INFANTRY) || UnitType.hasType(def, UnitType.ARMOR))) {
+		// 海军克步兵/骑兵/重甲/机械(应特殊地形生效)
+		if (UnitType.hasType(atk, UnitType.NAVAL)
+				&& (UnitType.hasType(def, UnitType.INFANTRY) || UnitType.hasType(def, UnitType.CAVALRY)
+						|| UnitType.hasType(def, UnitType.ARMOR) || UnitType.hasType(def, UnitType.MECHANICAL))) {
+			return true;
+		}
+		// 刺客克法师/弓箭/工程师/隐形
+		if (UnitType.hasType(atk, UnitType.ASSASSIN)
+				&& (UnitType.hasType(def, UnitType.MAGIC) || UnitType.hasType(def, UnitType.ARCHER)
+						|| UnitType.hasType(def, UnitType.ENGINEER) || UnitType.hasType(def, UnitType.STEALTH))) {
+			return true;
+		}
+		// 隐形克远程/法师/步兵
+		if (UnitType.hasType(atk, UnitType.STEALTH) && (UnitType.hasType(def, UnitType.RANGE)
+				|| UnitType.hasType(def, UnitType.MAGIC) || UnitType.hasType(def, UnitType.INFANTRY))) {
+			return true;
+		}
+		// 工程师克机械/攻城机
+		if (UnitType.hasType(atk, UnitType.ENGINEER)
+				&& (UnitType.hasType(def, UnitType.MECHANICAL) || UnitType.hasType(def, UnitType.SIEGE))) {
+			return true;
+		}
+		// 机械克制一切超自然类职业与脆皮职业（毕竟现实世界是科技压制魔法(假设有)，当然也有互克）
+		if (UnitType.hasType(atk, UnitType.MECHANICAL) && (UnitType.hasType(def, UnitType.MAGIC)
+				|| UnitType.hasType(def, UnitType.UNDEAD) || UnitType.hasType(def, UnitType.DEMON)
+				|| UnitType.hasType(def, UnitType.FIEND) || UnitType.hasType(def, UnitType.ANGEL)
+				|| UnitType.hasType(def, UnitType.ELF) || UnitType.hasType(def, UnitType.FAIRY)
+				|| UnitType.hasType(def, UnitType.ASSASSIN) || UnitType.hasType(def, UnitType.HEALER))) {
+			return true;
+		}
+		// 攻城机克重甲/机械
+		if (UnitType.hasType(atk, UnitType.SIEGE)
+				&& (UnitType.hasType(def, UnitType.ARMOR) || UnitType.hasType(def, UnitType.MECHANICAL))) {
+			return true;
+		}
+		// 天使克恶魔/邪魔/亡灵/飞行/机械/隐形/魔法
+		if (UnitType.hasType(atk, UnitType.ANGEL) && (UnitType.hasType(def, UnitType.DEMON)
+				|| UnitType.hasType(def, UnitType.FIEND) || UnitType.hasType(def, UnitType.UNDEAD)
+				|| UnitType.hasType(def, UnitType.FLY) || UnitType.hasType(def, UnitType.MECHANICAL)
+				|| UnitType.hasType(def, UnitType.STEALTH) || UnitType.hasType(def, UnitType.MAGIC))) {
+			return true;
+		}
+		// 恶魔克精灵/仙人/步兵/治疗者/机械/天使
+		if (UnitType.hasType(atk, UnitType.DEMON)
+				&& (UnitType.hasType(def, UnitType.ELF) || UnitType.hasType(def, UnitType.FAIRY)
+						|| UnitType.hasType(def, UnitType.INFANTRY) || UnitType.hasType(def, UnitType.HEALER)
+						|| UnitType.hasType(def, UnitType.MECHANICAL) || UnitType.hasType(def, UnitType.ANGEL))) {
+			return true;
+		}
+		// 精灵克魔兽/魔法/刺客/机械/步兵
+		if (UnitType.hasType(atk, UnitType.ELF) && (UnitType.hasType(def, UnitType.HOOVES)
+				|| UnitType.hasType(def, UnitType.MAGIC) || UnitType.hasType(def, UnitType.ASSASSIN)
+				|| UnitType.hasType(def, UnitType.MECHANICAL) || UnitType.hasType(def, UnitType.INFANTRY))) {
+			return true;
+		}
+		// 仙人克亡灵/邪魔/恶魔/步兵/机械/隐形
+		if (UnitType.hasType(atk, UnitType.FAIRY)
+				&& (UnitType.hasType(def, UnitType.UNDEAD) || UnitType.hasType(def, UnitType.FIEND)
+						|| UnitType.hasType(def, UnitType.DEMON) || UnitType.hasType(def, UnitType.INFANTRY)
+						|| UnitType.hasType(def, UnitType.MECHANICAL) || UnitType.hasType(def, UnitType.STEALTH))) {
+			return true;
+		}
+		// 邪魔克精灵/仙人/步兵/治疗/机械
+		if (UnitType.hasType(atk, UnitType.FIEND) && (UnitType.hasType(def, UnitType.ELF)
+				|| UnitType.hasType(def, UnitType.FAIRY) || UnitType.hasType(def, UnitType.INFANTRY)
+				|| UnitType.hasType(def, UnitType.HEALER) || UnitType.hasType(def, UnitType.MECHANICAL))) {
 			return true;
 		}
 		return false;

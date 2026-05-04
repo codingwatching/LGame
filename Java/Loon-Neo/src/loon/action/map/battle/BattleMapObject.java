@@ -42,6 +42,7 @@ import loon.events.GameEvent;
 import loon.events.GameEventType;
 import loon.geom.PointI;
 import loon.geom.RectBox;
+import loon.geom.RectF;
 import loon.geom.Vector2f;
 import loon.geom.XY;
 import loon.opengl.GLEx;
@@ -240,6 +241,9 @@ public class BattleMapObject extends Role implements LRelease {
 
 	// 斜角地图配置
 	protected final IsoConfig isoConfig;
+
+	private final RectF charPixelSize = new RectF();
+
 	private int charInMapWidth, charInMapHeight;
 	private int halfCharWidth, halfCharHeight;
 
@@ -1546,11 +1550,6 @@ public class BattleMapObject extends Role implements LRelease {
 	 * 
 	 * @param tile
 	 */
-	/**
-	 * 应用地形效果
-	 * 
-	 * @param tile
-	 */
 	private void applyTerrainEffects(PointI tile) {
 		if (battleMap == null || tile == null || listener == null) {
 			return;
@@ -2247,18 +2246,31 @@ public class BattleMapObject extends Role implements LRelease {
 		keyDelay = k;
 	}
 
-	public RectBox getBounds() {
+	public RectF getBounds() {
 		return getBounds(isoConfig);
 	}
 
-	public RectBox getBounds(IsoConfig cfg) {
-		float tw = cfg.tileWidth * logicWidth;
-		float th = cfg.tileHeight * logicHeight;
-		float sx = (gridX - gridY) * (tw / 2f);
-		float sy = (gridX + gridY) * (th / 2f);
-		float x = sx - tw / 2f;
-		float y = sy - th / 2f;
-		return new RectBox(x, y, tw, th);
+	public RectF getBounds(IsoConfig cfg) {
+		float lw = getCharWidth();
+		float lh = getCharHeight();
+		float tileWidth = cfg.getScaleTileX();
+		float tileHeight = cfg.getScaleTileY();
+		float tw = (MathUtils.max(tileWidth, lw) / 2f);
+		float th = (MathUtils.max(tileHeight, lh) / 2f);
+		float halfTw = tw / 2f;
+		float halfTh = th / 2f;
+		float x = getX() + halfTw - moveOffsetPixel.x;
+		float y = getY() + halfTh - moveOffsetPixel.y;
+		if (MathUtils.equal(getScaleX(), 1f) && MathUtils.equal(getScaleY(), 1f)) {
+			return charPixelSize.set(x, y, lw - lw / 3, lh - lh / 3);
+		} else {
+			if (MathUtils.equal(cfg.scaleX, 1f) && MathUtils.equal(cfg.scaleY, 1f)) {
+				return charPixelSize.set(x - tileWidth * getScaleX(), y - tileHeight * getScaleY(), lw - lw / 3,
+						lh - lh / 3);
+			} else {
+				return charPixelSize.set(x - halfTw, y - halfTh, lw - lw / 3, lh - lh / 3);
+			}
+		}
 	}
 
 	public boolean canControl() {

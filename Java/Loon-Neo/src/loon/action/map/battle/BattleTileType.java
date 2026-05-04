@@ -187,6 +187,26 @@ public class BattleTileType {
 	public static final BattleTileType MAGIC_ZONE = new BattleTileType(42, 42, MoveState.NORMAL, "MAGIC_FIELD", 1.0f, 0,
 			0, true, true, 1, 1.5f, 0.5f);
 
+	// 楼梯
+	public static final BattleTileType STAIRS = new BattleTileType(43, 43, MoveState.CLIMB, "STAIRS", 0.8f, 0, 1, true,
+			true, 2, 0.95f, 0.2f);
+
+	// 地道
+	public static final BattleTileType TUNNEL = new BattleTileType(44, 44, MoveState.NORMAL, "TUNNEL", 0.7f, 0, 0, true,
+			false, 3, 0.85f, 0.1f);
+
+	// 异次元
+	public static final BattleTileType OTHERWORLD = new BattleTileType(45, 45, MoveState.NORMAL, "OTHERWORLD", 0.5f, 0,
+			0, true, false, 4, 0.5f, 0.0f);
+
+	// 传送阵
+	public static final BattleTileType TELEPORT = new BattleTileType(46, 46, MoveState.NORMAL, "TELEPORT", 1.0f, 0, 0,
+			true, false, 1, 1.0f, 0.0f);
+
+	// 死亡区域
+	public static final BattleTileType DEATH_ZONE = new BattleTileType(47, 47, MoveState.NORMAL, "DEATH_ZONE", 0.0f, 0,
+			0, false, false, 99, 0.0f, 0.0f);
+
 	// 唯一标识（地形类型）
 	private final int id;
 	// 用于和其它物体绑定
@@ -303,8 +323,8 @@ public class BattleTileType {
 	}
 
 	public int getActionPointCost(int unitType) {
-		int cost = baseActionCost;
 
+		int cost = baseActionCost;
 		// 支持混合兵种，只要包含任意类型，就应用对应效果
 		boolean isInfantry = UnitType.hasType(unitType, UnitType.INFANTRY);
 		boolean isCavalry = UnitType.hasType(unitType, UnitType.CAVALRY);
@@ -318,108 +338,122 @@ public class BattleTileType {
 		boolean isHealer = UnitType.hasType(unitType, UnitType.HEALER);
 		boolean isNaval = UnitType.hasType(unitType, UnitType.NAVAL);
 		boolean isUndead = UnitType.hasType(unitType, UnitType.UNDEAD);
+		boolean isSiege = UnitType.hasType(unitType, UnitType.SIEGE);
+		boolean isStealth = UnitType.hasType(unitType, UnitType.STEALTH);
+		boolean isMechanical = UnitType.hasType(unitType, UnitType.MECHANICAL);
+		boolean isEngineer = UnitType.hasType(unitType, UnitType.ENGINEER);
+		boolean isAssassin = UnitType.hasType(unitType, UnitType.ASSASSIN);
+		boolean isAngel = UnitType.hasType(unitType, UnitType.ANGEL);
+		boolean isDemon = UnitType.hasType(unitType, UnitType.DEMON);
+		boolean isElf = UnitType.hasType(unitType, UnitType.ELF);
+		boolean isFairy = UnitType.hasType(unitType, UnitType.FAIRY);
+		boolean isFiend = UnitType.hasType(unitType, UnitType.FIEND);
 
-		// 飞行单位：在大多数地形消耗减半
+		boolean isFlat = (this == PLAIN || this == ROAD || this == GRASSLAND || this == STEPPE);
+		boolean isForest = (this == FOREST || this == DENSE_FOREST);
+		boolean isMountain = (this == HILL || this == MOUNTAIN || this == CLIFF);
+		boolean isWater = (this == RIVER || this == SEA || this == MARSH || this == SWAMP);
+		boolean isCastle = (this == WALL || this == FORT || this == CASTLE || this == CITY || this == TOWER);
+		boolean isLava = (this == VOLCANO || this == LAVA_FIELD);
+		boolean isMagicZone = (this == MAGIC_ZONE);
+		boolean isDarkZone = (this == DARK_ZONE);
+		boolean isLightZone = (this == LIGHT_ZONE);
+		boolean isOtherworld = (this == OTHERWORLD);
+		boolean isTunnel = (this == TUNNEL);
+		boolean isStairs = (this == STAIRS);
+
+		// 飞行单位
 		if (isFly) {
 			cost = MathUtils.max(1, cost / 2);
 		}
-
 		// 骑兵
 		if (isCavalry) {
-			if (this == MOUNTAIN || this == SWAMP || this == MARSH || this == DENSE_FOREST || this == RIVER) {
+			if (isMountain || isWater || isForest) {
 				cost *= 2;
 			}
-			if (this == ROAD || this == PLAIN || this == GRASSLAND) {
+			if (isFlat) {
 				cost = MathUtils.max(1, cost / 2);
 			}
+			if (isStairs || isTunnel) {
+				cost *= 3;
+			}
 		}
-
 		// 步兵
 		if (isInfantry) {
-			if (this == WALL || this == CASTLE || this == FORT || this == HILL || this == CITY) {
+			if (isCastle || this == HILL || this == RUINS) {
 				cost = MathUtils.max(1, cost / 2);
 			}
-			if (this == RIVER || this == SEA || this == SWAMP || this == MARSH) {
+			if (isWater || isLava) {
 				cost *= 2;
 			}
 		}
-
 		// 长枪兵
 		if (isSpearman) {
-			if (this == PLAIN || this == ROAD || this == FORT) {
+			if (isFlat || this == FORT || this == WALL) {
 				cost = MathUtils.max(1, cost / 2);
 			}
-			if (this == MOUNTAIN || this == DENSE_FOREST || this == SWAMP) {
+			if (isMountain || isForest || isWater || isTunnel) {
 				cost *= 2;
 			}
 		}
-
 		// 重甲
 		if (isArmor) {
-			if (this == ROAD || this == PLAIN || this == CASTLE || this == FORT) {
+			if (isFlat || isCastle) {
 				cost = MathUtils.max(1, cost);
-			} else {
-				cost *= 2; // 重甲在非平坦地形全部减速
+			} else
+				cost *= 2;
+			if (isStairs || isTunnel || this == CLIFF) {
+				cost *= 2;
 			}
 		}
-
 		// 魔兽
 		if (isHooves) {
-			if (this == PLAIN || this == HILL || this == FOREST || this == DENSE_FOREST || this == LAVA_FIELD
-					|| this == SWAMP) {
+			if (isFlat || isForest || this == LAVA_FIELD || this == SWAMP) {
 				cost = MathUtils.max(1, cost / 2);
 			}
-			if (this == RIVER || this == SEA || this == MARSH) {
+			if (isWater) {
 				cost *= 2;
 			}
-			if (this == DARK_ZONE) {
+			if (isDarkZone) {
 				cost = MathUtils.max(1, cost / 2);
 			}
 		}
-
 		// 魔法单位
 		if (isMagic) {
-			if (this == CITY || this == RUINS || this == CASTLE || this == SWAMP) {
+			if (isCastle || this == RUINS || this == SWAMP || isMagicZone) {
 				cost = MathUtils.max(1, cost / 2);
 			}
-			if (this == MOUNTAIN || this == SEA || this == RIVER) {
+			if (isMountain || this == SEA || this == RIVER) {
 				cost *= 2;
 			}
-			if (this == MAGIC_ZONE) {
+			if (isMagicZone || isOtherworld) {
 				cost = MathUtils.max(1, cost / 3);
 			}
 		}
-
-		// 弓箭
+		// 弓箭手
 		if (isArcher) {
-			if (this == HILL || this == MOUNTAIN || this == FOREST || this == WALL) {
+			if (isMountain || isForest || this == WALL) {
 				cost = MathUtils.max(1, cost / 2);
 			}
-			if (this == SWAMP || this == MARSH || this == RIVER) {
+			if (isWater || isTunnel) {
 				cost *= 2;
 			}
 		}
-
 		// 远程
 		if (isRange) {
-			if (this == HILL || this == WALL || this == FORT || this == TOWER) {
+			if (isMountain || this == WALL || this == FORT || this == TOWER) {
 				cost = MathUtils.max(1, cost / 2);
 			}
-			if (this == CASTLE || this == CITY || this == SWAMP || this == MARSH) {
+			if (isCastle || isWater || isTunnel) {
 				cost *= 2;
 			}
 		}
-
 		// 治疗者
 		if (isHealer) {
-			if (this == CASTLE || this == CITY) {
-				cost = MathUtils.max(1, cost / 2);
-			}
-			if (this == LIGHT_ZONE) {
+			if (isCastle || this == CITY || isLightZone) {
 				cost = MathUtils.max(1, cost / 2);
 			}
 		}
-
 		// 海军
 		if (isNaval) {
 			if (this == RIVER || this == SEA || this == FORD || this == FERRY || this == PORT || this == COAST) {
@@ -428,20 +462,129 @@ public class BattleTileType {
 				cost *= 2;
 			}
 		}
-
 		// 亡灵
 		if (isUndead) {
-			if (this == MINE || this == SWAMP || this == MARSH || this == LAVA_FIELD) {
+			if (this == MINE || isWater || isLava || isOtherworld) {
 				cost = MathUtils.max(1, cost / 2);
 			}
-			if (this == CASTLE) {
+			if (isCastle) {
 				cost *= 2;
 			}
-			if (this == DARK_ZONE) {
+			if (isDarkZone) {
 				cost = MathUtils.max(1, cost / 2);
 			}
 		}
-
+		// 攻城器械
+		if (isSiege) {
+			if (isFlat) {
+				cost = MathUtils.max(1, cost / 2);
+			}
+			if (isForest || isMountain || isStairs || isTunnel || this == WALL) {
+				cost *= 3;
+			}
+		}
+		// 机械
+		if (isMechanical) {
+			if (this == CITY || this == MINE || this == ROAD) {
+				cost = MathUtils.max(1, cost / 2);
+			}
+			if (isWater || isOtherworld) {
+				cost *= 2;
+			}
+		}
+		// 刺客
+		if (isStealth || isAssassin) {
+			if (isTunnel || this == RUINS || isForest || this == WALL) {
+				cost = MathUtils.max(1, cost / 2);
+			}
+		}
+		// 工程师
+		if (isEngineer) {
+			if (this == BRIDGE || this == DAM || this == MINE || this == WALL) {
+				cost = MathUtils.max(1, cost / 2);
+			}
+			if (isMountain || isWater) {
+				cost *= 2;
+			}
+		}
+		// 天使
+		if (isAngel) {
+			if (this == SKY || isLightZone || isCastle) {
+				cost = MathUtils.max(1, cost / 2);
+			}
+			if (isDarkZone) {
+				cost = MathUtils.max(1, cost / 2);
+			}
+			if (isOtherworld || this == DEATH_ZONE) {
+				cost *= 2;
+			}
+		}
+		// 恶魔
+		if (isDemon) {
+			if (isLava || isDarkZone || isOtherworld) {
+				cost = MathUtils.max(1, cost / 2);
+			}
+			if (isLightZone || isCastle) {
+				cost *= 2;
+			}
+		}
+		// 精灵
+		if (isElf) {
+			if (isForest || this == HILL || isMagicZone) {
+				cost = MathUtils.max(1, cost / 2);
+			}
+			if (isLava || this == DEATH_ZONE) {
+				cost *= 3;
+			}
+			if (isCastle) {
+				cost *= 2;
+			}
+		}
+		// 仙人
+		if (isFairy) {
+			if (isMagicZone || isForest || this == OASIS || isOtherworld || isLightZone) {
+				cost = MathUtils.max(1, cost / 2);
+			}
+			if (this == CITY || this == MINE) {
+				cost *= 2;
+			}
+			if (isLava) {
+				cost *= 3;
+			}
+		}
+		// 邪魔
+		if (isFiend) {
+			if (isDarkZone || isWater || isOtherworld || isLava) {
+				cost = MathUtils.max(1, cost / 2);
+			}
+			if (isLightZone || isForest) {
+				cost *= 2;
+			}
+		}
+		if (isStairs) {
+			if (isArmor || isCavalry || isSiege) {
+				cost *= 2;
+			}
+		}
+		if (isTunnel) {
+			if (isCavalry || isArmor || isSiege) {
+				cost *= 3;
+			}
+			if (isRange || isArcher)
+				cost *= 2;
+		}
+		if (isOtherworld) {
+			if (isMagic || isUndead)
+				cost = MathUtils.max(1, cost / 3);
+			else
+				cost *= 3;
+		}
+		if (this == TELEPORT) {
+			cost = 1;
+		}
+		if (this == DEATH_ZONE) {
+			cost = MathUtils.max(1, cost);
+		}
 		return MathUtils.max(cost, 1);
 	}
 

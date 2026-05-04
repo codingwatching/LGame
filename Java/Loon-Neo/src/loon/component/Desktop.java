@@ -752,7 +752,6 @@ public final class Desktop implements Visible, ZIndex, IArray, LRelease {
 			// 强制触发原组件释放
 			if (_hoverComponent != comp) {
 				if (_hoverComponent != null && _hoverComponent.isAllowTouch()) {
-					_hoverComponent.processTouchReleased();
 					_hoverComponent.validatePosition();
 					exitHoverComponent(_hoverComponent);
 				}
